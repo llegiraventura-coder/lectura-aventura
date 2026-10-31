@@ -59,6 +59,7 @@
     const SUB_COLLECTION = "questions";
     let currentUser = null;
     let userPoints = 0;
+    let userRole = 'alumne'; // Rol per defecte ("mestre" o "alumne")
     let filterMyLectures = false;
 
     // --- MANEGADOR D'AUTENTICACIÓ I NAVEGACIÓ ---
@@ -68,13 +69,12 @@
         await loadUserPoints();
       } else {
         userPoints = 0;
+        userRole = 'alumne';
         filterMyLectures = false;
       }
       renderNav();
       renderCatalog();
     });
-
-let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
 
     async function loadUserPoints() {
       if (!currentUser) return;
@@ -83,7 +83,7 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
         if (doc.exists) {
           const data = doc.data();
           userPoints = data.points !== undefined ? data.points : 0;
-          userRole = data.role || 'alumne'; // Carreguem "mestre" o "alumne"
+          userRole = data.role || 'alumne'; // Carreguem de Firestore
         } else {
           userPoints = 0;
           userRole = 'alumne';
@@ -125,38 +125,6 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
             <div class="hidden sm:flex flex-col text-right">
               <span class="text-xs font-bold text-white">${currentUser.email.split('@')[0]}</span>
               <span class="text-[10px] text-amber-300 font-semibold">${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}</span>
-            </div>
-            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-200 hover:text-white p-1">
-              <i class="fa-solid fa-right-from-bracket text-lg"></i>
-            </button>
-          </div>
-        `;
-      } else {
-        nav.innerHTML = `
-          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-1.5 rounded-lg text-sm transition">
-            Inicia Sessió
-          </button>
-        `;
-      }
-    }
-      const nav = document.getElementById('nav-actions');
-      if (currentUser) {
-        const rank = getRankDetails(userPoints);
-        nav.innerHTML = `
-          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
-            <i class="fa-solid fa-bookmark"></i>
-            <span>${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
-          </button>
-
-          <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
-            <i class="fa-solid fa-plus"></i>
-            <span>Nova Lectura</span>
-          </button>
-
-          <div class="flex items-center space-x-2 pl-2 border-l border-indigo-400">
-            <div class="hidden sm:flex flex-col text-right">
-              <span class="text-xs font-bold text-white">${currentUser.email.split('@')[0]}</span>
-              <span class="text-[10px] text-amber-300 font-semibold">${rank.name}</span>
             </div>
             <button onclick="logout()" title="Tancar Sessió" class="text-indigo-200 hover:text-white p-1">
               <i class="fa-solid fa-right-from-bracket text-lg"></i>
@@ -255,6 +223,7 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
         app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
       }
     }
+
     // --- VISTA 2: LECTOR INTERACTIU (TEXT VS LLIBRE) ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
@@ -319,7 +288,6 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
           `;
         }
 
-        // Disseny adaptat: Llibre (Imatge/Coberta) o Text Integrat
         let headerContentHTML = '';
         if (isBook) {
           headerContentHTML = `
@@ -422,127 +390,9 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
         return;
       }
 
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-            <i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i> Crear Nova Lectura
-          </h1>
-          <form onsubmit="saveReading(event)" class="space-y-5">
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
-              <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="text">📄 Text Integrat (Lectura curta)</option>
-                <option value="book">📖 Llibre de Lectura (Imatge / Coberta)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
-              <input type="text" id="editor-title" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
-
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu</label>
-              <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="Cicle Inicial">Cicle Inicial</option>
-                <option value="Cicle Mitjà">Cicle Mitjà</option>
-                <option value="Cicle Superior">Cicle Superior</option>
-              </select>
-            </div>
-
-            <!-- Camp per a Text Integrat -->
-            <div id="wrapper-content">
-              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
-              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
-            </div>
-
-            <!-- Camp per a Llibre (Imatge/Coberta) -->
-            <div id="wrapper-image" class="hidden">
-              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
-              <input type="url" id="editor-image" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
-
-            <div class="pt-4 border-t border-slate-200">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
-                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
-                </button>
-              </div>
-              <div id="questions-container" class="space-y-4"></div>
-            </div>
-
-            <div class="flex justify-end space-x-3 pt-4">
-              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
-              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow transition">Publicar Lectura</button>
-            </div>
-          </form>
-        </div>
-      `;
-
-      toggleReadingTypeInputs();
-      addQuestionField();
-    }
-
-    function toggleReadingTypeInputs() {
-      const type = document.getElementById('editor-type').value;
-      const wrapContent = document.getElementById('wrapper-content');
-      const wrapImage = document.getElementById('wrapper-image');
-      const contentInput = document.getElementById('editor-content');
-
-      if (type === 'book') {
-        wrapContent.classList.add('hidden');
-        if (contentInput) contentInput.removeAttribute('required');
-        wrapImage.classList.remove('hidden');
-      } else {
-        wrapContent.classList.remove('hidden');
-        if (contentInput) contentInput.setAttribute('required', 'true');
-        wrapImage.classList.add('hidden');
-      }
-    }
-
-    function addQuestionField() {
-      const container = document.getElementById('questions-container');
-      if (!container) return;
-
-      const qIndex = container.children.length;
-
-      const qDiv = document.createElement('div');
-      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
-      qDiv.innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
-          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
-            <i class="fa-solid fa-trash"></i> Eliminar
-          </button>
-        </div>
-        <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
-        
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
-        </div>
-
-        <div class="mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-          <i class="fa-solid fa-circle-check text-indigo-600"></i>
-          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
-          <select class="q-correct p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
-            <option value="0">Opció 1</option>
-            <option value="1">Opció 2</option>
-            <option value="2">Opció 3</option>
-            <option value="3">Opció 4</option>
-          </select>
-        </div>
-      `;
-      container.appendChild(qDiv);
-    }
-    // --- VISTA 3: EDITOR AMB OPCIÓ DE TIPUS (TEXT VS LLIBRE) ---
-    function renderEditor() {
-      if (!currentUser) {
-        renderLogin();
+      if (userRole !== 'mestre') {
+        alert("Accés restringit: Només els usuaris amb rol de Mestre/a poden crear noves lectures.");
+        renderCatalog();
         return;
       }
 
@@ -713,13 +563,23 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
         alert("Error en desar la lectura: " + err.message);
       }
     }
-    // --- VISTA 4: LOGIN / REGISTRE ---
+
+    // --- VISTA 4: LOGIN / REGISTRE AMB SELECCIÓ DE ROL ---
     function renderLogin() {
       const app = document.getElementById('app');
       app.innerHTML = `
-        <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Usuari</h2>
-          <form onsubmit="handleLogin(event)" class="space-y-4">
+        <div class="max-w-md mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex border-b border-slate-200 mb-6">
+            <button id="tab-login" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm">
+              Inicia Sessió
+            </button>
+            <button id="tab-register" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600">
+              Crear Compte
+            </button>
+          </div>
+
+          <!-- FORMULARI D'INICI DE SESSIÓ -->
+          <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
               <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
@@ -730,8 +590,47 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
             </div>
             <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
           </form>
+
+          <!-- FORMULARI DE REGISTRE -->
+          <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Soc...</label>
+              <select id="reg-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="alumne">🎓 Alumne / Alumna</option>
+                <option value="mestre">👨‍🏫 Mestre / Mestra (Creador/a)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
+              <input type="email" id="reg-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
+              <input type="password" id="reg-password" required minlength="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Crear Compte</button>
+          </form>
         </div>
       `;
+    }
+
+    function switchAuthTab(tab) {
+      const fLogin = document.getElementById('form-login');
+      const fReg = document.getElementById('form-register');
+      const tLogin = document.getElementById('tab-login');
+      const tReg = document.getElementById('tab-register');
+
+      if (tab === 'register') {
+        fLogin.classList.add('hidden');
+        fReg.classList.remove('hidden');
+        tReg.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
+        tLogin.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
+      } else {
+        fReg.classList.add('hidden');
+        fLogin.classList.remove('hidden');
+        tLogin.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
+        tReg.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
+      }
     }
 
     async function handleLogin(e) {
@@ -742,6 +641,27 @@ let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
         await auth.signInWithEmailAndPassword(email, pass);
       } catch (err) {
         alert("Error d'accés: " + err.message);
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const role = document.getElementById('reg-role').value;
+      const email = document.getElementById('reg-email').value;
+      const pass = document.getElementById('reg-password').value;
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection("users").doc(cred.user.uid).set({
+          email: email,
+          role: role,
+          points: 0,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        alert("Compte creat amb èxit!");
+      } catch (err) {
+        alert("Error en registrar l'usuari: " + err.message);
       }
     }
   </script>
