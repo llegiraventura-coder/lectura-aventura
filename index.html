@@ -475,6 +475,22 @@
         wrapImage.classList.add('hidden');
       }
     }
+    function toggleReadingTypeInputs() {
+      const type = document.getElementById('editor-type').value;
+      const wrapContent = document.getElementById('wrapper-content');
+      const wrapImage = document.getElementById('wrapper-image');
+      const contentInput = document.getElementById('editor-content');
+
+      if (type === 'book') {
+        wrapContent.classList.add('hidden');
+        if (contentInput) contentInput.removeAttribute('required');
+        wrapImage.classList.remove('hidden');
+      } else {
+        wrapContent.classList.remove('hidden');
+        if (contentInput) contentInput.setAttribute('required', 'true');
+        wrapImage.classList.add('hidden');
+      }
+    }
 
     // --- VISTA 4: LOGIN / REGISTRE ---
     function renderLogin() {
