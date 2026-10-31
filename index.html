@@ -27,26 +27,10 @@
       </nav>
     </div>
   </header>
-<!-- NAVEGACIÓ SUPERIOR -->
-  <header class="bg-indigo-600 text-white shadow-md">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
-      <div class="flex items-center space-x-2 cursor-pointer" onclick="renderCatalog()">
-        <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
-        <span class="font-bold text-xl tracking-wide">Lectura Aventura</span>
-      </div>
-      <nav id="nav-actions" class="flex items-center space-x-3">
-        <!-- Renderitzat dinàmic -->
-      </nav>
-    </div>
-  </header>
 
   <!-- BARRA MOTIVADORA PERMANENT PER A ALUMNES -->
   <div id="motivation-banner"></div>
 
-  <!-- CONTENIDOR PRINCIPAL -->
-  <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
-    <!-- Vistes dinàmiques -->
-  </main>
   <!-- CONTENIDOR PRINCIPAL -->
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <!-- Vistes dinàmiques -->
@@ -120,16 +104,8 @@
       }
       return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
-function getRankDetails(points) {
-      if (points >= 100) {
-        return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
-      } else if (points >= 50) {
-        return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
-      }
-      return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
-    }
 
-    // --- NOVA FUNCIÓ PER AL BANNER MOTIVADOR ---
+    // --- FUNCIÓ PER AL BANNER MOTIVADOR PERMANENT ---
     function renderBanner() {
       const bannerContainer = document.getElementById('motivation-banner');
       if (!bannerContainer) return;
@@ -187,6 +163,7 @@ function getRankDetails(points) {
         bannerContainer.innerHTML = '';
       }
     }
+
     function renderNav() {
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
@@ -234,6 +211,7 @@ function getRankDetails(points) {
           </button>
         `;
       }
+      renderBanner();
     }
 
     function toggleMyLectures() {
@@ -314,6 +292,7 @@ function getRankDetails(points) {
 
         html += `</div></div>`;
         app.innerHTML = html;
+        renderBanner();
       } catch (err) {
         console.error("Error carregant el catàleg:", err);
         app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
@@ -459,24 +438,14 @@ function getRankDetails(points) {
         }
       }
 
+      await loadUserPoints();
+      renderNav();
+
       const submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
 
-      const resultDiv = document.getElementById('quiz-result');
-      resultDiv.classList.remove('hidden');
-      resultDiv.innerHTML = `
-        <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
-          <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
-          <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
-          <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
-          <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
-            <span>Veure el meu rang i punts al catàleg</span>
-            <i class="fa-solid fa-arrow-right"></i>
-          </button>
-        </div>
-      `;
-
-      resultDiv.scrollIntoView({ behavior: 'smooth' });
+      alert(`🎉 Molt bé! Has encertat ${score} de ${total} preguntes i has aconseguit +${points} punts!`);
+      renderCatalog();
     }
 
     // --- VISTA 3: EDITOR AMB OPCIÓ DE TIPUS (TEXT VS LLIBRE) ---
