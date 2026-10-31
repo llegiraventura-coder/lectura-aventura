@@ -72,7 +72,37 @@
         userRole = 'alumne';
         filterMyLectures = false;
       }
-      function renderNav() {
+      renderNav();
+      renderCatalog();
+    });
+
+    async function loadUserPoints() {
+      if (!currentUser) return;
+      try {
+        const doc = await db.collection("users").doc(currentUser.uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          userPoints = data.points !== undefined ? data.points : 0;
+          userRole = data.role || 'alumne';
+        } else {
+          userPoints = 0;
+          userRole = 'alumne';
+        }
+      } catch (err) {
+        console.warn("No s'han pogut carregar les dades de l'usuari de Firestore:", err);
+      }
+    }
+
+    function getRankDetails(points) {
+      if (points >= 100) {
+        return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
+      } else if (points >= 50) {
+        return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
+      }
+      return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
+    }
+
+    function renderNav() {
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
         const rank = getRankDetails(userPoints);
@@ -99,8 +129,7 @@
             
             <div class="flex flex-col text-left">
               <div class="flex items-center space-x-1.5">
-                <span class="text-xs font-bold text-white tracking-wide">${currentUser.email.split('@')[0]}</span>
-                ${!isTeacher ? `<span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.2 rounded-md border border-amber-400/30">${userPoints} pts</span>` : ''}
+                <span class="text-xs font-bold text-white tracking-wide">${currentUser.email.split('@')[0]}</span>${!isTeacher ? `<span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border border-amber-400/30">${userPoints} pts</span>` : ''}
               </div>
               <span class="text-[11px] ${isTeacher ? 'text-amber-300 font-bold' : rank.text} font-medium leading-none mt-0.5">
                 ${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}
@@ -115,72 +144,6 @@
       } else {
         nav.innerHTML = `
           <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">
-            Inicia Sessió
-          </button>
-        `;
-      }
-    }
-      renderCatalog();
-    });
-
-    async function loadUserPoints() {
-      if (!currentUser) return;
-      try {
-        const doc = await db.collection("users").doc(currentUser.uid).get();
-        if (doc.exists) {
-          const data = doc.data();
-          userPoints = data.points !== undefined ? data.points : 0;
-          userRole = data.role || 'alumne'; // Carreguem de Firestore
-        } else {
-          userPoints = 0;
-          userRole = 'alumne';
-        }
-      } catch (err) {
-        console.warn("No s'han pogut carregar les dades de l'usuari de Firestore:", err);
-      }
-    }
-
-    function getRankDetails(points) {
-      if (points >= 100) {
-        return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
-      } else if (points >= 50) {
-        return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
-      }
-      return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
-    }
-
-    function renderNav() {
-      const nav = document.getElementById('nav-actions');
-      if (currentUser) {
-        const rank = getRankDetails(userPoints);
-        const isTeacher = userRole === 'mestre';
-
-        nav.innerHTML = `
-          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
-            <i class="fa-solid fa-bookmark"></i>
-            <span>${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
-          </button>
-
-          ${isTeacher ? `
-            <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1 shadow-sm">
-              <i class="fa-solid fa-plus"></i>
-              <span>Nova Lectura</span>
-            </button>
-          ` : ''}
-
-          <div class="flex items-center space-x-2 pl-2 border-l border-indigo-400">
-            <div class="hidden sm:flex flex-col text-right">
-              <span class="text-xs font-bold text-white">${currentUser.email.split('@')[0]}</span>
-              <span class="text-[10px] text-amber-300 font-semibold">${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}</span>
-            </div>
-            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-200 hover:text-white p-1">
-              <i class="fa-solid fa-right-from-bracket text-lg"></i>
-            </button>
-          </div>
-        `;
-      } else {
-        nav.innerHTML = `
-          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-1.5 rounded-lg text-sm transition">
             Inicia Sessió
           </button>
         `;
@@ -304,7 +267,7 @@
 
             questionsHTML += `
               <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
+                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}.${questionText}</p>
                 <div class="space-y-2">
             `;
 
@@ -367,29 +330,13 @@
               <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
             </button>
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title}</h1>
-            ${headerContentHTML}
-            ${questionsHTML}
+            ${headerContentHTML}${questionsHTML}
             <div id="quiz-result" class="mt-6 hidden"></div>
           </div>
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error carregar lectura: ${err.message}</div>`;
-      }
-    }
-
-    async function submitQuiz(e, docId) {
-      e.preventDefault();
-      const form = e.target;
-      const formData = new FormData(form);
-
-      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-      let score = 0;
-      let total = questionsSnap.size;
-
-      questionsSnap.forEach(qDoc => {
-        const q = qDoc.data();
-        const selected = parseInt(formData.get(`q_${qDoc.id}`));
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error carregar lectura: ${err.message}</div>`; } }  async function submitQuiz(e, docId) { e.preventDefault(); const form = e.target; const formData = new FormData(form);  const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get(); let score = 0; let total = questionsSnap.size;  questionsSnap.forEach(qDoc => { const q = qDoc.data(); const selected = parseInt(formData.get(`q_${qDoc.id}`));
         const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
         if (selected === correct) {
           score++;
@@ -418,7 +365,7 @@
       resultDiv.innerHTML = `
         <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
           <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
-          <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
+          <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de${total} preguntes!</h3>
           <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
           <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
             <span>Veure el meu rang i punts al catàleg</span>
@@ -652,65 +599,4 @@
               <input type="email" id="reg-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
-              <input type="password" id="reg-password" required minlength="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Crear Compte</button>
-          </form>
-        </div>
-      `;
-    }
-
-    function switchAuthTab(tab) {
-      const fLogin = document.getElementById('form-login');
-      const fReg = document.getElementById('form-register');
-      const tLogin = document.getElementById('tab-login');
-      const tReg = document.getElementById('tab-register');
-
-      if (tab === 'register') {
-        fLogin.classList.add('hidden');
-        fReg.classList.remove('hidden');
-        tReg.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
-        tLogin.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
-      } else {
-        fReg.classList.add('hidden');
-        fLogin.classList.remove('hidden');
-        tLogin.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
-        tReg.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
-      }
-    }
-
-    async function handleLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const pass = document.getElementById('login-password').value;
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-      } catch (err) {
-        alert("Error d'accés: " + err.message);
-      }
-    }
-
-    async function handleRegister(e) {
-      e.preventDefault();
-      const role = document.getElementById('reg-role').value;
-      const email = document.getElementById('reg-email').value;
-      const pass = document.getElementById('reg-password').value;
-
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
-        await db.collection("users").doc(cred.user.uid).set({
-          email: email,
-          role: role,
-          points: 0,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        alert("Compte creat amb èxit!");
-      } catch (err) {
-        alert("Error en registrar l'usuari: " + err.message);
-      }
-    }
-  </script>
-</body>
-</html>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contras
