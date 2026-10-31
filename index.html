@@ -244,76 +244,88 @@
           <h3 class="font-bold text-lg">Resultat: Has encertat ${score} de${total} preguntes!</h3>
           <p class="text-sm font-medium">Punts obtinguts: +${points} punts</p>
         </div>
+      <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
       `;
+      container.appendChild(qDiv);
     }
 
-    // --- VISTA 3: EDITOR I DESAR SUBCOL·LECCIÓ 'QUESTIONS' ---
-    function renderEditor() {
-      if (!currentUser) {
-        renderLogin();
-        return;
-      }
+    async function saveReading(e) {
+      e.preventDefault();
+      const title = document.getElementById('editor-title').value;
+      const level = document.getElementById('editor-level').value;
+      const content = document.getElementById('editor-content').value;
 
+      try {
+        // 1. Guardem la lectura principal a la col·lecció 'lectures'
+        const docRef = await db.collection(DB_COLLECTION).add({
+          title: title,
+          level: level,
+          content: content,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        // 2. Guardem totes les preguntes afegides a la subcol·lecció 'questions'
+        const qBlocks = document.querySelectorAll('.q-block');
+        for (const block of qBlocks) {
+          const qText = block.querySelector('.q-text').value;
+          const opt0 = block.querySelector('.q-opt-0').value;
+          const opt1 = block.querySelector('.q-opt-1').value;
+          const opt2 = block.querySelector('.q-opt-2')?.value || '';
+          const opt3 = block.querySelector('.q-opt-3')?.value || '';
+
+          const options = [opt0, opt1];
+          if (opt2) options.push(opt2);
+          if (opt3) options.push(opt3);
+
+          if (qText && options.length >= 2) {
+            await db.collection(DB_COLLECTION).doc(docRef.id).collection(SUB_COLLECTION).add({
+              questionText: qText,
+              options: options,
+              correctAnswer: 0
+            });
+          }
+        }
+
+        renderCatalog();
+      } catch (err) {
+        alert("Error en desar la lectura: " + err.message);
+      }
+    }
+
+    // --- VISTA 4: LOGIN / REGISTRE ---
+    function renderLogin() {
       const app = document.getElementById('app');
       app.innerHTML = `
-        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-            <i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i> Crear Nova Lectura
-          </h1>
-          <form onsubmit="saveReading(event)" class="space-y-5">
+        <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Docent</h2>
+          <form onsubmit="handleLogin(event)" class="space-y-4">
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura *</label>
-              <input type="text" id="editor-title" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
+              <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu</label>
-              <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="Cicle Inicial">Cicle Inicial</option>
-                <option value="Cicle Mitjà">Cicle Mitjà</option>
-                <option value="Cicle Superior">Cicle Superior</option>
-              </select>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
+              <input type="password" id="login-password" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
-              <textarea id="editor-content" rows="6" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
-            </div>
-
-            <div class="pt-4 border-t border-slate-200">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
-                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
-                </button>
-              </div>
-              <div id="questions-container" class="space-y-4"></div>
-            </div>
-
-            <div class="flex justify-end space-x-3 pt-4">
-              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
-              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow transition">Publicar Lectura</button>
-            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
           </form>
         </div>
       `;
-      addQuestionField();
     }
 
-    function addQuestionField() {
-      const container = document.getElementById('questions-container');
-      const qIndex = container.children.length;
-
-      const qDiv = document.createElement('div');
-      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
-      qDiv.innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
-          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
-            <i class="fa-solid fa-trash"></i> Eliminar
-          </button>
-        </div>
-        <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" placeholder="Opció 1 (Correcta)" required class="q-opt-0 w-full p-2 border border-emerald-300 bg-emerald-50/30 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        alert("Error d'accés: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>t-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
           <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300
