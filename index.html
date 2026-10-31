@@ -141,118 +141,77 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES + BANNER DE PERFIL ---
+    // --- VISTA 1: CATÀLEG DE LECTURES (PÀGINA PRINCIPAL) ---
     async function renderCatalog() {
       const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="text-center py-8">
-          <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
-          <p class="mt-2 text-slate-500">Carregant lectures de la base de dades...</p>
-        </div>
-      `;
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
       try {
-        let query = db.collection(DB_COLLECTION);
-        if (filterMyLectures && currentUser) {
-          query = query.where("authorUid", "==", currentUser.uid);
-        }
-
-        const snapshot = await query.get();
-        const rank = getRankDetails(userPoints);
-
-        let userHeaderHTML = '';
-        if (currentUser) {
-          userHeaderHTML = `
-            <div class="mb-8 p-6 bg-gradient-to-r ${rank.color} rounded-2xl shadow-lg text-white flex flex-col md:flex-row justify-between items-center gap-4">
-              <div class="flex items-center space-x-4">
-                <div class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-inner">
-                  <i class="fa-solid ${rank.icon} ${rank.text}"></i>
-                </div>
-                <div>
-                  <div class="flex items-center gap-2">
-                    <h2 class="text-2xl font-black tracking-wide">${rank.name}</h2>
-                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">El teu Rang</span>
-                  </div>
-                  <p class="text-sm opacity-90">${currentUser.email}</p>
-                </div>
-              </div>
-              <div class="bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-center min-w-[140px]">
-                <span class="block text-xs uppercase tracking-wider font-bold opacity-80">Punts Totals</span>
-                <span class="text-3xl font-black text-amber-300">${userPoints} <span class="text-sm font-normal text-white">pts</span></span>
-              </div>
-            </div>
-          `;
-        }
-
-        if (snapshot.empty) {
-          app.innerHTML = `
-            ${userHeaderHTML}
-            <div class="text-center py-12 bg-white rounded-2xl shadow-sm border border-slate-100">
-              <i class="fa-solid fa-book-open-reader text-5xl text-slate-300 mb-3"></i>
-              <h2 class="text-xl font-bold text-slate-700">
-                ${filterMyLectures ? "No has creat cap lectura encara." : "Encara no hi ha cap lectura disponible"}
-              </h2>
-            </div>
-          `;
-          return;
-        }
-
+        const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
+        
         let html = `
-          ${userHeaderHTML}
-          <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-slate-800 flex items-center">
-              <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> 
-              ${filterMyLectures ? 'Les meves Lectures' : 'Catàleg de Lectures'}
-            </h1>
-          </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="max-w-6xl mx-auto space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div>
+                <h1 class="text-2xl font-extrabold text-slate-800">Catàleg de Lectures</h1>
+                <p class="text-slate-500 text-sm">Explora les lectures i llibres disponibles per als alumnes.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         `;
 
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const isMyDoc = currentUser && data.authorUid === currentUser.uid;
-
+        if (snapshot.empty) {
           html += `
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition relative">
-              <div class="p-5 flex-grow">
-                <div class="flex justify-between items-start gap-2">
-                  <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
-                    ${data.level || 'General'}
-                  </span>
-                  ${isMyDoc ? '<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">La meva lectura</span>' : ''}
-                </div>
-                <h3 class="font-bold text-lg text-slate-800 mt-2">${data.title || 'Sense títol'}</h3>
-                <p class="text-slate-600 text-sm mt-2 line-clamp-3">${data.content || ''}</p>
-              </div>
-              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
-                <button onclick="renderReader('${doc.id}')" class="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-2 rounded-lg transition text-center">
-                  Llegir i respondre
-                </button>
-                ${isMyDoc ? `
-                  <button onclick="deleteReading('${doc.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg text-xs transition" title="Esborrar lectura">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                ` : ''}
-              </div>
+            <div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center">
+              <i class="fa-solid fa-book-open text-4xl text-slate-300 mb-3"></i>
+              <p class="text-slate-600 font-bold">Encara no hi ha cap lectura publicada.</p>
             </div>
           `;
-        });
+        } else {
+          snapshot.forEach(doc => {
+            const data = doc.data();
+            const isBook = data.type === 'book';
 
-        html += `</div>`;
+            html += `
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+                <div class="p-5">
+                  <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
+                      ${isBook ? '📖 Llibre' : '📄 Text Integrat'}
+                    </span>
+                    ${data.level ? `<span class="text-xs text-slate-500 font-medium">${data.level}</span>` : ''}
+                  </div>
+
+                  ${isBook && data.imageUrl ? `
+                    <div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100">
+                      <img src="${data.imageUrl}" alt="${data.title}" class="w-full h-full object-cover">
+                    </div>
+                  ` : ''}
+
+                  <h3 class="font-bold text-slate-800 text-lg mb-2 line-clamp-2">${data.title || 'Sense títol'}</h3>
+                  
+                  ${!isBook && data.content ? `
+                    <p class="text-slate-600 text-sm line-clamp-3 mb-4">${data.content}</p>
+                  ` : ''}
+                </div>
+
+                <div class="p-5 pt-0 mt-auto">
+                  <button onclick="renderReader('${doc.id}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>${isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre'}</span>
+                  </button>
+                </div>
+              </div>
+            `;
+          });
+        }
+
+        html += `</div></div>`;
         app.innerHTML = html;
       } catch (err) {
         console.error("Error carregant el catàleg:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error: ${err.message}</div>`;
-      }
-    }
-
-    async function deleteReading(docId) {
-      if (!confirm("Estàs segur que vols esborrar aquesta lectura?")) return;
-      try {
-        await db.collection(DB_COLLECTION).doc(docId).delete();
-        renderCatalog();
-      } catch (err) {
-        alert("Error en esborrar la lectura: " + err.message);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
       }
     }
     // --- VISTA 2: LECTOR INTERACTIU (TEXT VS LLIBRE) ---
