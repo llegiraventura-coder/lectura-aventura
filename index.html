@@ -141,7 +141,7 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES + BANNER DE PERFIL ---
+    // --- VISTA 1: CATÀLEG DE LECTURES ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `
@@ -211,22 +211,34 @@
         snapshot.forEach(doc => {
           const data = doc.data();
           const isMyDoc = currentUser && data.authorUid === currentUser.uid;
+          const isBook = data.type === 'book';
 
           html += `
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition relative">
-              <div class="p-5 flex-grow">
-                <div class="flex justify-between items-start gap-2">
+              <div class="p-5 flex-grow flex flex-col">
+                <div class="flex justify-between items-start gap-2 mb-2">
                   <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
                     ${data.level || 'General'}
                   </span>
-                  ${isMyDoc ? '<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">La meva lectura</span>' : ''}
+                  <span class="text-[10px] font-bold px-2 py-0.5 rounded-md ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'}">
+                    <i class="fa-solid ${isBook ? 'fa-book' : 'fa-file-lines'} mr-1"></i>
+                    ${isBook ? 'Llibre' : 'Text'}
+                  </span>
                 </div>
-                <h3 class="font-bold text-lg text-slate-800 mt-2">${data.title || 'Sense títol'}</h3>
-                <p class="text-slate-600 text-sm mt-2 line-clamp-3">${data.content || ''}</p>
+
+                ${isBook && data.imageUrl ? `
+                  <div class="my-3 h-40 bg-slate-100 rounded-xl overflow-hidden flex items-center justify-center">
+                    <img src="${data.imageUrl}" alt="${data.title}" class="h-full object-contain">
+                  </div>
+                ` : ''}
+
+                <h3 class="font-bold text-lg text-slate-800 mt-1">${data.title || 'Sense títol'}</h3>
+                ${!isBook ? `<p class="text-slate-600 text-sm mt-2 line-clamp-3">${data.content || ''}</p>` : ''}
               </div>
+              
               <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
                 <button onclick="renderReader('${doc.id}')" class="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-2 rounded-lg transition text-center">
-                  Llegir i respondre
+                  ${isBook ? 'Respondre qüestionari' : 'Llegir i respondre'}
                 </button>
                 ${isMyDoc ? `
                   <button onclick="deleteReading('${doc.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg text-xs transition" title="Esborrar lectura">
@@ -256,7 +268,7 @@
       }
     }
 
-    // --- VISTA 2: LECTOR INTERACTIU ---
+    // --- VISTA 2: LECTOR INTERACTIU (ADAPTAT PER TEXT O LLIBRE) ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
@@ -268,13 +280,14 @@
           return;
         }
         const data = doc.data();
+        const isBook = data.type === 'book';
 
         const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
         
         let questionsHTML = '';
         if (!questionsSnap.empty) {
           questionsHTML = `
-            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}')" class="mt-8 pt-6 border-t border-slate-200">
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}')" class="mt-6 pt-6 border-t border-slate-200">
               <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
                 <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió
               </h2>
@@ -319,15 +332,37 @@
           `;
         }
 
+        // Disseny diferenciat segons si és Llibre o Text
+        let contentLayoutHTML = '';
+        if (isBook) {
+          contentLayoutHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 items-start">
+              ${data.imageUrl ? `
+                <div class="bg-slate-100 p-4 rounded-2xl border border-slate-200 flex justify-center">
+                  <img src="${data.imageUrl}" alt="${data.title}" class="max-h-72 object-contain rounded-lg shadow-sm">
+                </div>
+              ` : ''}
+              <div class="${data.imageUrl ? 'md:col-span-2' : 'md:col-span-3'}">
+                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block mb-2">Qüestionari de Llibre</span>
+                <p class="text-slate-600 text-sm italic">Posa a prova la teva comprensió del llibre <strong>"${data.title}"</strong> responent a les preguntes de sota.</p>
+              </div>
+            </div>
+          `;
+        } else {
+          contentLayoutHTML = `
+            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+              ${data.content}
+            </div>
+          `;
+        }
+
         app.innerHTML = `
           <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
             <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
               <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
             </button>
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title}</h1>
-            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
-              ${data.content}
-            </div>
+            ${contentLayoutHTML}
             ${questionsHTML}
             <div id="quiz-result" class="mt-6 hidden"></div>
           </div>
@@ -390,7 +425,7 @@
       resultDiv.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // --- VISTA 3: EDITOR AMB SELECTOR DE RESPOSTA CORRECTA ---
+    // --- VISTA 3: EDITOR AMB DUES OPCIONS (TEXT vs LLIBRE) ---
     function renderEditor() {
       if (!currentUser) {
         renderLogin();
@@ -405,9 +440,18 @@
           </h1>
           <form onsubmit="saveReading(event)" class="space-y-5">
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura *</label>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
+              <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="text">📄 Text Integrat (Lectura curta)</option>
+                <option value="book">📖 Llibre de Lectura (Qüestionari de llibre en paper)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
               <input type="text" id="editor-title" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
+
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu</label>
               <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -416,9 +460,17 @@
                 <option value="Cicle Superior">Cicle Superior</option>
               </select>
             </div>
-            <div>
+
+            <!-- Camp per a Text Integrat -->
+            <div id="wrapper-content">
               <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
-              <textarea id="editor-content" rows="6" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+
+            <!-- Camp per a Llibre (Imatge/Coberta) -->
+            <div id="wrapper-image" class="hidden">
+              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
+              <input type="url" id="editor-image" placeholder="https://exemple.com/coberta-llibre.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
             <div class="pt-4 border-t border-slate-200">
@@ -438,7 +490,25 @@
           </form>
         </div>
       `;
+      toggleReadingTypeInputs();
       addQuestionField();
+    }
+
+    function toggleReadingTypeInputs() {
+      const type = document.getElementById('editor-type').value;
+      const wrapContent = document.getElementById('wrapper-content');
+      const wrapImage = document.getElementById('wrapper-image');
+      const contentInput = document.getElementById('editor-content');
+
+      if (type === 'book') {
+        wrapContent.classList.add('hidden');
+        contentInput.removeAttribute('required');
+        wrapImage.classList.remove('hidden');
+      } else {
+        wrapContent.classList.remove('hidden');
+        contentInput.setAttribute('required', 'true');
+        wrapImage.classList.add('hidden');
+      }
     }
 
     function addQuestionField() {
@@ -446,114 +516,4 @@
       const qIndex = container.children.length;
 
       const qDiv = document.createElement('div');
-      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
-      qDiv.innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
-          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
-            <i class="fa-solid fa-trash"></i> Eliminar
-          </button>
-        </div>
-        <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
-        
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
-        </div>
-
-        <div class="mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-          <i class="fa-solid fa-circle-check text-indigo-600"></i>
-          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
-          <select class="q-correct p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
-            <option value="0">Opció 1</option>
-            <option value="1">Opció 2</option>
-            <option value="2">Opció 3</option>
-            <option value="3">Opció 4</option>
-          </select>
-        </div>
-      `;
-      container.appendChild(qDiv);
-    }
-
-    async function saveReading(e) {
-      e.preventDefault();
-      const title = document.getElementById('editor-title').value;
-      const level = document.getElementById('editor-level').value;
-      const content = document.getElementById('editor-content').value;
-
-      try {
-        const docRef = await db.collection(DB_COLLECTION).add({
-          title: title,
-          level: level,
-          content: content,
-          authorUid: currentUser ? currentUser.uid : null,
-          authorEmail: currentUser ? currentUser.email : "Anònim",
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        const qBlocks = document.querySelectorAll('.q-block');
-        for (const block of qBlocks) {
-          const qText = block.querySelector('.q-text').value;
-          const opt0 = block.querySelector('.q-opt-0').value;
-          const opt1 = block.querySelector('.q-opt-1').value;
-          const opt2 = block.querySelector('.q-opt-2')?.value || '';
-          const opt3 = block.querySelector('.q-opt-3')?.value || '';
-          
-          const correctSelect = block.querySelector('.q-correct');
-          const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
-
-          const options = [opt0, opt1];
-          if (opt2) options.push(opt2);
-          if (opt3) options.push(opt3);
-
-          if (qText && options.length >= 2) {
-            await db.collection(DB_COLLECTION).doc(docRef.id).collection(SUB_COLLECTION).add({
-              questionText: qText,
-              options: options,
-              correctAnswer: correctIdx
-            });
-          }
-        }
-
-        renderCatalog();
-      } catch (err) {
-        alert("Error en desar la lectura: " + err.message);
-      }
-    }
-
-    // --- VISTA 4: LOGIN / REGISTRE ---
-    function renderLogin() {
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Usuari</h2>
-          <form onsubmit="handleLogin(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
-              <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
-              <input type="password" id="login-password" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
-          </form>
-        </div>
-      `;
-    }
-
-    async function handleLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const pass = document.getElementById('login-password').value;
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-      } catch (err) {
-        alert("Error d'accés: " + err.message);
-      }
-    }
-  </script>
-</body>
-</html>
+      qDiv.className = 'q-block p-4 bg-slate-50 rounded-
