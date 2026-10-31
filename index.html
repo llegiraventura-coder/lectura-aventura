@@ -518,8 +518,29 @@
         }
       });
 
-      const points = score * 10;
-      userPoints += points;
+      const newQuizPoints = score * 10;
+      const maxPossiblePoints = total * 10;
+
+      let userScores = {};
+      if (currentUser) {
+        try {
+          const userDoc = await db.collection("users").doc(currentUser.uid).get();
+          if (userDoc.exists) {
+            userScores = userDoc.data().scores || {};
+          }
+        } catch (err) {
+          console.warn("Error llegint puntuacions anteriors:", err);
+        }
+      }
+
+      const previousQuizPoints = userScores[docId] || 0;
+      let pointsToAdd = 0;
+
+      if (newQuizPoints > previousQuizPoints) {
+        pointsToAdd = newQuizPoints - previousQuizPoints;
+        userScores[docId] = newQuizPoints;
+        userPoints += pointsToAdd;
+      }
 
       if (!userCompletedReadings.includes(docId)) {
         userCompletedReadings.push(docId);
@@ -530,10 +551,11 @@
           await db.collection("users").doc(currentUser.uid).set({
             points: userPoints,
             email: currentUser.email,
-            completedReadings: userCompletedReadings
+            completedReadings: userCompletedReadings,
+            scores: userScores
           }, { merge: true });
         } catch (err) {
-          console.warn("S'han desat les dades localment per aquesta sessió:", err);
+          console.warn("S'han desat les dades localment:", err);
         }
       }
 
@@ -543,7 +565,14 @@
       const submitBtn = form.querySelector('button[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
 
-      alert(`🎉 Molt bé! Has encertat ${score} de ${total} preguntes i has aconseguit +${points} punts!`);
+      if (pointsToAdd > 0) {
+        alert(`🎉 Gran millora! Has encertat ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous al teu total! (Total en aquesta lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
+      } else if (newQuizPoints === maxPossiblePoints) {
+        alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
+      } else {
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat. Segueix intentant-ho per superar-te!`);
+      }
+
       renderCatalog();
     }
 
