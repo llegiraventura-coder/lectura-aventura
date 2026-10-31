@@ -394,9 +394,7 @@
         console.error("Error carregant el catàleg:", err);
         app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
       }
-    }
-
-    // --- VISTA 2: LECTOR INTERACTIU ---
+    }// --- VISTA 2: LECTOR INTERACTIU ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
@@ -807,4 +805,43 @@
       } else {
         fReg.classList.add('hidden');
         fLogin.classList.remove('hidden');
-        tLogin
+        tLogin.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
+        tReg.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        alert("Error d'accés: " + err.message);
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const role = document.getElementById('reg-role').value;
+      const email = document.getElementById('reg-email').value;
+      const pass = document.getElementById('reg-password').value;
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection("users").doc(cred.user.uid).set({
+          email: email,
+          role: role,
+          points: 0,
+          completedReadings: [],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        alert("Compte creat amb èxit!");
+      } catch (err) {
+        alert("Error en registrar l'usuari: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
