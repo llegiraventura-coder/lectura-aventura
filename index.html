@@ -99,7 +99,6 @@
 
     function renderNav() {
       const nav = document.getElementById('nav-actions');
-      if (!nav) return;
       if (currentUser) {
         const rank = getRankDetails(userPoints);
         nav.innerHTML = `
@@ -142,11 +141,9 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES ---
+    // --- VISTA 1: CATÀLEG DE LECTURES + BANNER DE PERFIL ---
     async function renderCatalog() {
       const app = document.getElementById('app');
-      if (!app) return;
-      
       app.innerHTML = `
         <div class="text-center py-8">
           <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
@@ -262,7 +259,6 @@
     // --- VISTA 2: LECTOR INTERACTIU ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
-      if (!app) return;
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
 
       try {
@@ -378,24 +374,23 @@
       if (submitBtn) submitBtn.disabled = true;
 
       const resultDiv = document.getElementById('quiz-result');
-      if (resultDiv) {
-        resultDiv.classList.remove('hidden');
-        resultDiv.innerHTML = `
-          <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
-            <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
-            <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
-            <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
-            <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
-              <span>Veure el meu rang i punts al catàleg</span>
-              <i class="fa-solid fa-arrow-right"></i>
-            </button>
-          </div>
-        `;
-        resultDiv.scrollIntoView({ behavior: 'smooth' });
-      }
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `
+        <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
+          <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
+          <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
+          <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
+          <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
+            <span>Veure el meu rang i punts al catàleg</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      `;
+
+      resultDiv.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // --- VISTA 3: EDITOR ---
+    // --- VISTA 3: EDITOR AMB SELECTOR DE RESPOSTA CORRECTA ---
     function renderEditor() {
       if (!currentUser) {
         renderLogin();
@@ -403,8 +398,6 @@
       }
 
       const app = document.getElementById('app');
-      if (!app) return;
-
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
@@ -450,7 +443,6 @@
 
     function addQuestionField() {
       const container = document.getElementById('questions-container');
-      if (!container) return;
       const qIndex = container.children.length;
 
       const qDiv = document.createElement('div');
@@ -531,11 +523,9 @@
       }
     }
 
-    // --- VISTA 4: LOGIN ---
+    // --- VISTA 4: LOGIN / REGISTRE ---
     function renderLogin() {
       const app = document.getElementById('app');
-      if (!app) return;
-
       app.innerHTML = `
         <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Usuari</h2>
