@@ -55,6 +55,7 @@
     const db = firebase.firestore();
 
     const DB_COLLECTION = "lectures";
+    const SUB_COLLECTION = "questions"; // <--- SUBCOL·LECCIÓ EXACTA D'ACORD AMB FIRESTORE
     let currentUser = null;
 
     // --- MANEGADOR D'AUTENTICACIÓ I NAVEGACIÓ ---
@@ -148,13 +149,12 @@
       }
     }
 
-    // --- VISTA 2: LECTOR INTERACTIU I SUBCOL·LECCIÓ DE PREGUNTES ---
+    // --- VISTA 2: LECTOR INTERACTIU I SUBCOL·LECCIÓ 'QUESTIONS' ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
 
       try {
-        // 1. Obtenir el document de la lectura
         const doc = await db.collection(DB_COLLECTION).doc(docId).get();
         if (!doc.exists) {
           app.innerHTML = `<p class="text-red-500">Lectura no trobada.</p>`;
@@ -162,8 +162,8 @@
         }
         const data = doc.data();
 
-        // 2. Obtenir la SUBCOL·LECCIÓ 'questions' de la lectura
-        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection('questions').get();
+        // Cerca directa a la subcol·lecció 'questions'
+        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
         
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -177,7 +177,7 @@
           let qIndex = 0;
           questionsSnap.forEach(qDoc => {
             const q = qDoc.data();
-            const options = q.options || q.respostes || [];
+            const options = q.options || q.opcions || q.respostes || [];
             const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
 
             questionsHTML += `
@@ -228,8 +228,8 @@
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error carregar lectura: ${err.message}</div>`; } }  async function submitQuiz(e, docId) { e.preventDefault(); const form = e.target; const formData = new FormData(form);  const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection('questions').get(); let score = 0; let total = questionsSnap.size;  questionsSnap.forEach(qDoc => { const q = qDoc.data(); const selected = parseInt(formData.get(`q_${qDoc.id}`));
-        const correct = q.correctAnswer !== undefined ? q.correctAnswer : q.respostaCorrecta;
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error carregar lectura: ${err.message}</div>`; } }  async function submitQuiz(e, docId) { e.preventDefault(); const form = e.target; const formData = new FormData(form);  const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get(); let score = 0; let total = questionsSnap.size;  questionsSnap.forEach(qDoc => { const q = qDoc.data(); const selected = parseInt(formData.get(`q_${qDoc.id}`));
+        const correct = q.correctAnswer !== undefined ? q.correctAnswer : (q.respostaCorrecta !== undefined ? q.respostaCorrecta : 0);
         if (selected === correct) {
           score++;
         }
@@ -247,7 +247,7 @@
       `;
     }
 
-    // --- VISTA 3: EDITOR I DESAR SUBCOL·LECCIÓ ---
+    // --- VISTA 3: EDITOR I DESAR SUBCOL·LECCIÓ 'QUESTIONS' ---
     function renderEditor() {
       if (!currentUser) {
         renderLogin();
@@ -316,4 +316,4 @@
           <input type="text" placeholder="Opció 1 (Correcta)" required class="q-opt-0 w-full p-2 border border-emerald-300 bg-emerald-50/30 rounded-lg text-xs">
           <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
           <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" placeholder="Opció
+          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300
