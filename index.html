@@ -72,7 +72,54 @@
         userRole = 'alumne';
         filterMyLectures = false;
       }
-      renderNav();
+      function renderNav() {
+      const nav = document.getElementById('nav-actions');
+      if (currentUser) {
+        const rank = getRankDetails(userPoints);
+        const isTeacher = userRole === 'mestre';
+
+        nav.innerHTML = `
+          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-bookmark"></i>
+            <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
+          </button>
+
+          ${isTeacher ? `
+            <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3.5 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-md transform hover:scale-105">
+              <i class="fa-solid fa-plus text-base"></i>
+              <span>Nova Lectura</span>
+            </button>
+          ` : ''}
+
+          <!-- BLOC VISUAL / GAMIFICACIÓ USUARI -->
+          <div class="flex items-center bg-indigo-800/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-indigo-500/30 space-x-3 shadow-inner">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr ${isTeacher ? 'from-amber-400 to-amber-200 text-slate-900' : rank.color + ' text-white'} flex items-center justify-center text-sm shadow">
+              <i class="fa-solid ${isTeacher ? 'fa-chalkboard-user' : rank.icon}"></i>
+            </div>
+            
+            <div class="flex flex-col text-left">
+              <div class="flex items-center space-x-1.5">
+                <span class="text-xs font-bold text-white tracking-wide">${currentUser.email.split('@')[0]}</span>
+                ${!isTeacher ? `<span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.2 rounded-md border border-amber-400/30">${userPoints} pts</span>` : ''}
+              </div>
+              <span class="text-[11px] ${isTeacher ? 'text-amber-300 font-bold' : rank.text} font-medium leading-none mt-0.5">
+                ${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}
+              </span>
+            </div>
+
+            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-300 hover:text-white hover:bg-indigo-700/50 p-1.5 rounded-lg transition ml-1">
+              <i class="fa-solid fa-right-from-bracket text-sm"></i>
+            </button>
+          </div>
+        `;
+      } else {
+        nav.innerHTML = `
+          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">
+            Inicia Sessió
+          </button>
+        `;
+      }
+    }
       renderCatalog();
     });
 
