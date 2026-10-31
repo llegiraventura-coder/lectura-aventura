@@ -201,7 +201,8 @@
             
             <div class="flex flex-col text-left">
               <div class="flex items-center space-x-1.5">
-                <span class="text-xs font-bold text-white tracking-wide">${currentUser.email.split('@')[0]}</span>${!isTeacher ? `<span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border border-amber-400/30">${userPoints} pts</span>` : ''}
+                <span class="text-xs font-bold text-white tracking-wide">${currentUser.email.split('@')[0]}</span>
+                ${!isTeacher ? `<span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border border-amber-400/30">${userPoints} pts</span>` : ''}
               </div>
               <span class="text-[11px] ${isTeacher ? 'text-amber-300 font-bold' : rank.text} font-medium leading-none mt-0.5">
                 ${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}
@@ -440,7 +441,7 @@
 
             questionsHTML += `
               <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}.${questionText}</p>
+                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
                 <div class="space-y-2">
             `;
 
@@ -503,12 +504,29 @@
               <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
             </button>
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title}</h1>
-            ${headerContentHTML}${questionsHTML}
+            ${headerContentHTML}
+            ${questionsHTML}
           </div>
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error en carregar la lectura: ${err.message}</div>`; } }  // --- SUBMIT QUIZ AMB LÒGICA DE NO DUPLICAR PUNTS (OPCIÓ B) --- async function submitQuiz(e, docId) { e.preventDefault(); const form = e.target; const formData = new FormData(form);  const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get(); let score = 0; let total = questionsSnap.size;  questionsSnap.forEach(qDoc => { const q = qDoc.data(); const selected = parseInt(formData.get(`q_${qDoc.id}`));
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error en carregar la lectura: ${err.message}</div>`;
+      }
+    }
+
+    // --- SUBMIT QUIZ AMB LÒGICA DE NO DUPLICAR PUNTS (OPCIÓ B) ---
+    async function submitQuiz(e, docId) {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let score = 0;
+      let total = questionsSnap.size;
+
+      questionsSnap.forEach(qDoc => {
+        const q = qDoc.data();
+        const selected = parseInt(formData.get(`q_${qDoc.id}`));
         const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
         if (selected === correct) {
           score++;
@@ -567,7 +585,7 @@
       } else if (newQuizPoints === maxPossiblePoints) {
         alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
       } else {
-        alert(`👍 Has encertat ${score} de${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de${previousQuizPoints} pts, el teu total no ha canviat. Segueix intentant-ho per superar-te!`);
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat. Segueix intentant-ho per superar-te!`);
       }
 
       renderCatalog();
@@ -617,4 +635,257 @@
 
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
-              <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-
+              <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="Aventura">🧭 Aventura</option>
+                <option value="Misteri">🔍 Misteri</option>
+                <option value="Ciència-ficció">🚀 Ciència-ficció</option>
+                <option value="Teatre">🎭 Teatre</option>
+                <option value="Poesia">📜 Poesia</option>
+                <option value="Tradició / Llegenda">🏛️ Tradició / Llegenda</option>
+                <option value="General">📖 General</option>
+              </select>
+            </div>
+
+            <!-- Camp per a Text Integrat -->
+            <div id="wrapper-content">
+              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+
+            <!-- Camp per a Llibre (Imatge/Coberta) -->
+            <div id="wrapper-image" class="hidden">
+              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
+              <input type="url" id="editor-image" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
+                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+                </button>
+              </div>
+              <div id="questions-container" class="space-y-4"></div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
+              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow transition">Publicar Lectura</button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      toggleReadingTypeInputs();
+      addQuestionField();
+    }
+
+    function toggleReadingTypeInputs() {
+      const type = document.getElementById('editor-type').value;
+      const wrapContent = document.getElementById('wrapper-content');
+      const wrapImage = document.getElementById('wrapper-image');
+      const contentInput = document.getElementById('editor-content');
+
+      if (type === 'book') {
+        wrapContent.classList.add('hidden');
+        if (contentInput) contentInput.removeAttribute('required');
+        wrapImage.classList.remove('hidden');
+      } else {
+        wrapContent.classList.remove('hidden');
+        if (contentInput) contentInput.setAttribute('required', 'true');
+        wrapImage.classList.add('hidden');
+      }
+    }
+
+    function addQuestionField() {
+      const container = document.getElementById('questions-container');
+      if (!container) return;
+
+      const qIndex = container.children.length;
+
+      const qDiv = document.createElement('div');
+      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
+      qDiv.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
+          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
+            <i class="fa-solid fa-trash"></i> Eliminar
+          </button>
+        </div>
+        <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
+
+        <div class="mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+          <i class="fa-solid fa-circle-check text-indigo-600"></i>
+          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
+          <select class="q-correct p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
+            <option value="0">Opció 1</option>
+            <option value="1">Opció 2</option>
+            <option value="2">Opció 3</option>
+            <option value="3">Opció 4</option>
+          </select>
+        </div>
+      `;
+      container.appendChild(qDiv);
+    }
+
+    async function saveReading(e) {
+      e.preventDefault();
+      const type = document.getElementById('editor-type')?.value || 'text';
+      const title = document.getElementById('editor-title').value;
+      const level = document.getElementById('editor-level').value;
+      const category = document.getElementById('editor-category')?.value || 'General';
+      const content = document.getElementById('editor-content')?.value || '';
+      const imageUrl = document.getElementById('editor-image')?.value || '';
+
+      try {
+        const docRef = await db.collection(DB_COLLECTION).add({
+          type: type,
+          title: title,
+          level: level,
+          category: category,
+          content: content,
+          imageUrl: imageUrl,
+          authorUid: currentUser ? currentUser.uid : null,
+          authorEmail: currentUser ? currentUser.email : "Anònim",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        const qBlocks = document.querySelectorAll('.q-block');
+        for (const block of qBlocks) {
+          const qText = block.querySelector('.q-text').value;
+          const opt0 = block.querySelector('.q-opt-0').value;
+          const opt1 = block.querySelector('.q-opt-1').value;
+          const opt2 = block.querySelector('.q-opt-2')?.value || '';
+          const opt3 = block.querySelector('.q-opt-3')?.value || '';
+          
+          const correctSelect = block.querySelector('.q-correct');
+          const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
+
+          const options = [opt0, opt1];
+          if (opt2) options.push(opt2);
+          if (opt3) options.push(opt3);
+
+          if (qText && options.length >= 2) {
+            await db.collection(DB_COLLECTION).doc(docRef.id).collection(SUB_COLLECTION).add({
+              questionText: qText,
+              options: options,
+              correctAnswer: correctIdx
+            });
+          }
+        }
+
+        renderCatalog();
+      } catch (err) {
+        alert("Error en desar la lectura: " + err.message);
+      }
+    }
+
+    // --- VISTA 4: LOGIN / REGISTRE AMB SELECCIÓ DE ROL ---
+    function renderLogin() {
+      const app = document.getElementById('app');
+      app.innerHTML = `
+        <div class="max-w-md mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex border-b border-slate-200 mb-6">
+            <button id="tab-login" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm">
+              Inicia Sessió
+            </button>
+            <button id="tab-register" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600">
+              Crear Compte
+            </button>
+          </div>
+
+          <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
+              <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
+              <input type="password" id="login-password" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
+          </form>
+
+          <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Soc...</label>
+              <select id="reg-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="alumne">🎓 Alumne / Alumna</option>
+                <option value="mestre">👨‍🏫 Mestre / Mestra (Creador/a)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
+              <input type="email" id="reg-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
+              <input type="password" id="reg-password" required minlength="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Crear Compte</button>
+          </form>
+        </div>
+      `;
+    }
+
+    function switchAuthTab(tab) {
+      const fLogin = document.getElementById('form-login');
+      const fReg = document.getElementById('form-register');
+      const tLogin = document.getElementById('tab-login');
+      const tReg = document.getElementById('tab-register');
+
+      if (tab === 'register') {
+        fLogin.classList.add('hidden');
+        fReg.classList.remove('hidden');
+        tReg.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
+        tLogin.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
+      } else {
+        fReg.classList.add('hidden');
+        fLogin.classList.remove('hidden');
+        tLogin.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
+        tReg.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
+      }
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        alert("Error d'accés: " + err.message);
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const role = document.getElementById('reg-role').value;
+      const email = document.getElementById('reg-email').value;
+      const pass = document.getElementById('reg-password').value;
+
+      try {
+        const cred = await auth.createUserWithEmailAndPassword(email, pass);
+        await db.collection("users").doc(cred.user.uid).set({
+          email: email,
+          role: role,
+          points: 0,
+          completedReadings: [],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        alert("Compte creat amb èxit!");
+      } catch (err) {
+        alert("Error en registrar l'usuari: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
