@@ -74,17 +74,22 @@
       renderCatalog();
     });
 
+let userRole = 'alumne'; // Variable per guardar el rol de l'usuari
+
     async function loadUserPoints() {
       if (!currentUser) return;
       try {
         const doc = await db.collection("users").doc(currentUser.uid).get();
-        if (doc.exists && doc.data().points !== undefined) {
-          userPoints = doc.data().points;
+        if (doc.exists) {
+          const data = doc.data();
+          userPoints = data.points !== undefined ? data.points : 0;
+          userRole = data.role || 'alumne'; // Carreguem "mestre" o "alumne"
         } else {
           userPoints = 0;
+          userRole = 'alumne';
         }
       } catch (err) {
-        console.warn("No s'han pogut carregar els punts de Firestore:", err);
+        console.warn("No s'han pogut carregar les dades de l'usuari de Firestore:", err);
       }
     }
 
@@ -98,6 +103,42 @@
     }
 
     function renderNav() {
+      const nav = document.getElementById('nav-actions');
+      if (currentUser) {
+        const rank = getRankDetails(userPoints);
+        const isTeacher = userRole === 'mestre';
+
+        nav.innerHTML = `
+          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
+            <i class="fa-solid fa-bookmark"></i>
+            <span>${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
+          </button>
+
+          ${isTeacher ? `
+            <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1 shadow-sm">
+              <i class="fa-solid fa-plus"></i>
+              <span>Nova Lectura</span>
+            </button>
+          ` : ''}
+
+          <div class="flex items-center space-x-2 pl-2 border-l border-indigo-400">
+            <div class="hidden sm:flex flex-col text-right">
+              <span class="text-xs font-bold text-white">${currentUser.email.split('@')[0]}</span>
+              <span class="text-[10px] text-amber-300 font-semibold">${isTeacher ? '👨‍🏫 Mestre/a' : rank.name}</span>
+            </div>
+            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-200 hover:text-white p-1">
+              <i class="fa-solid fa-right-from-bracket text-lg"></i>
+            </button>
+          </div>
+        `;
+      } else {
+        nav.innerHTML = `
+          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-1.5 rounded-lg text-sm transition">
+            Inicia Sessió
+          </button>
+        `;
+      }
+    }
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
         const rank = getRankDetails(userPoints);
