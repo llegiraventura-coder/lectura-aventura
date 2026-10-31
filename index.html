@@ -58,13 +58,39 @@
     const DB_COLLECTION = "lectures";
     const SUB_COLLECTION = "questions";
     let currentUser = null;
+    let userPoints = 0;
 
     // --- MANEGADOR D'AUTENTICACIÓ I NAVEGACIÓ ---
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async user => {
       currentUser = user;
+      if (user) {
+        await fetchUserPoints();
+      } else {
+        userPoints = 0;
+      }
       renderNav();
       renderCatalog();
     });
+
+    async function fetchUserPoints() {
+      if (!currentUser) return;
+      try {
+        const userDoc = await db.collection("users").doc(currentUser.uid).get();
+        if (userDoc.exists && userDoc.data().points !== undefined) {
+          userPoints = userDoc.data().points;
+        } else {
+          userPoints = 0;
+        }
+      } catch (err) {
+        console.error("Error carregant punts:", err);
+      }
+    }
+
+    function getRank(points) {
+      if (points >= 100) return { title: "Mestre/a de la Lectura", color: "from-amber-400 to-amber-600", icon: "fa-crown", badge: "bg-amber-100 text-amber-800 border-amber-300" };
+      if (points >= 50) return { title: "Lector/a d'Argent", color: "from-slate-300 to-slate-500", icon: "fa-medal", badge: "bg-slate-100 text-slate-800 border-slate-300" };
+      return { title: "Explorador/a de Històries", color: "from-indigo-400 to-indigo-600", icon: "fa-compass", badge: "bg-indigo-100 text-indigo-800 border-indigo-300" };
+    }
 
     function renderNav() {
       const nav = document.getElementById('nav-actions');
@@ -93,20 +119,47 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES ---
+    // --- VISTA 1: CATÀLEG DE LECTURES + MARC DE RANGS ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="text-center py-8">
           <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
-          <p class="mt-2 text-slate-500">Carregant lectures de la base de dades...</p>
+          <p class="mt-2 text-slate-500">Carregant lectures i perfil...</p>
         </div>
       `;
 
       try {
         const snapshot = await db.collection(DB_COLLECTION).get();
+        const rank = getRank(userPoints);
+
+        let userBanner = '';
+        if (currentUser) {
+          userBanner = `
+            <div class="mb-8 p-6 bg-gradient-to-r ${rank.color} rounded-2xl shadow-md text-white flex flex-col md:flex-row justify-between items-center gap-4">
+              <div class="flex items-center space-x-4">
+                <div class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-inner">
+                  <i class="fa-solid ${rank.icon} text-amber-300"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-2xl font-black tracking-wide">${rank.title}</h2>
+                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-white/20 font-bold uppercase tracking-wider">Rang Actiu</span>
+                  </div>
+                  <p class="text-indigo-100 text-sm opacity-90">${currentUser.email}</p>
+                </div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-center">
+                <span class="block text-xs uppercase tracking-wider font-semibold opacity-80">Punts Acumulats</span>
+                <span class="text-3xl font-black text-amber-300">${userPoints} <span class="text-sm text-white">pts</span></span>
+              </div>
+            </div>
+          `;
+        }
+
         if (snapshot.empty) {
           app.innerHTML = `
+            ${userBanner}
             <div class="text-center py-12 bg-white rounded-2xl shadow-sm border border-slate-100">
               <i class="fa-solid fa-book-open-reader text-5xl text-slate-300 mb-3"></i>
               <h2 class="text-xl font-bold text-slate-700">Encara no hi ha cap lectura disponible</h2>
@@ -116,6 +169,7 @@
         }
 
         let html = `
+          ${userBanner}
           <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
             <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> Catàleg de Lectures
           </h1>
@@ -200,8 +254,9 @@
           });
 
           questionsHTML += `
-              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
-                Enviar respostes i obtenir punts
+              <button type="submit" id="submit-quiz-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition flex justify-center items-center gap-2">
+                <span>Enviar respostes i sumar punts</span>
+                <i class="fa-solid fa-paper-plane"></i>
               </button>
             </form>
           `;
@@ -223,7 +278,6 @@
               ${data.content}
             </div>
             ${questionsHTML}
-            <div id="quiz-result" class="mt-4 hidden"></div>
           </div>
         `;
       } catch (err) {
@@ -234,12 +288,14 @@
 
     async function submitQuiz(e, docId) {
       e.preventDefault();
+      const btn = document.getElementById('submit-quiz-btn');
+      if (btn) btn.disabled = true;
+
       const form = e.target;
       const formData = new FormData(form);
 
       const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
       let score = 0;
-      let total = questionsSnap.size;
 
       questionsSnap.forEach(qDoc => {
         const q = qDoc.data();
@@ -250,19 +306,26 @@
         }
       });
 
-      const points = score * 10;
-      const resultDiv = document.getElementById('quiz-result');
-      resultDiv.classList.remove('hidden');
-      resultDiv.innerHTML = `
-        <div class="p-4 bg-emerald-100 border border-emerald-300 text-emerald-800 rounded-xl text-center">
-          <i class="fa-solid fa-award text-3xl mb-1"></i>
-          <h3 class="font-bold text-lg">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
-          <p class="text-sm font-medium">Punts obtinguts: +${points} punts</p>
-        </div>
-      `;
+      const pointsGained = score * 10;
+      userPoints += pointsGained;
+
+      // Guardem els punts a Firestore si l'usuari està autenticat
+      if (currentUser) {
+        try {
+          await db.collection("users").doc(currentUser.uid).set({
+            points: userPoints,
+            email: currentUser.email
+          }, { merge: true });
+        } catch (err) {
+          console.error("Error desant els punts a Firestore:", err);
+        }
+      }
+
+      // Torna automàticament a la pàgina principal amb el marc de punts i rang
+      renderCatalog();
     }
 
-    // --- VISTA 3: EDITOR AMB SELECTOR DE RESPOSTA CORRECTA ---
+    // --- VISTA 3: EDITOR DE LECTURES ---
     function renderEditor() {
       if (!currentUser) {
         renderLogin();
@@ -371,7 +434,6 @@
           const opt2 = block.querySelector('.q-opt-2')?.value || '';
           const opt3 = block.querySelector('.q-opt-3')?.value || '';
           
-          // Llegim la resposta correcta triada pel mestre
           const correctSelect = block.querySelector('.q-correct');
           const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
 
@@ -399,7 +461,7 @@
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Docent</h2>
+          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Usuari</h2>
           <form onsubmit="handleLogin(event)" class="space-y-4">
             <div>
               <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
