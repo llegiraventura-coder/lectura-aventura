@@ -38,7 +38,7 @@
   </footer>
 
   <script>
-    // --- CONFIGURACIÓ DE FIREBASE REALS ---
+    // --- CONFIGURACIÓ DE FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
@@ -150,7 +150,7 @@
       }
     }
 
-    // --- VISTA 2: LECTOR INTERACTIU I SUBCOL·LECCIÓ 'QUESTIONS' ---
+    // --- VISTA 2: LECTOR INTERACTIU ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
@@ -244,7 +244,7 @@
       questionsSnap.forEach(qDoc => {
         const q = qDoc.data();
         const selected = parseInt(formData.get(`q_${qDoc.id}`));
-        const correct = q.correctAnswer !== undefined ? q.correctAnswer : (q.respostaCorrecta !== undefined ? q.respostaCorrecta : 0);
+        const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
         if (selected === correct) {
           score++;
         }
@@ -327,11 +327,22 @@
           </button>
         </div>
         <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        
         <div class="grid grid-cols-2 gap-2">
-          <input type="text" placeholder="Opció 1 (Correcta)" required class="q-opt-0 w-full p-2 border border-emerald-300 bg-emerald-50/30 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
           <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
           <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
           <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
+
+        <div class="mt-2 flex items-center space-x-2 bg-indigo-50/60 p-2 rounded-lg border border-indigo-100">
+          <label class="text-xs font-semibold text-indigo-900">Resposta correcta:</label>
+          <select class="q-correct w-auto p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-700 bg-white outline-none">
+            <option value="0">Opció 1</option>
+            <option value="1">Opció 2</option>
+            <option value="2">Opció 3</option>
+            <option value="3">Opció 4</option>
+          </select>
         </div>
       `;
       container.appendChild(qDiv);
@@ -358,6 +369,7 @@
           const opt1 = block.querySelector('.q-opt-1').value;
           const opt2 = block.querySelector('.q-opt-2')?.value || '';
           const opt3 = block.querySelector('.q-opt-3')?.value || '';
+          const correctIdx = parseInt(block.querySelector('.q-correct').value) || 0;
 
           const options = [opt0, opt1];
           if (opt2) options.push(opt2);
@@ -367,7 +379,7 @@
             await db.collection(DB_COLLECTION).doc(docRef.id).collection(SUB_COLLECTION).add({
               questionText: qText,
               options: options,
-              correctAnswer: 0
+              correctAnswer: correctIdx
             });
           }
         }
