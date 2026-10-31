@@ -99,6 +99,7 @@
 
     function renderNav() {
       const nav = document.getElementById('nav-actions');
+      if (!nav) return;
       if (currentUser) {
         const rank = getRankDetails(userPoints);
         nav.innerHTML = `
@@ -141,9 +142,11 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES + BANNER DE PERFIL ---
+    // --- VISTA 1: CATÀLEG DE LECTURES ---
     async function renderCatalog() {
       const app = document.getElementById('app');
+      if (!app) return;
+      
       app.innerHTML = `
         <div class="text-center py-8">
           <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
@@ -166,9 +169,401 @@
             <div class="mb-8 p-6 bg-gradient-to-r ${rank.color} rounded-2xl shadow-lg text-white flex flex-col md:flex-row justify-between items-center gap-4">
               <div class="flex items-center space-x-4">
                 <div class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-inner">
-                  <i class="fa-solid ${rank.icon}${rank.text}"></i>
+                  <i class="fa-solid ${rank.icon} ${rank.text}"></i>
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
                     <h2 class="text-2xl font-black tracking-wide">${rank.name}</h2>
-                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold
+                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">El teu Rang</span>
+                  </div>
+                  <p class="text-sm opacity-90">${currentUser.email}</p>
+                </div>
+              </div>
+              <div class="bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-center min-w-[140px]">
+                <span class="block text-xs uppercase tracking-wider font-bold opacity-80">Punts Totals</span>
+                <span class="text-3xl font-black text-amber-300">${userPoints} <span class="text-sm font-normal text-white">pts</span></span>
+              </div>
+            </div>
+          `;
+        }
+
+        if (snapshot.empty) {
+          app.innerHTML = `
+            ${userHeaderHTML}
+            <div class="text-center py-12 bg-white rounded-2xl shadow-sm border border-slate-100">
+              <i class="fa-solid fa-book-open-reader text-5xl text-slate-300 mb-3"></i>
+              <h2 class="text-xl font-bold text-slate-700">
+                ${filterMyLectures ? "No has creat cap lectura encara." : "Encara no hi ha cap lectura disponible"}
+              </h2>
+            </div>
+          `;
+          return;
+        }
+
+        let html = `
+          ${userHeaderHTML}
+          <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+              <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> 
+              ${filterMyLectures ? 'Les meves Lectures' : 'Catàleg de Lectures'}
+            </h1>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        `;
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+          const isMyDoc = currentUser && data.authorUid === currentUser.uid;
+
+          html += `
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition relative">
+              <div class="p-5 flex-grow">
+                <div class="flex justify-between items-start gap-2">
+                  <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
+                    ${data.level || 'General'}
+                  </span>
+                  ${isMyDoc ? '<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">La meva lectura</span>' : ''}
+                </div>
+                <h3 class="font-bold text-lg text-slate-800 mt-2">${data.title || 'Sense títol'}</h3>
+                <p class="text-slate-600 text-sm mt-2 line-clamp-3">${data.content || ''}</p>
+              </div>
+              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button onclick="renderReader('${doc.id}')" class="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-2 rounded-lg transition text-center">
+                  Llegir i respondre
+                </button>
+                ${isMyDoc ? `
+                  <button onclick="deleteReading('${doc.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg text-xs transition" title="Esborrar lectura">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        });
+
+        html += `</div>`;
+        app.innerHTML = html;
+      } catch (err) {
+        console.error("Error carregant el catàleg:", err);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error: ${err.message}</div>`;
+      }
+    }
+
+    async function deleteReading(docId) {
+      if (!confirm("Estàs segur que vols esborrar aquesta lectura?")) return;
+      try {
+        await db.collection(DB_COLLECTION).doc(docId).delete();
+        renderCatalog();
+      } catch (err) {
+        alert("Error en esborrar la lectura: " + err.message);
+      }
+    }
+
+    // --- VISTA 2: LECTOR INTERACTIU ---
+    async function renderReader(docId) {
+      const app = document.getElementById('app');
+      if (!app) return;
+      app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
+
+      try {
+        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
+        if (!doc.exists) {
+          app.innerHTML = `<p class="text-red-500">Lectura no trobada.</p>`;
+          return;
+        }
+        const data = doc.data();
+
+        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        
+        let questionsHTML = '';
+        if (!questionsSnap.empty) {
+          questionsHTML = `
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}')" class="mt-8 pt-6 border-t border-slate-200">
+              <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
+                <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió
+              </h2>
+          `;
+
+          let qIndex = 0;
+          questionsSnap.forEach(qDoc => {
+            const q = qDoc.data();
+            const options = q.options || q.opcions || q.respostes || [];
+            const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
+
+            questionsHTML += `
+              <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
+                <div class="space-y-2">
+            `;
+
+            options.forEach((opt, oIdx) => {
+              questionsHTML += `
+                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50/50 transition">
+                  <input type="radio" name="q_${qDoc.id}" value="${oIdx}" required class="text-indigo-600 focus:ring-indigo-500">
+                  <span class="text-sm text-slate-700">${opt}</span>
+                </label>
+              `;
+            });
+
+            questionsHTML += `</div></div>`;
+            qIndex++;
+          });
+
+          questionsHTML += `
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
+                Enviar respostes i obtenir punts
+              </button>
+            </form>
+          `;
+        } else {
+          questionsHTML = `
+            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades a la subcol·lecció d'aquesta lectura.
+            </div>
+          `;
+        }
+
+        app.innerHTML = `
+          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+            <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+            <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title}</h1>
+            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
+              ${data.content}
+            </div>
+            ${questionsHTML}
+            <div id="quiz-result" class="mt-6 hidden"></div>
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la lectura:", err);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error carregar lectura: ${err.message}</div>`;
+      }
+    }
+
+    async function submitQuiz(e, docId) {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let score = 0;
+      let total = questionsSnap.size;
+
+      questionsSnap.forEach(qDoc => {
+        const q = qDoc.data();
+        const selected = parseInt(formData.get(`q_${qDoc.id}`));
+        const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
+        if (selected === correct) {
+          score++;
+        }
+      });
+
+      const points = score * 10;
+      userPoints += points;
+
+      if (currentUser) {
+        try {
+          await db.collection("users").doc(currentUser.uid).set({
+            points: userPoints,
+            email: currentUser.email
+          }, { merge: true });
+        } catch (err) {
+          console.warn("S'han desat els punts localment per aquesta sessió:", err);
+        }
+      }
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const resultDiv = document.getElementById('quiz-result');
+      if (resultDiv) {
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = `
+          <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
+            <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
+            <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
+            <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
+            <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
+              <span>Veure el meu rang i punts al catàleg</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        `;
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    // --- VISTA 3: EDITOR ---
+    function renderEditor() {
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      app.innerHTML = `
+        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
+            <i class="fa-solid fa-pen-to-square text-indigo-600 mr-2"></i> Crear Nova Lectura
+          </h1>
+          <form onsubmit="saveReading(event)" class="space-y-5">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura *</label>
+              <input type="text" id="editor-title" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu</label>
+              <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="Cicle Inicial">Cicle Inicial</option>
+                <option value="Cicle Mitjà">Cicle Mitjà</option>
+                <option value="Cicle Superior">Cicle Superior</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
+              <textarea id="editor-content" rows="6" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
+                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+                </button>
+              </div>
+              <div id="questions-container" class="space-y-4"></div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
+              <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow transition">Publicar Lectura</button>
+            </div>
+          </form>
+        </div>
+      `;
+      addQuestionField();
+    }
+
+    function addQuestionField() {
+      const container = document.getElementById('questions-container');
+      if (!container) return;
+      const qIndex = container.children.length;
+
+      const qDiv = document.createElement('div');
+      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
+      qDiv.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
+          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
+            <i class="fa-solid fa-trash"></i> Eliminar
+          </button>
+        </div>
+        <input type="text" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
+
+        <div class="mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+          <i class="fa-solid fa-circle-check text-indigo-600"></i>
+          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
+          <select class="q-correct p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
+            <option value="0">Opció 1</option>
+            <option value="1">Opció 2</option>
+            <option value="2">Opció 3</option>
+            <option value="3">Opció 4</option>
+          </select>
+        </div>
+      `;
+      container.appendChild(qDiv);
+    }
+
+    async function saveReading(e) {
+      e.preventDefault();
+      const title = document.getElementById('editor-title').value;
+      const level = document.getElementById('editor-level').value;
+      const content = document.getElementById('editor-content').value;
+
+      try {
+        const docRef = await db.collection(DB_COLLECTION).add({
+          title: title,
+          level: level,
+          content: content,
+          authorUid: currentUser ? currentUser.uid : null,
+          authorEmail: currentUser ? currentUser.email : "Anònim",
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        const qBlocks = document.querySelectorAll('.q-block');
+        for (const block of qBlocks) {
+          const qText = block.querySelector('.q-text').value;
+          const opt0 = block.querySelector('.q-opt-0').value;
+          const opt1 = block.querySelector('.q-opt-1').value;
+          const opt2 = block.querySelector('.q-opt-2')?.value || '';
+          const opt3 = block.querySelector('.q-opt-3')?.value || '';
+          
+          const correctSelect = block.querySelector('.q-correct');
+          const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
+
+          const options = [opt0, opt1];
+          if (opt2) options.push(opt2);
+          if (opt3) options.push(opt3);
+
+          if (qText && options.length >= 2) {
+            await db.collection(DB_COLLECTION).doc(docRef.id).collection(SUB_COLLECTION).add({
+              questionText: qText,
+              options: options,
+              correctAnswer: correctIdx
+            });
+          }
+        }
+
+        renderCatalog();
+      } catch (err) {
+        alert("Error en desar la lectura: " + err.message);
+      }
+    }
+
+    // --- VISTA 4: LOGIN ---
+    function renderLogin() {
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      app.innerHTML = `
+        <div class="max-w-md mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-xl font-bold text-slate-800 mb-4 text-center">Accés Usuari</h2>
+          <form onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
+              <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
+              <input type="password" id="login-password" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
+          </form>
+        </div>
+      `;
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value;
+      const pass = document.getElementById('login-password').value;
+      try {
+        await auth.signInWithEmailAndPassword(email, pass);
+      } catch (err) {
+        alert("Error d'accés: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
