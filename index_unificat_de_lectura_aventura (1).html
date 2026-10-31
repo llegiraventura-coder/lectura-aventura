@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lectura Aventura</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Firebase Compatibility SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <style>
+    .line-clamp-3 {
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- CAPÇALERA I NAVEGACIÓ -->
+  <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div class="flex items-center space-x-3 cursor-pointer hover:opacity-90 transition" onclick="navigateTo('catalog')">
+        <span class="text-3xl">📖</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide leading-none">Lectura Aventura</h1>
+          <span class="text-xs text-indigo-200 font-medium">Plataforma educativa</span>
+        </div>
+      </div>
+      
+      <nav id="nav-menu" class="flex items-center space-x-3 md:space-x-4">
+        <button onclick="navigateTo('catalog')" class="hover:bg-indigo-700 px-3 py-1.5 rounded-lg text-sm font-medium transition">
+          📚 Catàleg
+        </button>
+        <div id="auth-buttons" class="flex items-center space-x-2">
+          <!-- Dinàmic per JS -->
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <!-- CONTENIDOR PRINCIPAL (APLICACIÓ) -->
+  <main id="app-container" class="flex-grow max-w-6xl mx-auto w-full p-4 md:p-6">
+    <div class="text-center py-16">
+      <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+      <p class="mt-4 text-slate-600 font-medium">Carregant Lectura Aventura...</p>
+    </div>
+  </main>
+
+  <!-- PEU DE PÀGINA -->
+  <footer class="bg-slate-800 text-slate-400 text-center py-6 text-sm mt-12 border-t border-slate-700">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-2">
+      <p>Lectura Aventura &copy; Foment de la lectura i comprensió lectora</p>
+      <p class="text-xs text-slate-500">Desenvolupat per a la comunitat educativa</p>
+    </div>
+  </footer>
+
+  <!-- LÒGICA I APLICACIÓ (FIREBASE, AUTH, LECTOR, EDITOR) -->
+  <script>
+    // 1. CONFIGURACIÓ DE FIREBASE
+    const firebaseConfig = {
+      apiKey: "AIzaSyDummyKey_ReplaceWithYourActualConfig",
+      authDomain: "lectura-aventura.firebaseapp.com",
+      projectId: "lectura-aventura",
+      storageBucket: "lectura-aventura.appspot.com",
+      messagingSenderId: "1234567890",
+      appId: "1:1234567890:web:abc123def456"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let currentView = 'catalog';
+    let editorQuestions = [];
+
+    // 2. DETECCIÓ D'AUTENTICACIÓ
+    auth.onAuthStateChanged(user => {
+      currentUser = user;
+      updateNav();
+      if (currentView === 'catalog') {
+        renderCatalog();
+      }
+    });
+
+    function updateNav() {
+      const authContainer = document.getElementById('auth-buttons');
+      if (!authContainer) return;
+
+      if (currentUser) {
+        authContainer.innerHTML = `
+          <button onclick="navigateTo('editor')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold shadow-sm transition flex items-center gap-1">
+            <span>✏️</span> Crear / Editar lectura
+          </button>
+          <div class="hidden sm:flex items-center bg-indigo-700 px-3 py-1.5 rounded-lg border border-indigo-500">
+            <span class="text-xs font-semibold">${currentUser.displayName || currentUser.email}</span>
+          </div>
+          <button onclick="logout()" class="bg-slate-700 hover:bg-red-600 text-white text-xs px-2.5 py-1.5 rounded-lg font-medium transition">
+            Eixir
+          </button>
+        `;
+      } else {
+        authContainer.innerHTML = `
+          <button onclick="renderLogin()" class="bg-white text-indigo-600 hover:bg-indigo-50 px-3.5 py-1.5 rounded-lg text-sm font-bold shadow-sm transition">
+            Iniciar sessió
+          </button>
+        `;
+      }
+    }
+
+    function logout() {
+      auth.signOut().then(() => {
+        navigateTo('catalog');
+      });
+    }
+
+    // 3. ENRUTAMENT I NAVEGACIÓ
+    function navigateTo(view, param = null) {
+      currentView = view;
+      if (view === 'catalog') {
+        renderCatalog();
+      } else if (view === 'reader' && param) {
+        renderInteractiveReader(param);
+      } else if (view === 'editor') {
+        renderEditor(param);
+      } else if (view === 'login') {
+        renderLogin();
+      }
+    }
+
+    // 4. VISTA: CATÀLEG DE LECTURES
+    function renderCatalog() {
+      const container = document.getElementById('app-container');
+      container.innerHTML = `
+        <div class="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+          <div>
+            <h2 class="text-3xl font-extrabold text-slate-900 tracking-tight">Lectures disponibles</h2>
+            <p class="text-slate-600 text-sm mt-1">Tria una historia per respondre les preguntes de comprensió i guanyar punts.</p>
+          </div>
+        </div>
+        <div id="stories-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div class="col-span-full text-center py-12 text-slate-500">Carregant catàleg de lectures...</div>
+        </div>
+      `;
+
+      db.collection('stories').get().then(snapshot => {
+        const grid = document.getElementById('stories-grid');
+        if (snapshot.empty) {
+          grid.innerHTML = `
+            <div class="col-span-full text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+              <p class="text-slate-500 font-medium">Encara no hi ha cap lectura publicada.</p>
+              ${currentUser ? '<button onclick="navigateTo(\'editor\')" class="mt-3 text-indigo-600 font-bold text-sm hover:underline">Sigues el primer en crear una!</button>' : ''}
+            </div>
+          `;
+          return;
+        }
+
+        let html = '';
+        snapshot.forEach(doc => {
+          const story = { id: doc.id, ...doc.data() };
+          const qCount = (story.questions || []).length;
+          const isAuthor = currentUser && story.authorId === currentUser.uid;
+          
+          html += `
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition flex flex-col justify-between">
+              <div class="p-5">
+                ${story.imageUrl ? `<img src="${story.imageUrl}" class="w-full h-40 object-cover rounded-lg mb-4" />` : ''}
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase tracking-wider">Lectura</span>
+                  <span class="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                    +${story.points || 10} pts
+                  </span>
+                </div>
+                <h3 class="text-xl font-bold text-slate-900 mb-2 leading-snug">${story.title || 'Sense títol'}</h3>
+                <p class="text-slate-600 text-sm mb-4 line-clamp-3 leading-relaxed">${story.content || story.text || ''}</p>
+              </div>
+              <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                <span class="text-xs text-slate-500 font-medium truncate">
+                  📝 ${story.authorName || 'Docent'} • ❓ ${qCount} preguntes
+                </span>
+                <div class="flex items-center gap-1">
+                  ${isAuthor ? `
+                    <button onclick='navigateTo("editor", ${JSON.stringify(story).replace(/'/g, "&apos;")})' class="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold px-2.5 py-2 rounded-lg transition" title="Editar lectura i preguntes">
+                      ✏️
+                    </button>
+                  ` : ''}
+                  <button onclick='navigateTo("reader", ${JSON.stringify(story).replace(/'/g, "&apos;")})' class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3.5 py-2 rounded-lg transition">
+                    Llegir &rarr;
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+        grid.innerHTML = html;
+      }).catch(err => {
+        console.error("Error carregant catàleg:", err);
+        document.getElementById('stories-grid').innerHTML = `<p class="text-red-500 col-span-full text-center">Error en carregar les lectures de Firebase.</p>`;
+      });
+    }
+
+    // 5. VISTA: LECTOR INTERACTIU AMB PREGUNTES OBLIGATÒRIES
+    function renderInteractiveReader(storyData) {
+      const container = document.getElementById('app-container');
+      const questions = storyData.questions || [];
+
+      let html = `
+        <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-md border border-slate-200 p-6 md:p-10">
+          <button onclick="navigateTo('catalog')" class="text-xs font-bold text-indigo-600 hover:text-indigo-800 mb-6 inline-flex items-center gap-1">
+            &larr; Tornar al catàleg
+          </button>
+          
+          <h1 class="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">${storyData.title || 'Lectura'}</h1>
+          
+          <div class="flex items-center space-x-3 text-xs text-slate-500 mb-6 border-b border-slate-100 pb-4">
+            <span>Autor/a: <strong>${storyData.authorName || 'Mestre/a'}</strong></span>
+            <span>•</span>
+            <span>Punts en joc: <strong>${storyData.points || 10}</strong></span>
+          </div>
+
+          ${storyData.imageUrl ? `<img src="${storyData.imageUrl}" class="w-full h-72 object-cover rounded-xl mb-6 shadow-sm" />` : ''}
+          
+          <div class="prose max-w-none text-slate-800 text-lg leading-relaxed mb-10 bg-slate-50/70 p-6 md:p-8 rounded-xl border border-slate-200">
+            ${(storyData.content || storyData.text || '').replace(/\n/g, '<br/>')}
+          </div>
+
+          <hr class="my-10 border-slate-200" />
+      `;
+
+      if (questions.length > 0) {
+        html += `
+          <div class="space-y-6">
+            <div class="border-b border-slate-200 pb-3">
+              <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                <span>🧠</span> Preguntes de comprensió
+              </h2>
+              <p class="text-sm text-slate-600 mt-1">Has de respondre totes les preguntes abans de poder enviar la lectura.</p>
+            </div>
+
+            <form id="quiz-form" class="space-y-6">
+        `;
+
+        questions.forEach((q, qIdx) => {
+          html += `
+            <div class="bg-indigo-50/40 border border-indigo-100 p-5 rounded-xl space-y-3">
+              <p class="font-bold text-slate-900 text-base flex gap-2">
+                <span class="text-indigo-600">${qIdx + 1}.</span>
+                <span>${q.questionText || q.question}</span>
+              </p>
+              <div class="space-y-2 pl-4">
+          `;
+
+          const options = q.options || [];
+          options.forEach((opt, oIdx) => {
+            html += `
+              <label class="flex items-center space-x-3 p-3 bg-white rounded-lg border border-slate-200 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition">
+                <input type="radio" name="q_${qIdx}" value="${oIdx}" required class="w-4 h-4 text-indigo-600 focus:ring-indigo-500 border-slate-300" />
+                <span class="text-slate-800 text-sm font-medium">${opt}</span>
+              </label>
+            `;
+          });
+
+          html += `</div></div>`;
+        });
+
+        html += `
+              <div class="pt-4">
+                <button type="submit" id="btn-submit-quiz" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 px-6 rounded-xl transition shadow-md text-center text-base">
+                  Enviar respostes i completar lectura
+                </button>
+              </div>
+            </form>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="text-center py-6 bg-slate-50 rounded-xl border border-slate-200">
+            <p class="text-slate-600 text-sm mb-4">Aquesta lectura no té preguntes associades.</p>
+            <button id="btn-finish-simple" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-sm">
+              Marcar lectura com a completada
+            </button>
+          </div>
+        `;
+      }
+
+      html += `</div>`;
+      container.innerHTML = html;
+
+      const form = document.getElementById('quiz-form');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          
+          let correctCount = 0;
+          questions.forEach((q, qIdx) => {
+            const selected = form.querySelector(`input[name="q_${qIdx}"]:checked`);
+            if (selected && parseInt(selected.value, 10) === parseInt(q.correctAnswer, 10)) {
+              correctCount++;
+            }
+          });
+
+          const earnedPoints = (storyData.points || 10) + (correctCount * 5);
+          completeStoryAndAwardPoints(storyData.id, earnedPoints, correctCount, questions.length);
+        });
+      } else {
+        const btnSimple = document.getElementById('btn-finish-simple');
+        if (btnSimple) {
+          btnSimple.addEventListener('click', () => {
+            completeStoryAndAwardPoints(storyData.id, storyData.points || 10, 0, 0);
+          });
+        }
+      }
+    }
+
+    function completeStoryAndAwardPoints(storyId, points, correct, total) {
+      if (!currentUser) {
+        alert(`Molt bé! Has encertat ${correct} de ${total} preguntes i has obtingut ${points} punts.\n\nNota: Inicia sessió per guardar el teu progrés.`);
+        navigateTo('catalog');
+        return;
+      }
+
+      const userRef = db.collection('users').doc(currentUser.uid);
+      
+      db.runTransaction(transaction => {
+        return transaction.get(userRef).then(userDoc => {
+          const currentPoints = userDoc.exists ? (userDoc.data().points || 0) : 0;
+          const completed = userDoc.exists ? (userDoc.data().completedStories || []) : [];
+          
+          if (!completed.includes(storyId)) {
+            completed.push(storyId);
+          }
+
+          transaction.set(userRef, {
+            points: currentPoints + points,
+            completedStories: completed,
+            lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        });
+      }).then(() => {
+        alert(`🎉 Enhorabona! Has completat la lectura.\n\n• Encerts: ${correct}/${total}\n• Punts aconseguits: +${points}`);
+        navigateTo('catalog');
+      }).catch(err => {
+        console.error("Error guardant punts:", err);
+        alert(`Lectura completada! Has aconseguit +${points} punts.`);
+        navigateTo('catalog');
+      });
+    }
+
+    // 6. VISTA: CREADOR I EDITOR DE LECTURES AMB GESTIÓ COMPLETA DE PREGUNTES
+    function renderEditor(storyToEdit = null) {
+      const container = document.getElementById('app-container');
+      if (!currentUser) {
+        container.innerHTML = `
+          <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
+            <p class="text-slate-700 font-medium mb-4">Has d'iniciar sessió com a docent per poder crear o editar lectures.</p>
+            <button onclick="renderLogin()" class="bg-indigo-600 text-white font-bold px-4 py-2 rounded-lg">Iniciar sessió</button>
+          </div>
+        `;
+        return;
+      }
+
+      // Si estem editant una lectura existent, carreguem les seves preguntes
+      editorQuestions = storyToEdit && storyToEdit.questions ? JSON.parse(JSON.stringify(storyToEdit.questions)) : [];
+
+      container.innerHTML = `
+        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <span>✍️</span> ${storyToEdit ? 'Editar lectura i preguntes' : 'Crear una nova lectura'}
+          </h2>
+          
+          <form id="editor-form" class="space-y-6">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la lectura</label>
+              <input type="text" id="story-title" required value="${storyToEdit ? (storyToEdit.title || '') : ''}" placeholder="Ex: L'Aventura del drac blau" class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la imatge de portada (Opcional)</label>
+              <input type="url" id="story-image" value="${storyToEdit ? (storyToEdit.imageUrl || '') : ''}" placeholder="https://..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la lectura / Conte</label>
+              <textarea id="story-content" rows="6" required placeholder="Escriu o enganxa aquí el text de la lectura..." class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">${storyToEdit ? (storyToEdit.content || storyToEdit.text || '') : ''}</textarea>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Punts base per lectura</label>
+                <input type="number" id="story-points" value="${storyToEdit ? (storyToEdit.points || 10) : 10}" min="5" max="100" class="w-full border border-slate-300 rounded-lg px-4 py-2.5" />
+              </div>
+            </div>
+
+            <!-- CONSTRUCTOR I EDITOR DE PREGUNTES -->
+            <div class="border-t border-slate-200 pt-6">
+              <div class="flex justify-between items-center mb-4">
+                <div>
+                  <h3 class="text-lg font-bold text-slate-900">Preguntes de comprensió</h3>
+                  <p class="text-xs text-slate-500">Afegeix les preguntes que haurà de contestar l'alumnat.</p>
+                </div>
+                <button type="button" onclick="addQuestionPrompt()" class="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-bold px-3 py-1.5 rounded-lg text-sm border border-indigo-200 transition">
+                  + Afegir pregunta
+                </button>
+              </div>
+
+              <div id="questions-list" class="space-y-3">
+                <!-- Es renderitza dinàmicament -->
+              </div>
+            </div>
+
+            <div class="flex justify-between items-center pt-6 border-t border-slate-100">
+              <button type="button" onclick="navigateTo('catalog')" class="text-slate-500 hover:underline text-sm font-medium">Cancel·lar</button>
+              <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl transition shadow-md">
+                ${storyToEdit ? 'Guardar canvis' : 'Publicar lectura'}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      renderQuestionsPreview();
+
+      document.getElementById('editor-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const title = document.getElementById('story-title').value;
+        const content = document.getElementById('story-content').value;
+        const imageUrl = document.getElementById('story-image').value;
+        const points = parseInt(document.getElementById('story-points').value, 10) || 10;
+
+        const payload = {
+          title: title,
+          content: content,
+          imageUrl: imageUrl || '',
+          points: points,
+          questions: editorQuestions,
+          authorId: currentUser.uid,
+          authorName: currentUser.displayName || currentUser.email,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (storyToEdit && storyToEdit.id) {
+          db.collection('stories').doc(storyToEdit.id).update(payload).then(() => {
+            alert('Lectura i preguntes actualitzades amb èxit!');
+            navigateTo('catalog');
+          }).catch(err => {
+            console.error("Error actualitzant lectura:", err);
+            alert('No s\'han pogut desar els canvis a Firebase.');
+          });
+        } else {
+          payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+          db.collection('stories').add(payload).then(() => {
+            alert('Lectura creada amb èxit!');
+            navigateTo('catalog');
+          }).catch(err => {
+            console.error("Error creant lectura:", err);
+            alert('No s\'ha pogut publicar la lectura a Firebase.');
+          });
+        }
+      });
+    }
+
+    function addQuestionPrompt() {
+      const qText = prompt("Escriu l'enunciat de la pregunta:");
+      if (!qText) return;
+
+      const opt1 = prompt("Opció A:");
+      const opt2 = prompt("Opció B:");
+      const opt3 = prompt("Opció C (Opcional):");
+
+      const options = [opt1, opt2].filter(Boolean);
+      if (opt3) options.push(opt3);
+
+      const correctIndex = prompt(`Quina opció és la correcta? (Escriu 0 per la primera, 1 per la segona, 2 per la tercera):`, "0");
+
+      editorQuestions.push({
+        questionText: qText,
+        options: options,
+        correctAnswer: parseInt(correctIndex, 10) || 0
+      });
+
+      renderQuestionsPreview();
+    }
+
+    function renderQuestionsPreview() {
+      const list = document.getElementById('questions-list');
+      if (!list) return;
+
+      if (editorQuestions.length === 0) {
+        list.innerHTML = `<p class="text-xs text-slate-500 italic bg-slate-50 p-4 rounded-lg border border-dashed border-slate-200">Encara no s'han afegit preguntes a aquesta lectura. Clica a "+ Afegir pregunta" per crear la primera.</p>`;
+        return;
+      }
+
+      list.innerHTML = editorQuestions.map((q, idx) => `
+        <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-lg flex justify-between items-center text-sm">
+          <div>
+            <p class="font-bold text-slate-800">${idx + 1}. ${q.questionText || q.question}</p>
+            <p class="text-xs text-slate-500 mt-0.5">Opcions: ${q.options.join(', ')} (Correcta: Opció ${parseInt(q.correctAnswer, 10) + 1})</p>
+          </div>
+          <button type="button" onclick="removeQuestion(${idx})" class="text-red-600 hover:text-red-800 font-bold text-xs bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1 rounded transition">
+            Eliminar
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function removeQuestion(idx) {
+      editorQuestions.splice(idx, 1);
+      renderQuestionsPreview();
+    }
+
+    // 7. VISTA: LOGIN / ACCÉS
+    function renderLogin() {
+      const container = document.getElementById('app-container');
+      container.innerHTML = `
+        <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+          <h2 class="text-2xl font-bold text-slate-900 mb-6 text-center">Accés a Lectura Aventura</h2>
+          <form id="login-form" class="space-y-4">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Correu electrònic</label>
+              <input type="email" id="login-email" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            </div>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Contrasenya</label>
+              <input type="password" id="login-pass" required class="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
+            </div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition shadow-md">
+              Iniciar sessió
+            </button>
+            <button type="button" onclick="navigateTo('catalog')" class="w-full text-slate-500 text-xs text-center mt-2 hover:underline">
+              Tornar al catàleg sense accés
+            </button>
+          </form>
+        </div>
+      `;
+
+      document.getElementById('login-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+
+        auth.signInWithEmailAndPassword(email, pass).then(() => {
+          navigateTo('catalog');
+        }).catch(err => {
+          alert('Error en accedir: ' + err.message);
+        });
+      });
+    }
+
+    // Inicialització en carregar el document
+    window.addEventListener('DOMContentLoaded', () => {
+      renderCatalog();
+    });
+  </script>
+</body>
+</html>
