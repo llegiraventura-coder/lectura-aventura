@@ -22,7 +22,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <span class="font-bold text-xl tracking-wide">Lectura Aventura</span>
       </div>
-      <nav id="nav-actions" class="flex items-center space-x-4">
+      <nav id="nav-actions" class="flex items-center space-x-3">
         <!-- Renderitzat dinàmic -->
       </nav>
     </div>
@@ -59,50 +59,66 @@
     const SUB_COLLECTION = "questions";
     let currentUser = null;
     let userPoints = 0;
+    let filterMyLectures = false;
 
     // --- MANEGADOR D'AUTENTICACIÓ I NAVEGACIÓ ---
     auth.onAuthStateChanged(async user => {
       currentUser = user;
       if (user) {
-        await fetchUserPoints();
+        await loadUserPoints();
       } else {
         userPoints = 0;
+        filterMyLectures = false;
       }
       renderNav();
       renderCatalog();
     });
 
-    async function fetchUserPoints() {
+    async function loadUserPoints() {
       if (!currentUser) return;
       try {
-        const userDoc = await db.collection("users").doc(currentUser.uid).get();
-        if (userDoc.exists && userDoc.data().points !== undefined) {
-          userPoints = userDoc.data().points;
+        const doc = await db.collection("users").doc(currentUser.uid).get();
+        if (doc.exists && doc.data().points !== undefined) {
+          userPoints = doc.data().points;
         } else {
           userPoints = 0;
         }
       } catch (err) {
-        console.error("Error carregant punts:", err);
+        console.warn("No s'han pogut carregar els punts de Firestore:", err);
       }
     }
 
-    function getRank(points) {
-      if (points >= 100) return { title: "Mestre/a de la Lectura", color: "from-amber-400 to-amber-600", icon: "fa-crown", badge: "bg-amber-100 text-amber-800 border-amber-300" };
-      if (points >= 50) return { title: "Lector/a d'Argent", color: "from-slate-300 to-slate-500", icon: "fa-medal", badge: "bg-slate-100 text-slate-800 border-slate-300" };
-      return { title: "Explorador/a de Històries", color: "from-indigo-400 to-indigo-600", icon: "fa-compass", badge: "bg-indigo-100 text-indigo-800 border-indigo-300" };
+    function getRankDetails(points) {
+      if (points >= 100) {
+        return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
+      } else if (points >= 50) {
+        return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
+      }
+      return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
     function renderNav() {
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
+        const rank = getRankDetails(userPoints);
         nav.innerHTML = `
-          <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-sm transition">
-            <i class="fa-solid fa-plus mr-1"></i> Nova Lectura
+          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
+            <i class="fa-solid fa-bookmark"></i>
+            <span>${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
-          <div class="flex items-center space-x-2">
-            <span class="text-sm font-medium text-indigo-100">${currentUser.email}</span>
-            <button onclick="logout()" class="text-indigo-200 hover:text-white p-1">
-              <i class="fa-solid fa-right-from-bracket"></i>
+
+          <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-semibold px-3 py-1.5 rounded-lg text-xs md:text-sm transition flex items-center gap-1">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nova Lectura</span>
+          </button>
+
+          <div class="flex items-center space-x-2 pl-2 border-l border-indigo-400">
+            <div class="hidden sm:flex flex-col text-right">
+              <span class="text-xs font-bold text-white">${currentUser.email.split('@')[0]}</span>
+              <span class="text-[10px] text-amber-300 font-semibold">${rank.name}</span>
+            </div>
+            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-200 hover:text-white p-1">
+              <i class="fa-solid fa-right-from-bracket text-lg"></i>
             </button>
           </div>
         `;
@@ -115,43 +131,54 @@
       }
     }
 
+    function toggleMyLectures() {
+      filterMyLectures = !filterMyLectures;
+      renderNav();
+      renderCatalog();
+    }
+
     function logout() {
       auth.signOut().then(() => renderCatalog());
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES + MARC DE RANGS ---
+    // --- VISTA 1: CATÀLEG DE LECTURES + BANNER DE PERFIL ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="text-center py-8">
           <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
-          <p class="mt-2 text-slate-500">Carregant lectures i perfil...</p>
+          <p class="mt-2 text-slate-500">Carregant lectures de la base de dades...</p>
         </div>
       `;
 
       try {
-        const snapshot = await db.collection(DB_COLLECTION).get();
-        const rank = getRank(userPoints);
+        let query = db.collection(DB_COLLECTION);
+        if (filterMyLectures && currentUser) {
+          query = query.where("authorUid", "==", currentUser.uid);
+        }
 
-        let userBanner = '';
+        const snapshot = await query.get();
+        const rank = getRankDetails(userPoints);
+
+        let userHeaderHTML = '';
         if (currentUser) {
-          userBanner = `
-            <div class="mb-8 p-6 bg-gradient-to-r ${rank.color} rounded-2xl shadow-md text-white flex flex-col md:flex-row justify-between items-center gap-4">
+          userHeaderHTML = `
+            <div class="mb-8 p-6 bg-gradient-to-r ${rank.color} rounded-2xl shadow-lg text-white flex flex-col md:flex-row justify-between items-center gap-4">
               <div class="flex items-center space-x-4">
                 <div class="w-14 h-14 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-3xl shadow-inner">
-                  <i class="fa-solid ${rank.icon} text-amber-300"></i>
+                  <i class="fa-solid ${rank.icon} ${rank.text}"></i>
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <h2 class="text-2xl font-black tracking-wide">${rank.title}</h2>
-                    <span class="text-xs px-2.5 py-0.5 rounded-full bg-white/20 font-bold uppercase tracking-wider">Rang Actiu</span>
+                    <h2 class="text-2xl font-black tracking-wide">${rank.name}</h2>
+                    <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">El teu Rang</span>
                   </div>
-                  <p class="text-indigo-100 text-sm opacity-90">${currentUser.email}</p>
+                  <p class="text-sm opacity-90">${currentUser.email}</p>
                 </div>
               </div>
-              <div class="bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-center">
-                <span class="block text-xs uppercase tracking-wider font-semibold opacity-80">Punts Acumulats</span>
-                <span class="text-3xl font-black text-amber-300">${userPoints} <span class="text-sm text-white">pts</span></span>
+              <div class="bg-white/10 backdrop-blur-md px-6 py-3 rounded-xl border border-white/20 text-center min-w-[140px]">
+                <span class="block text-xs uppercase tracking-wider font-bold opacity-80">Punts Totals</span>
+                <span class="text-3xl font-black text-amber-300">${userPoints} <span class="text-sm font-normal text-white">pts</span></span>
               </div>
             </div>
           `;
@@ -159,38 +186,53 @@
 
         if (snapshot.empty) {
           app.innerHTML = `
-            ${userBanner}
+            ${userHeaderHTML}
             <div class="text-center py-12 bg-white rounded-2xl shadow-sm border border-slate-100">
               <i class="fa-solid fa-book-open-reader text-5xl text-slate-300 mb-3"></i>
-              <h2 class="text-xl font-bold text-slate-700">Encara no hi ha cap lectura disponible</h2>
+              <h2 class="text-xl font-bold text-slate-700">
+                ${filterMyLectures ? "No has creat cap lectura encara." : "Encara no hi ha cap lectura disponible"}
+              </h2>
             </div>
           `;
           return;
         }
 
         let html = `
-          ${userBanner}
-          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center">
-            <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> Catàleg de Lectures
-          </h1>
+          ${userHeaderHTML}
+          <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center">
+              <i class="fa-solid fa-layer-group text-indigo-600 mr-2"></i> 
+              ${filterMyLectures ? 'Les meves Lectures' : 'Catàleg de Lectures'}
+            </h1>
+          </div>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         `;
 
         snapshot.forEach(doc => {
           const data = doc.data();
+          const isMyDoc = currentUser && data.authorUid === currentUser.uid;
+
           html += `
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col hover:shadow-md transition relative">
               <div class="p-5 flex-grow">
-                <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
-                  ${data.level || 'General'}
-                </span>
+                <div class="flex justify-between items-start gap-2">
+                  <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full">
+                    ${data.level || 'General'}
+                  </span>
+                  ${isMyDoc ? '<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md">La meva lectura</span>' : ''}
+                </div>
                 <h3 class="font-bold text-lg text-slate-800 mt-2">${data.title || 'Sense títol'}</h3>
                 <p class="text-slate-600 text-sm mt-2 line-clamp-3">${data.content || ''}</p>
               </div>
-              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                <button onclick="renderReader('${doc.id}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-2 rounded-lg transition text-center">
-                  Llegir i respondre preguntes
+              <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button onclick="renderReader('${doc.id}')" class="flex-grow bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-3 py-2 rounded-lg transition text-center">
+                  Llegir i respondre
                 </button>
+                ${isMyDoc ? `
+                  <button onclick="deleteReading('${doc.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 p-2 rounded-lg text-xs transition" title="Esborrar lectura">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                ` : ''}
               </div>
             </div>
           `;
@@ -201,6 +243,16 @@
       } catch (err) {
         console.error("Error carregant el catàleg:", err);
         app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error: ${err.message}</div>`;
+      }
+    }
+
+    async function deleteReading(docId) {
+      if (!confirm("Estàs segur que vols esborrar aquesta lectura?")) return;
+      try {
+        await db.collection(DB_COLLECTION).doc(docId).delete();
+        renderCatalog();
+      } catch (err) {
+        alert("Error en esborrar la lectura: " + err.message);
       }
     }
 
@@ -254,9 +306,8 @@
           });
 
           questionsHTML += `
-              <button type="submit" id="submit-quiz-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition flex justify-center items-center gap-2">
-                <span>Enviar respostes i sumar punts</span>
-                <i class="fa-solid fa-paper-plane"></i>
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
+                Enviar respostes i obtenir punts
               </button>
             </form>
           `;
@@ -278,6 +329,7 @@
               ${data.content}
             </div>
             ${questionsHTML}
+            <div id="quiz-result" class="mt-6 hidden"></div>
           </div>
         `;
       } catch (err) {
@@ -288,14 +340,12 @@
 
     async function submitQuiz(e, docId) {
       e.preventDefault();
-      const btn = document.getElementById('submit-quiz-btn');
-      if (btn) btn.disabled = true;
-
       const form = e.target;
       const formData = new FormData(form);
 
       const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
       let score = 0;
+      let total = questionsSnap.size;
 
       questionsSnap.forEach(qDoc => {
         const q = qDoc.data();
@@ -306,10 +356,9 @@
         }
       });
 
-      const pointsGained = score * 10;
-      userPoints += pointsGained;
+      const points = score * 10;
+      userPoints += points;
 
-      // Guardem els punts a Firestore si l'usuari està autenticat
       if (currentUser) {
         try {
           await db.collection("users").doc(currentUser.uid).set({
@@ -317,15 +366,31 @@
             email: currentUser.email
           }, { merge: true });
         } catch (err) {
-          console.error("Error desant els punts a Firestore:", err);
+          console.warn("S'han desat els punts localment per aquesta sessió:", err);
         }
       }
 
-      // Torna automàticament a la pàgina principal amb el marc de punts i rang
-      renderCatalog();
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      const resultDiv = document.getElementById('quiz-result');
+      resultDiv.classList.remove('hidden');
+      resultDiv.innerHTML = `
+        <div class="p-6 bg-emerald-50 border border-emerald-300 text-emerald-900 rounded-2xl text-center shadow-sm">
+          <i class="fa-solid fa-award text-4xl text-amber-500 mb-2"></i>
+          <h3 class="font-bold text-xl mb-1">Resultat: Has encertat ${score} de ${total} preguntes!</h3>
+          <p class="text-base font-semibold text-emerald-700 mb-4">Punts aconseguits: +${points} punts</p>
+          <button onclick="renderCatalog()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl shadow transition text-sm inline-flex items-center gap-2">
+            <span>Veure el meu rang i punts al catàleg</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      `;
+
+      resultDiv.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // --- VISTA 3: EDITOR DE LECTURES ---
+    // --- VISTA 3: EDITOR AMB SELECTOR DE RESPOSTA CORRECTA ---
     function renderEditor() {
       if (!currentUser) {
         renderLogin();
@@ -423,6 +488,8 @@
           title: title,
           level: level,
           content: content,
+          authorUid: currentUser ? currentUser.uid : null,
+          authorEmail: currentUser ? currentUser.email : "Anònim",
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
