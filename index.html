@@ -134,7 +134,7 @@
       return { name: "Explorador/a de Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    // --- RANGS DE MESTRE (v007) ---
+    // --- RANGS DE MESTRE ---
     function getTeacherRankDetails(points) {
       if (currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) {
         return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", color: "from-purple-600 to-pink-600" };
@@ -295,7 +295,7 @@
       renderCatalog();
     }
 
-    // --- FORMULARI / MINI-FITXA DOCENT (v007) ---
+    // --- FORMULARI / MINI-FITXA DOCENT ---
     function renderTeacherProfileModal() {
       const app = document.getElementById('app');
       app.innerHTML = `
@@ -348,7 +348,7 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES AMB AUTOR PÚBLIC (v007) ---
+    // --- VISTA 1: CATÀLEG DE LECTURES AMB AUTOR PÚBLIC ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
@@ -433,7 +433,7 @@
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
             const canEdit = isAdmin || isAuthor;
 
-            // Formateig de la signatura pública (v007)
+            // Formateig de la signatura pública
             const authorText = data.authorDisplayName 
               ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
               : 'Docent de Lectura Aventura';
@@ -474,7 +474,7 @@
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   
-                  <!-- AUTOR I CENTRE PÚBLIC SENSE CORREU (v007) -->
+                  <!-- AUTOR I CENTRE PÚBLIC -->
                   <p class="text-xs text-slate-400 font-medium mb-3 flex items-center gap-1">
                     <i class="fa-solid fa-pen-nib text-[10px] text-indigo-500"></i>
                     <span>Per: <strong class="text-slate-600">${authorText}</strong></span>
@@ -902,7 +902,7 @@
       container.appendChild(qDiv);
     }
 
-    // --- GUARDAR O ACTUALITZAR LECTURA (v007) ---
+    // --- GUARDAR O ACTUALITZAR LECTURA PRESERVANT L'AUTORIA ORIGINAL (v007) ---
     async function saveReading(e) {
       e.preventDefault();
       const type = document.getElementById('editor-type')?.value || 'text';
@@ -919,7 +919,7 @@
         let docId = editingDocId;
 
         if (editingDocId) {
-          // ACTUALITZACIÓ
+          // ACTUALITZACIÓ: NOMÉS S'ACTUALITZEN ELS CAMPS DE CONTINGUT (SENSE TOCAR L'AUTOR ORIGINAL)
           await db.collection(DB_COLLECTION).doc(editingDocId).update({
             type: type,
             title: title,
@@ -927,8 +927,6 @@
             category: category,
             content: content,
             imageUrl: imageUrl,
-            authorDisplayName: authorDisplayName,
-            authorSchool: authorSchool,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
@@ -938,7 +936,7 @@
             await qDoc.ref.delete();
           }
         } else {
-          // CREACIÓ NOVA
+          // CREACIÓ NOVA: ES REGISTRA L'AUTOR/A ORIGINAL
           const docRef = await db.collection(DB_COLLECTION).add({
             type: type,
             title: title,
@@ -953,7 +951,7 @@
           });
           docId = docRef.id;
 
-          // GAMIFICACIÓ: Sumar +1 Punt al Mestre creador
+          // GAMIFICACIÓ: Sumar +1 Punt al Mestre creador (Només noves creacions)
           if (currentUser && userRole === 'mestre') {
             userPoints += 1;
             await db.collection("users").doc(currentUser.uid).set({
