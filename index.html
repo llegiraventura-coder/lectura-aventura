@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v012</title>
+  <title>Lectura Aventura - v013</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -326,7 +326,7 @@
               <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
                 <span class="flex items-center gap-2">
                   <i class="fa-solid fa-filter text-amber-600"></i>
-                  ${userRole === 'mestre' ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
+                  ${userRole === 'mestre' ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja me has completat.'}
                 </span>
                 <button onclick="toggleMyLectures()" class="text-amber-700 hover:text-amber-900 underline text-xs">Mostrar-ho tot</button>
               </div>
@@ -409,6 +409,7 @@
             const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
 
             const bookAuthorName = data.bookAuthor || '';
+            const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
 
             if (filterMyLectures && currentUser) {
               if (userRole === 'mestre') {
@@ -440,8 +441,11 @@
                       ${isBook ? '📖 Llibre' : '📄 Text'}
                     </span>
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                      <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2 py-0.5 rounded-md">
+                        ⚡ ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt/encert' : 'pts/encert (Repte)'}
+                      </span>
                       ${isCompleted ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>` : ''}
-                      ${data.category ? `<span class="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 font-bold px-2 py-0.5 rounded-md">${data.category}</span>` : ''}
+                      ${data.category ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-md">${data.category}</span>` : ''}
                       ${data.level ? `<span class="text-xs text-slate-500 font-medium">${data.level}</span>` : ''}
                     </div>
                   </div>
@@ -461,7 +465,6 @@
                     </p>
                   ` : ''}
 
-                  <!-- ATRIBUCIÓ DINÀMICA AL CATÀLEG (v012) -->
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <p class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
                       <i class="fa-solid fa-chalkboard-user text-[11px] text-indigo-500"></i>
@@ -541,14 +544,23 @@
 
         const bookAuthorName = data.bookAuthor || '';
         const editorialOrSource = data.editorialOrSource || '';
+        const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
+          const totalQuestions = questionsSnap.size;
+          const maxPoints = totalQuestions * ptsPerQuestion;
+
           questionsHTML = `
-            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}')" class="mt-8 pt-6 border-t border-slate-200">
-              <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center">
-                <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió
-              </h2>
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
+                </h2>
+                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
+                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
+                </span>
+              </div>
           `;
 
           let qIndex = 0;
@@ -619,7 +631,6 @@
                   </p>
                 ` : ''}
 
-                <!-- TEXT DE PREGUNTES DE COMPRENSIÓ LECTORA PER (v012) -->
                 <div class="flex items-center gap-2 pt-2 border-t border-indigo-100">
                   <span class="text-xs text-slate-500">Preguntes de comprensió lectora per: <strong>${teacherText}</strong></span>
                   <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
@@ -678,7 +689,7 @@
       }
     }
 
-    async function submitQuiz(e, docId) {
+    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
       e.preventDefault();
       const form = e.target;
       const formData = new FormData(form);
@@ -694,8 +705,8 @@
         if (selected === correct) score++;
       });
 
-      const newQuizPoints = score * 10;
-      const maxPossiblePoints = total * 10;
+      const newQuizPoints = score * pointsPerQuestion;
+      const maxPossiblePoints = total * pointsPerQuestion;
 
       let userScores = {};
       if (currentUser) {
@@ -771,6 +782,7 @@
         editorialOrSource: '',
         level: 'Cicle Inicial',
         category: 'Aventura',
+        pointsPerQuestion: 1,
         content: '',
         imageUrl: ''
       };
@@ -831,27 +843,37 @@
               </div>
             </div>
 
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Cicle *</label>
-              <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="Cicle Inicial" ${initialData.level === 'Cicle Inicial' ? 'selected' : ''}>Cicle Inicial</option>
-                <option value="Cicle Mitjà" ${initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>Cicle Mitjà</option>
-                <option value="Cicle Superior" ${initialData.level === 'Cicle Superior' ? 'selected' : ''}>Cicle Superior</option>
-                <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
-              </select>
-            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Cicle *</label>
+                <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="Cicle Inicial" ${initialData.level === 'Cicle Inicial' ? 'selected' : ''}>Cicle Inicial</option>
+                  <option value="Cicle Mitjà" ${initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>Cicle Mitjà</option>
+                  <option value="Cicle Superior" ${initialData.level === 'Cicle Superior' ? 'selected' : ''}>Cicle Superior</option>
+                  <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
+                </select>
+              </div>
 
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
-              <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="Aventura" ${initialData.category === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
-                <option value="Misteri" ${initialData.category === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
-                <option value="Ciència-ficció" ${initialData.category === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
-                <option value="Teatre" ${initialData.category === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
-                <option value="Poesia" ${initialData.category === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
-                <option value="Tradició / Llegenda" ${initialData.category === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
-                <option value="General" ${initialData.category === 'General' ? 'selected' : ''}>📖 General</option>
-              </select>
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
+                <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="Aventura" ${initialData.category === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
+                  <option value="Misteri" ${initialData.category === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
+                  <option value="Ciència-ficció" ${initialData.category === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
+                  <option value="Teatre" ${initialData.category === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
+                  <option value="Poesia" ${initialData.category === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
+                  <option value="Tradició / Llegenda" ${initialData.category === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
+                  <option value="General" ${initialData.category === 'General' ? 'selected' : ''}>📖 General</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Punts per pregunta encertada *</label>
+                <select id="editor-points-per-q" class="w-full p-2.5 border border-amber-300 bg-amber-50/50 rounded-xl text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none">
+                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt per encert (Estàndard)</option>
+                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts per encert (Complexa / Repte)</option>
+                </select>
+              </div>
             </div>
 
             <div id="wrapper-content">
@@ -963,6 +985,7 @@
       const editorialOrSource = document.getElementById('editor-source')?.value || '';
       const level = document.getElementById('editor-level').value;
       const category = document.getElementById('editor-category')?.value || 'General';
+      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
       const content = document.getElementById('editor-content')?.value || '';
       const imageUrl = document.getElementById('editor-image')?.value || '';
 
@@ -981,6 +1004,7 @@
             editorialOrSource: editorialOrSource,
             level: level,
             category: category,
+            pointsPerQuestion: pointsPerQuestion,
             content: content,
             imageUrl: imageUrl,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1003,6 +1027,7 @@
             editorialOrSource: editorialOrSource,
             level: level,
             category: category,
+            pointsPerQuestion: pointsPerQuestion,
             content: content,
             imageUrl: imageUrl,
             authorUid: currentUser ? currentUser.uid : null,
