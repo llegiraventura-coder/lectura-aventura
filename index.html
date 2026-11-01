@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.18.0</title>
+  <title>Lectura Aventura - v0.18.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,7 +31,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogModal()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.18.0 — Historial de versions</span>
+        <span>v0.18.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -69,6 +69,7 @@
     let userTeacherUid = ""; 
     let filterMyLectures = false;
     let editingDocId = null;
+    let currentLeaderboardTab = 'group'; // 'group', 'school', 'global'
 
     let filterSearch = "";
     let filterBookAuthor = "";
@@ -399,51 +400,93 @@
       }
     }
 
-    /* --- CLASSIFICACIÓ D'ALUMNES PER AL GRUP DEL DOCENT (v0.18.0) --- */
+    /* --- CLASSIFICACIÓ EN 3 NIVELLS: GRUP, CENTRE I GLOBAL (v0.18.2) --- */
+    function switchLeaderboardTab(tab) {
+      currentLeaderboardTab = tab;
+      renderStudentLeaderboard();
+    }
+
     async function renderStudentLeaderboard() {
       if (userRole !== 'alumne') return;
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació del teu grup...</p></div>`;
-
-      if (!userTeacherUid) {
-        app.innerHTML = `
-          <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
-              <i class="fa-solid fa-user-slash"></i>
-            </div>
-            <h2 class="text-xl font-bold text-slate-800">Sens docent assignat</h2>
-            <p class="text-sm text-slate-600 leading-relaxed">
-              Per veure la classificació i formar part del ranking de la teva classe, necessites seleccionar el teu <strong>Docent de referència</strong> al teu perfil.
-            </p>
-            <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
-              Seleccionar el meu Docent
-            </button>
-          </div>
-        `;
-        return;
-      }
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>`;
 
       try {
-        // Carreguem les dades del docent assignat
-        let teacherName = "el teu Docent";
-        let teacherSchool = "";
-        const teacherDoc = await db.collection("users").doc(userTeacherUid).get();
-        if (teacherDoc.exists) {
-          const tData = teacherDoc.data();
-          teacherName = tData.displayName || tData.email || "el teu Docent";
-          teacherSchool = tData.school || "";
-        }
-
-        // Carreguem els alumnes del docent
-        const studentsSnap = await db.collection("users")
-          .where("role", "==", "alumne")
-          .where("teacherUid", "==", userTeacherUid)
-          .get();
-
         let classmates = [];
-        studentsSnap.forEach(doc => {
-          classmates.push({ id: doc.id, ...doc.data() });
-        });
+        let subtitleText = "";
+
+        if (currentLeaderboardTab === 'group') {
+          if (!userTeacherUid) {
+            app.innerHTML = `
+              <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+                  <i class="fa-solid fa-user-slash"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-800">Sense docent assignat</h2>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                  Per veure la classificació del teu grup, necessites seleccionar el teu <strong>Docent de referència</strong> al teu perfil.
+                </p>
+                <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
+                  Seleccionar el meu Docent
+                </button>
+              </div>
+            `;
+            return;
+          }
+
+          let teacherName = "el teu Docent";
+          let teacherSchool = "";
+          const teacherDoc = await db.collection("users").doc(userTeacherUid).get();
+          if (teacherDoc.exists) {
+            const tData = teacherDoc.data();
+            teacherName = tData.displayName || tData.email || "el teu Docent";
+            teacherSchool = tData.school || "";
+          }
+          subtitleText = `Grup de <strong class="text-slate-700">${teacherName}</strong> ${teacherSchool ? '(' + teacherSchool + ')' : ''}`;
+
+          const studentsSnap = await db.collection("users")
+            .where("role", "==", "alumne")
+            .where("teacherUid", "==", userTeacherUid)
+            .get();
+
+          studentsSnap.forEach(doc => classmates.push({ id: doc.id, ...doc.data() }));
+
+        } else if (currentLeaderboardTab === 'school') {
+          if (!userSchool) {
+            app.innerHTML = `
+              <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+                  <i class="fa-solid fa-school-circle-xmark"></i>
+                </div>
+                <h2 class="text-xl font-bold text-slate-800">Sense centre assignat</h2>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                  Per veure la classificació de la teva escola, indica el nom del teu centre al teu perfil.
+                </p>
+                <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
+                  Editar el meu Perfil
+                </button>
+              </div>
+            `;
+            return;
+          }
+          subtitleText = `Centre Educatiu: <strong class="text-slate-700">${userSchool}</strong>`;
+
+          const studentsSnap = await db.collection("users")
+            .where("role", "==", "alumne")
+            .where("school", "==", userSchool)
+            .get();
+
+          studentsSnap.forEach(doc => classmates.push({ id: doc.id, ...doc.data() }));
+
+        } else if (currentLeaderboardTab === 'global') {
+          subtitleText = `Classificació general de tots els alumnes de Lectura Aventura`;
+
+          const studentsSnap = await db.collection("users")
+            .where("role", "==", "alumne")
+            .get();
+
+          studentsSnap.forEach(doc => classmates.push({ id: doc.id, ...doc.data() }));
+        }
 
         // Ordenem de més a menys punts
         classmates.sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -468,9 +511,12 @@
           tableRowsHTML += `
             <tr class="border-b border-slate-100 transition ${isMe ? 'bg-amber-50/80 font-bold border-amber-200' : 'hover:bg-slate-50'}">
               <td class="p-3 text-center">${posBadge}</td>
-              <td class="p-3 flex items-center space-x-2">
-                <span class="text-slate-800 ${isMe ? 'text-indigo-900 font-extrabold' : ''}">${st.displayName || st.email}</span>
-                ${isMe ? `<span class="text-[10px] bg-indigo-600 text-white font-extrabold px-2 py-0.5 rounded-full">Tu</span>` : ''}
+              <td class="p-3">
+                <div class="flex items-center space-x-2">
+                  <span class="text-slate-800 ${isMe ? 'text-indigo-900 font-extrabold' : ''}">${st.displayName || st.email}</span>
+                  ${isMe ? `<span class="text-[10px] bg-indigo-600 text-white font-extrabold px-2 py-0.5 rounded-full">Tu</span>` : ''}
+                </div>
+                ${currentLeaderboardTab !== 'school' && st.school ? `<span class="block text-[11px] text-slate-400 font-normal">${st.school}</span>` : ''}
               </td>
               <td class="p-3">
                 <span class="text-xs font-bold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
@@ -492,18 +538,29 @@
         app.innerHTML = `
           <div class="max-w-4xl mx-auto space-y-6">
             <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
                 <div>
                   <button onclick="renderCatalog()" class="text-xs font-bold text-indigo-600 hover:underline mb-1 inline-flex items-center">
                     <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
                   </button>
                   <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-trophy text-amber-500"></i> Classificació del Grup
+                    <i class="fa-solid fa-trophy text-amber-500"></i> Classificació LECTORA
                   </h1>
-                  <p class="text-xs text-slate-500 mt-0.5">
-                    Grup de <strong class="text-slate-700">${teacherName}</strong> ${teacherSchool ? '(' + teacherSchool + ')' : ''}
-                  </p>
+                  <p class="text-xs text-slate-500 mt-0.5">${subtitleText}</p>
                 </div>
+              </div>
+
+              <!-- PESTANYES DE CLASSIFICACIÓ (v0.18.2) -->
+              <div class="flex border-b border-slate-200">
+                <button onclick="switchLeaderboardTab('group')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'group' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
+                  👥 El meu Grup (Mestre)
+                </button>
+                <button onclick="switchLeaderboardTab('school')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'school' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
+                  🏫 El meu Centre Educatiu
+                </button>
+                <button onclick="switchLeaderboardTab('global')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'global' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
+                  🌍 Classificació Global
+                </button>
               </div>
 
               <!-- PODI DESTACAT -->
@@ -1544,22 +1601,32 @@
       }
     }
 
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.18.0 --- */
+    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.18.2 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
       const changelogData = [
         {
-          version: "v0.18.0",
+          version: "v0.18.2",
           date: "Actual",
-          title: "Classificació i Ranking de Grup per a Alumnes",
+          title: "Triple Classificació: Grup, Centre i Global",
           badge: "Gamificació",
           color: "bg-amber-100 text-amber-800 border-amber-200",
           items: [
-            "Botó 'Classificació' a la capçalera exclusiu per a alumnes.",
-            "Pantalla de ranking de grup amb podi destacat (🥇, 🥈, 🥉) per als 3 primers lectors.",
-            "Llistat ordenat per puntuació amb ressaltat del propi perfil de l'alumne.",
-            "Detecció automàtica del grup de classe segons el docent de referència assignat."
+            "Pestanyes de navegació a la pantalla de classificació d'alumnes.",
+            "Classificació per 'El meu Grup' (Docent de referència).",
+            "Classificació per 'El meu Centre Educatiu' (Alumnes de la mateixa escola).",
+            "Classificació 'Global' (Ranking universal de tota la comunitat lectora)."
+          ]
+        },
+        {
+          version: "v0.18.0",
+          date: "Versió anterior",
+          title: "Classificació i Ranking de Grup per a Alumnes",
+          badge: "Gamificació",
+          color: "bg-slate-100 text-slate-800 border-slate-200",
+          items: [
+            "Botó 'Classificació' a la capçalera exclusiu per a alumnes i podi Top 3."
           ]
         },
         {
@@ -1567,23 +1634,13 @@
           date: "Versió anterior",
           title: "Manifest i Benvinguda Col·laborativa",
           badge: "Acollida",
-          color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+          color: "bg-slate-100 text-slate-800 border-slate-200",
           items: [
             "Manifest i text d'acollida pedagògic a la pantalla de creació de compte."
           ]
         },
         {
-          version: "v0.16.0",
-          date: "Versió anterior",
-          title: "Fitxa d'Alumne i Perfils d'Usuari",
-          badge: "Comunitat",
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          items: [
-            "Fitxa d'Alumne amb selecció de docent de referència i Panell de Seguiment."
-          ]
-        },
-        {
-          version: "v0.1.0 — v0.15.0",
+          version: "v0.1.0 — v0.16.0",
           date: "Versions Inicials",
           title: "Base de la Plataforma i Filtres",
           badge: "Core",
