@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.15.0</title>
+  <title>Lectura Aventura - v0.16.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,12 +31,13 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogModal()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.15.0 — Historial de versions</span>
+        <span>v0.16.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
 
   <div id="changelog-modal-container"></div>
+  <div id="profile-modal-container"></div>
 
   <script>
     const firebaseConfig = {
@@ -61,10 +62,11 @@
 
     let currentUser = null;
     let userPoints = 0;
-    let userRole = 'alumne';
+    let userRole = 'alumne'; // 'alumne', 'docent', 'colaborador'
     let userCompletedReadings = [];
     let userDisplayName = "";
     let userSchool = "";
+    let userTeacherUid = ""; // UID del docent assignat per a l'alumne
     let filterMyLectures = false;
     let editingDocId = null;
 
@@ -85,12 +87,13 @@
         userCompletedReadings = [];
         userDisplayName = "";
         userSchool = "";
+        userTeacherUid = "";
         filterMyLectures = false;
       }
       renderNav();
       
-      if (currentUser && userRole === 'mestre' && (!userDisplayName || !userSchool)) {
-        renderTeacherProfileModal();
+      if (currentUser && (!userDisplayName || !userSchool)) {
+        renderUserProfileModal();
       } else {
         renderCatalog();
       }
@@ -103,16 +106,21 @@
         if (doc.exists) {
           const data = doc.data();
           userPoints = data.points !== undefined ? data.points : 0;
-          userRole = data.role || 'alumne';
+          // Adaptació retrocompatible: mestre passa a docent
+          let role = data.role || 'alumne';
+          if (role === 'mestre') role = 'docent';
+          userRole = role;
           userCompletedReadings = data.completedReadings || [];
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
+          userTeacherUid = data.teacherUid || "";
         } else {
           userPoints = 0;
           userRole = 'alumne';
           userCompletedReadings = [];
           userDisplayName = "";
           userSchool = "";
+          userTeacherUid = "";
         }
       } catch (err) {
         console.warn("Error carregant dades de l'usuari:", err);
@@ -129,20 +137,20 @@
 
     function getTeacherRankDetails(points, email = "") {
       if (email === ADMIN_SUPREMO_EMAIL) return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
-      if (points >= 20) return { name: "👑 Mestre Déu Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
-      if (points >= 15) return { name: "📚 Mestre de Mestres", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
+      if (points >= 20) return { name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
+      if (points >= 15) return { name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
       if (points >= 10) return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
       if (points >= 6) return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
-      if (points >= 3) return { name: "📝 Mestre Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
-      if (points >= 1) return { name: "👨‍🏫 Mestre Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
-      return { name: "🎒 Mestre Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
+      if (points >= 3) return { name: "📝 Docent Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
+      if (points >= 1) return { name: "👨‍🏫 Docent Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
+      return { name: "🎒 Docent Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
     }
 
     function renderBanner() {
       const bannerContainer = document.getElementById('motivation-banner');
       if (!bannerContainer) return;
 
-      if (currentUser && userRole !== 'mestre') {
+      if (currentUser && userRole === 'alumne') {
         const rank = getRankDetails(userPoints);
         const displayName = userDisplayName || currentUser.email.split('@')[0];
         
@@ -196,8 +204,9 @@
     function renderNav() {
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
-        const isTeacher = userRole === 'mestre';
-        const rank = isTeacher ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
+        const isCreator = userRole === 'docent' || userRole === 'colaborador';
+        const isDocent = userRole === 'docent';
+        const rank = isCreator ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
         const nameToShow = userDisplayName || currentUser.email.split('@')[0];
 
         nav.innerHTML = `
@@ -206,17 +215,21 @@
             <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
 
-          ${isTeacher ? `
-            <button onclick="renderTeacherProfileModal()" title="Editar el meu perfil docent" class="bg-indigo-700 hover:bg-indigo-800 text-indigo-200 hover:text-white p-2 rounded-xl text-xs transition">
-              <i class="fa-solid fa-id-card text-sm"></i>
+          ${isDocent ? `
+            <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-users text-sm"></i>
+              <span class="hidden md:inline">Els meus Alumnes</span>
             </button>
+          ` : ''}
+
+          ${isCreator ? `
             <button onclick="renderEditor()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3.5 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-md transform hover:scale-105">
               <i class="fa-solid fa-plus text-base"></i>
               <span>Nova Lectura</span>
             </button>
           ` : ''}
 
-          <div class="flex items-center bg-indigo-800/80 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-indigo-500/30 space-x-3 shadow-inner">
+          <div onclick="renderUserProfileModal()" title="Obrir el meu perfil" class="cursor-pointer flex items-center bg-indigo-800/80 hover:bg-indigo-800 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-indigo-500/30 space-x-3 shadow-inner transition">
             <div class="w-8 h-8 rounded-full bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-sm shadow">
               <i class="fa-solid ${rank.icon}"></i>
             </div>
@@ -229,7 +242,7 @@
               <span class="text-[11px] text-amber-300 font-bold leading-none mt-0.5">${rank.name}</span>
             </div>
 
-            <button onclick="logout()" title="Tancar Sessió" class="text-indigo-300 hover:text-white hover:bg-indigo-700/50 p-1.5 rounded-lg transition ml-1">
+            <button onclick="event.stopPropagation(); logout()" title="Tancar Sessió" class="text-indigo-300 hover:text-white hover:bg-indigo-700/50 p-1.5 rounded-lg transition ml-1">
               <i class="fa-solid fa-right-from-bracket text-sm"></i>
             </button>
           </div>
@@ -275,48 +288,196 @@
       renderCatalog();
     }
 
-    function renderTeacherProfileModal() {
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="max-w-md mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-md border border-slate-200">
-          <div class="text-center mb-6">
-            <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">
-              <i class="fa-solid fa-chalkboard-user"></i>
+    async function renderUserProfileModal() {
+      const container = document.getElementById('profile-modal-container');
+      
+      let docentsList = [];
+      if (userRole === 'alumne') {
+        try {
+          const docentsSnap = await db.collection("users").where("role", "==", "docent").get();
+          docentsSnap.forEach(d => {
+            const data = d.data();
+            docentsList.push({
+              uid: d.id,
+              name: data.displayName || data.email,
+              school: data.school || ""
+            });
+          });
+        } catch(err) {
+          console.warn("Error carregant llista de docents:", err);
+        }
+      }
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8 relative">
+            <button onclick="closeUserProfileModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="text-center mb-6">
+              <div class="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-3">
+                <i class="fa-solid ${userRole === 'alumne' ? 'fa-user-graduate' : (userRole === 'docent' ? 'fa-chalkboard-user' : 'fa-handshake-angle')}"></i>
+              </div>
+              <h2 class="text-xl font-bold text-slate-800">Fitxa d'Usuari</h2>
+              <p class="text-xs text-slate-500 mt-1">Configura les teves dades d'identificació a Lectura Aventura</p>
             </div>
-            <h2 class="text-xl font-bold text-slate-800">Fitxa de Presentació Docent</h2>
-            <p class="text-xs text-slate-500 mt-1">Introdueix les teves dades públiques per signar les lectures sense mostrar el teu correu.</p>
+
+            <form onsubmit="saveUserProfile(event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Tipus de Perfil</label>
+                <input type="text" disabled value="${userRole === 'alumne' ? '🎓 Alumne / Alumna' : (userRole === 'docent' ? '👨‍🏫 Docent' : '🤝 Col·laborador/a')}" class="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 cursor-not-allowed">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Nom i Cognoms / Nom Públic *</label>
+                <input type="text" id="profile-name" value="${userDisplayName}" placeholder="Ex: Marc Soler, Mestra Maria" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Centre Educatiu / Escola *</label>
+                <input type="text" id="profile-school" value="${userSchool}" placeholder="Ex: Escola La Renaixença, Osona" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              ${userRole === 'alumne' ? `
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">El teu Docent de Referència</label>
+                  <select id="profile-teacher-uid" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-semibold text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">-- Selecciona el teu Docent (Opcional) --</option>
+                    ${docentsList.map(d => `<option value="${d.uid}" ${userTeacherUid === d.uid ? 'selected' : ''}>${d.name} ${d.school ? '(' + d.school + ')' : ''}</option>`).join('')}
+                  </select>
+                </div>
+              ` : ''}
+
+              <div class="pt-2 flex gap-2">
+                <button type="button" onclick="closeUserProfileModal()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">Cancel·lar</button>
+                <button type="submit" class="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">Desar Fitxa</button>
+              </div>
+            </form>
           </div>
-
-          <form onsubmit="saveTeacherProfile(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Nom Públic / Àlies *</label>
-              <input type="text" id="profile-name" value="${userDisplayName}" placeholder="Ex: Mestre Sergi, Mestra Maria" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">Centre Educatiu / Població / Comarca *</label>
-              <input type="text" id="profile-school" value="${userSchool}" placeholder="Ex: Escola La Renaixença, Osona" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">Desar Fitxa i Continuar</button>
-          </form>
         </div>
       `;
     }
 
-    async function saveTeacherProfile(e) {
+    function closeUserProfileModal() {
+      const container = document.getElementById('profile-modal-container');
+      if (container) container.innerHTML = '';
+    }
+
+    async function saveUserProfile(e) {
       e.preventDefault();
       const name = document.getElementById('profile-name').value;
       const school = document.getElementById('profile-school').value;
+      const teacherUid = document.getElementById('profile-teacher-uid')?.value || "";
 
       try {
-        await db.collection("users").doc(currentUser.uid).set({ displayName: name, school: school }, { merge: true });
+        await db.collection("users").doc(currentUser.uid).set({ 
+          displayName: name, 
+          school: school,
+          teacherUid: teacherUid 
+        }, { merge: true });
+
         userDisplayName = name;
         userSchool = school;
+        userTeacherUid = teacherUid;
+
+        closeUserProfileModal();
         renderNav();
         renderCatalog();
       } catch (err) {
         alert("Error en desar la fitxa: " + err.message);
+      }
+    }
+
+    async function renderStudentTrackingPanel() {
+      if (userRole !== 'docent') return;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el llistat d'alumnes...</p></div>`;
+
+      try {
+        const studentsSnap = await db.collection("users")
+          .where("role", "==", "alumne")
+          .where("teacherUid", "==", currentUser.uid)
+          .get();
+
+        let studentsList = [];
+        studentsSnap.forEach(doc => {
+          studentsList.push({ id: doc.id, ...doc.data() });
+        });
+
+        let tableRowsHTML = '';
+        if (studentsList.length > 0) {
+          studentsList.forEach(st => {
+            const pts = st.points || 0;
+            const rank = getRankDetails(pts);
+            const completedCount = (st.completedReadings || []).length;
+
+            tableRowsHTML += `
+              <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
+                <td class="p-3 font-bold text-slate-800">${st.displayName || st.email}</td>
+                <td class="p-3 text-xs text-slate-500">${st.school || '-'}</td>
+                <td class="p-3">
+                  <span class="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
+                    ${pts} PTS
+                  </span>
+                </td>
+                <td class="p-3">
+                  <span class="text-xs font-semibold text-indigo-900 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
+                    <i class="fa-solid ${rank.icon}"></i> ${rank.name}
+                  </span>
+                </td>
+                <td class="p-3 text-center text-xs font-bold text-slate-600">
+                  ${completedCount}
+                </td>
+              </tr>
+            `;
+          });
+        } else {
+          tableRowsHTML = `
+            <tr>
+              <td colspan="5" class="p-8 text-center text-slate-500">
+                <i class="fa-solid fa-user-slash text-3xl text-slate-300 mb-2"></i>
+                <p class="font-bold">Encara no cap alumne t'ha seleccionat com a docent.</p>
+                <p class="text-xs text-slate-400 mt-1">Quan un alumne configuri el seu perfil i t'esculli al desplegable, apareixerà aquí.</p>
+              </td>
+            </tr>
+          `;
+        }
+
+        app.innerHTML = `
+          <div class="max-w-5xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <button onclick="renderCatalog()" class="text-xs font-bold text-indigo-600 hover:underline mb-1 inline-flex items-center">
+                  <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+                </button>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-users text-indigo-600"></i> Seguiment dels meus Alumnes (${studentsList.length})
+                </h1>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                    <th class="p-3">Alumne/a</th>
+                    <th class="p-3">Centre</th>
+                    <th class="p-3">Puntuació</th>
+                    <th class="p-3">Rang Lector</th>
+                    <th class="p-3 text-center">Lectures Fetes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRowsHTML}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        alert("Error en carregar els teus alumnes: " + err.message);
+        renderCatalog();
       }
     }
 
@@ -334,7 +495,7 @@
               <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
                 <span class="flex items-center gap-2">
                   <i class="fa-solid fa-filter text-amber-600"></i>
-                  ${userRole === 'mestre' ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
+                  ${userRole !== 'alumne' ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
                 </span>
                 <button onclick="toggleMyLectures()" class="text-amber-700 hover:text-amber-900 underline text-xs">Mostrar-ho tot</button>
               </div>
@@ -411,7 +572,7 @@
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
             const canEdit = isAdmin || isAuthor;
 
-            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent de Lectura Aventura';
+            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
             const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
             const authorEmail = data.authorEmail || "";
             const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
@@ -420,7 +581,7 @@
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
 
             if (filterMyLectures && currentUser) {
-              if (userRole === 'mestre') {
+              if (userRole !== 'alumne') {
                 if (data.authorUid !== currentUser.uid) return;
               } else {
                 if (!isCompleted) return;
@@ -548,7 +709,7 @@
 
         const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
         
-        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent de Lectura Aventura';
+        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
         const authorEmail = data.authorEmail || "";
         const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
@@ -782,8 +943,8 @@
       }
 
       const isAdmin = currentUser.email === ADMIN_SUPREMO_EMAIL;
-      if (userRole !== 'mestre' && !isAdmin) {
-        alert("Accés restringit: Només els usuaris amb rol de Mestre/a o Admin puguem gestionar lectures.");
+      if (userRole !== 'docent' && userRole !== 'colaborador' && !isAdmin) {
+        alert("Accés restringit: Només els usuaris amb rol de Docent, Col·laborador/a o Admin poden gestionar lectures.");
         renderCatalog();
         return;
       }
@@ -1006,7 +1167,7 @@
       const content = document.getElementById('editor-content')?.value || '';
       const imageUrl = document.getElementById('editor-image')?.value || '';
 
-      const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Docent");
+      const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Creador/a");
       const authorSchool = userSchool || "";
       const authorEmail = currentUser ? currentUser.email : "";
 
@@ -1032,7 +1193,7 @@
             await qDoc.ref.delete();
           }
         } else {
-          if (currentUser && userRole === 'mestre') {
+          if (currentUser && (userRole === 'docent' || userRole === 'colaborador')) {
             userPoints += 1;
             await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
           }
@@ -1116,7 +1277,8 @@
               <label class="block text-xs font-semibold text-slate-600 mb-1">Soc...</label>
               <select id="reg-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
                 <option value="alumne">🎓 Alumne / Alumna</option>
-                <option value="mestre">👨‍🏫 Mestre / Mestra (Creador/a)</option>
+                <option value="docent">👨‍🏫 Docent (Amb grup d'alumnes)</option>
+                <option value="colaborador">🤝 Col·laborador/a (Lector/a creador/a)</option>
               </select>
             </div>
             <div>
@@ -1185,34 +1347,43 @@
       }
     }
 
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.15.0 --- */
+    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.16.0 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
       const changelogData = [
         {
-          version: "v0.15.0",
+          version: "v0.16.0",
           date: "Actual",
-          title: "Registre de Canvis (Changelog) i Nomenclatura 0.xx",
-          badge: "Fase Beta Activa",
+          title: "Fitxa d'Alumne, Seguiment Docent i Perfil Col·laborador",
+          badge: "Comunitat i Seguiment",
           color: "bg-indigo-100 text-indigo-800 border-indigo-200",
           items: [
+            "Fitxa d'Alumne obligatòria amb nom, centre i selecció del Docent de referència.",
+            "Panell de Seguiment per als Docents ('Els meus Alumnes') per veure punts i lectures realitzades.",
+            "Nova distinció entre el rol 'Docent' (amb gestió d'alumnes) i 'Col·laborador/a' (lector/a creador/a).",
+            "Obertura i edició del perfil personal en fer clic a la cantonada superior dreta."
+          ]
+        },
+        {
+          version: "v0.15.0",
+          date: "Versió anterior",
+          title: "Registre de Canvis (Changelog) i Nomenclatura 0.xx",
+          badge: "Fase Beta Activa",
+          color: "bg-slate-100 text-slate-800 border-slate-200",
+          items: [
             "Implementació del format de versió '0.xx.x' estil desenvolupament de videojocs.",
-            "Afegit el registre d'historial de versions clicable al peu de pàgina.",
-            "Visualització en finestra modal amb totes les millores des de la v0.0.1."
+            "Afegit el registre d'historial de versions clicable al peu de pàgina."
           ]
         },
         {
           version: "v0.14.0",
-          date: "Edició Recent",
+          date: "Versió anterior",
           title: "Atribució en 3 línies fixes",
           badge: "Disseny UI",
           color: "bg-amber-100 text-amber-900 border-amber-200",
           items: [
-            "Reorganització de la caixa d'atribució docent en 3 línies independents.",
-            "Línia 1 amb 'Preguntes de comprensió lectora:' amb P majúscula i text senzill.",
-            "Línia 2 amb el nom del col·laborador/a i escola.",
-            "Línia 3 amb la pegatina/badge del rang docent en una sola línia pròpia."
+            "Reorganització de la caixa d'atribució docent en 3 línies independents."
           ]
         },
         {
@@ -1222,62 +1393,17 @@
           badge: "Gamificació",
           color: "bg-emerald-100 text-emerald-800 border-emerald-200",
           items: [
-            "Opció de triar 1 pt (estàndard) o 2 pts (complexa) per encert al crear una lectura.",
-            "Informació de puntuació visible a la targeta del catàleg i capçalera del lector."
+            "Opció de triar 1 pt o 2 pts per encert al crear una lectura."
           ]
         },
         {
-          version: "v0.12.0",
-          date: "Versió anterior",
-          title: "Ampliació a Secundària (ESO)",
-          badge: "Nivells",
-          color: "bg-purple-100 text-purple-800 border-purple-200",
-          items: [
-            "Afegit el nivell educatiu 'Secundària (ESO)' als filtres i l'editor de lectures."
-          ]
-        },
-        {
-          version: "v0.11.0",
-          date: "Versió anterior",
-          title: "Atribució d'Autor/a Original i Cercador",
-          badge: "Drets d'Autor",
-          color: "bg-blue-100 text-blue-800 border-blue-200",
-          items: [
-            "Registre de l'autor/a original de l'obra i editorial/font legal.",
-            "Filtre dedicat per cercar obres directament pel nom de l'escriptor/a."
-          ]
-        },
-        {
-          version: "v0.10.0",
-          date: "Versió anterior",
-          title: "Rangs Docents Dinàmics",
-          badge: "Gamificació Mestre",
-          color: "bg-teal-100 text-teal-800 border-teal-200",
-          items: [
-            "Nivells de rang per a mestres segons les lectures publicades (des de Novell fins a Mestre Déu Celestial).",
-            "Identificador d'Admin Supremo per al controlador del codi."
-          ]
-        },
-        {
-          version: "v0.9.0",
-          date: "Versió anterior",
-          title: "Filtre 'Les meves lectures'",
-          badge: "Gestió",
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          items: [
-            "Botó ràpid per veure només les lectures creades (mestres) o completades (alumnes)."
-          ]
-        },
-        {
-          version: "v0.1.0 — v0.8.0",
+          version: "v0.1.0 — v0.12.0",
           date: "Versions Inicials",
-          title: "Base de la Plataforma",
+          title: "Base de la Plataforma i Filtres",
           badge: "Core",
           color: "bg-slate-100 text-slate-700 border-slate-200",
           items: [
-            "Integració amb Firebase Auth i Firestore.",
-            "Plataforma dual de lectures curtes i llibres en paper.",
-            "Banner motivacional, rànquing d'alumnes i disseny adaptable amb Tailwind CSS."
+            "Filtres per cicle (ampliat a Secundària/ESO), gèneres, cerca per autor/a de l'obra, gamificació de rangs i connexió amb Firebase."
           ]
         }
       ];
