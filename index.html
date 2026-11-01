@@ -3,45 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v010.2</title>
-  <!-- Tailwind CSS CDN -->
+  <title>Lectura Aventura - v011</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Firebase JS SDK v9 (Compat version) -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
 
-  <!-- NAVEGACIÓ SUPERIOR -->
   <header class="bg-indigo-600 text-white shadow-md">
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-2 cursor-pointer" onclick="resetFiltersAndRenderCatalog()">
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <span class="font-bold text-xl tracking-wide">Lectura Aventura</span>
       </div>
-      <nav id="nav-actions" class="flex items-center space-x-3">
-        <!-- Renderitzat dinàmic -->
-      </nav>
+      <nav id="nav-actions" class="flex items-center space-x-3"></nav>
     </div>
   </header>
 
-  <!-- BARRA MOTIVADORA PERMANENT PER A ALUMNES -->
   <div id="motivation-banner"></div>
 
-  <!-- CONTENIDOR PRINCIPAL -->
-  <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
-    <!-- Vistes dinàmiques -->
-  </main>
+  <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6"></main>
 
   <footer class="bg-slate-800 text-slate-400 text-center py-4 text-sm mt-auto">
     <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
   </footer>
 
   <script>
-    // --- CONFIGURACIÓ DE FIREBASE ---
     const firebaseConfig = {
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
@@ -71,14 +60,13 @@
     let filterMyLectures = false;
     let editingDocId = null;
 
-    // --- VARIABLES GLOBALS DE FILTRATGE ---
     let filterSearch = "";
+    let filterBookAuthor = "";
     let filterType = "all";
     let filterLevel = "all";
     let filterCategory = "all";
     let filterStatus = "all";
 
-    // --- MANEGADOR D'AUTENTICACIÓ I NAVEGACIÓ ---
     auth.onAuthStateChanged(async user => {
       currentUser = user;
       if (user) {
@@ -123,42 +111,25 @@
       }
     }
 
-    // --- RANGS D'ALUMNE ---
     function getRankDetails(points) {
-      if (points >= 1300) {
-        return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
-      } else if (points >= 700) {
-        return { name: "Lector/a d'Or", icon: "fa-trophy", color: "from-amber-300 to-amber-500", text: "text-amber-200" };
-      } else if (points >= 300) {
-        return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
-      } else if (points >= 100) {
-        return { name: "Lector/a de Bronze", icon: "fa-award", color: "from-amber-700 to-amber-900", text: "text-amber-400" };
-      }
+      if (points >= 1300) return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
+      if (points >= 700) return { name: "Lector/a d'Or", icon: "fa-trophy", color: "from-amber-300 to-amber-500", text: "text-amber-200" };
+      if (points >= 300) return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
+      if (points >= 100) return { name: "Lector/a de Bronze", icon: "fa-award", color: "from-amber-700 to-amber-900", text: "text-amber-400" };
       return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    // --- RANGS DE MESTRE (CORREGIT v010.2: SENSE DEPENDRER DE currentUser) ---
     function getTeacherRankDetails(points, email = "") {
-      if (email === ADMIN_SUPREMO_EMAIL) {
-        return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
-      }
-      if (points >= 20) {
-        return { name: "👑 Mestre Déu Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
-      } else if (points >= 15) {
-        return { name: "📚 Mestre de Mestres", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
-      } else if (points >= 10) {
-        return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
-      } else if (points >= 6) {
-        return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
-      } else if (points >= 3) {
-        return { name: "📝 Mestre Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
-      } else if (points >= 1) {
-        return { name: "👨‍🏫 Mestre Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
-      }
+      if (email === ADMIN_SUPREMO_EMAIL) return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
+      if (points >= 20) return { name: "👑 Mestre Déu Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
+      if (points >= 15) return { name: "📚 Mestre de Mestres", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
+      if (points >= 10) return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
+      if (points >= 6) return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
+      if (points >= 3) return { name: "📝 Mestre Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
+      if (points >= 1) return { name: "👨‍🏫 Mestre Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
       return { name: "🎒 Mestre Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
     }
 
-    // --- BANNER MOTIVADOR PERMANENT ---
     function renderBanner() {
       const bannerContainer = document.getElementById('motivation-banner');
       if (!bannerContainer) return;
@@ -169,25 +140,16 @@
         
         let nextRankPoints = 100;
         let nextRankName = "Lector/a de Bronze";
-        if (userPoints >= 100 && userPoints < 300) {
-          nextRankPoints = 300;
-          nextRankName = "Lector/a d'Argent";
-        } else if (userPoints >= 300 && userPoints < 700) {
-          nextRankPoints = 700;
-          nextRankName = "Lector/a d'Or";
-        } else if (userPoints >= 700 && userPoints < 1300) {
-          nextRankPoints = 1300;
-          nextRankName = "Mestre/a de la Lectura";
-        } else if (userPoints >= 1300) {
-          nextRankPoints = userPoints;
-        }
+        if (userPoints >= 100 && userPoints < 300) { nextRankPoints = 300; nextRankName = "Lector/a d'Argent"; }
+        else if (userPoints >= 300 && userPoints < 700) { nextRankPoints = 700; nextRankName = "Lector/a d'Or"; }
+        else if (userPoints >= 700 && userPoints < 1300) { nextRankPoints = 1300; nextRankName = "Mestre/a de la Lectura"; }
+        else if (userPoints >= 1300) { nextRankPoints = userPoints; }
 
         const pointsNeeded = nextRankPoints - userPoints;
 
         bannerContainer.innerHTML = `
           <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 text-white border-b border-indigo-700/50 shadow-inner py-3 px-4">
             <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
-              
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-lg shadow-md border border-white/20">
                   <i class="fa-solid ${rank.icon}"></i>
@@ -215,7 +177,6 @@
                   </span>
                 </div>
               </div>
-
             </div>
           </div>
         `;
@@ -257,9 +218,7 @@
                 <span class="text-xs font-bold text-white tracking-wide">${nameToShow}</span>
                 <span class="bg-amber-400/20 text-amber-300 text-[10px] font-extrabold px-1.5 py-0.5 rounded-md border border-amber-400/30">${userPoints} pts</span>
               </div>
-              <span class="text-[11px] text-amber-300 font-bold leading-none mt-0.5">
-                ${rank.name}
-              </span>
+              <span class="text-[11px] text-amber-300 font-bold leading-none mt-0.5">${rank.name}</span>
             </div>
 
             <button onclick="logout()" title="Tancar Sessió" class="text-indigo-300 hover:text-white hover:bg-indigo-700/50 p-1.5 rounded-lg transition ml-1">
@@ -269,9 +228,7 @@
         `;
       } else {
         nav.innerHTML = `
-          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">
-            Inicia Sessió
-          </button>
+          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">Inicia Sessió</button>
         `;
       }
       renderBanner();
@@ -289,6 +246,7 @@
 
     function resetFiltersAndRenderCatalog() {
       filterSearch = "";
+      filterBookAuthor = "";
       filterType = "all";
       filterLevel = "all";
       filterCategory = "all";
@@ -300,6 +258,7 @@
 
     function applyCatalogFilters() {
       filterSearch = document.getElementById('search-input')?.value.toLowerCase() || '';
+      filterBookAuthor = document.getElementById('author-search-input')?.value.toLowerCase() || '';
       filterType = document.getElementById('type-select')?.value || 'all';
       filterLevel = document.getElementById('level-select')?.value || 'all';
       filterCategory = document.getElementById('category-select')?.value || 'all';
@@ -308,7 +267,6 @@
       renderCatalog();
     }
 
-    // --- FORMULARI / MINI-FITXA DOCENT ---
     function renderTeacherProfileModal() {
       const app = document.getElementById('app');
       app.innerHTML = `
@@ -332,9 +290,7 @@
               <input type="text" id="profile-school" value="${userSchool}" placeholder="Ex: Escola La Renaixença, Osona" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
             </div>
 
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">
-              Desar Fitxa i Continuar
-            </button>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">Desar Fitxa i Continuar</button>
           </form>
         </div>
       `;
@@ -346,14 +302,9 @@
       const school = document.getElementById('profile-school').value;
 
       try {
-        await db.collection("users").doc(currentUser.uid).set({
-          displayName: name,
-          school: school
-        }, { merge: true });
-
+        await db.collection("users").doc(currentUser.uid).set({ displayName: name, school: school }, { merge: true });
         userDisplayName = name;
         userSchool = school;
-
         renderNav();
         renderCatalog();
       } catch (err) {
@@ -361,7 +312,6 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
@@ -382,13 +332,16 @@
               </div>
             ` : ''}
 
-            <!-- BARRA DE FILTRATGE EN 2 FILES -->
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="relative sm:col-span-2">
+                <div class="relative">
                   <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
                   <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <div class="relative">
+                  <i class="fa-solid fa-user-pen absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                  <input type="text" id="author-search-input" value="${filterBookAuthor}" placeholder="Cercar per autor/a de l'obra..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 
                 <div>
@@ -431,7 +384,6 @@
                   </select>
                 </div>
               </div>
-
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -450,14 +402,12 @@
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
             const canEdit = isAdmin || isAuthor;
 
-            const authorText = data.authorDisplayName 
-              ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
-              : 'Docent de Lectura Aventura';
-
-            // CÀLCUL I RECONEIXEMENT DEL RANG DE L'AUTOR/A (v010.2: TOTALMENT DESVINCULAT DE currentUser)
+            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent de Lectura Aventura';
             const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
             const authorEmail = data.authorEmail || "";
-            const authorRank = getTeacherRankDetails(authorPoints, authorEmail);
+            const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+            const bookAuthorName = data.bookAuthor || '';
 
             if (filterMyLectures && currentUser) {
               if (userRole === 'mestre') {
@@ -468,6 +418,7 @@
             }
 
             const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
+            const matchesBookAuthor = !filterBookAuthor || (bookAuthorName.toLowerCase().includes(filterBookAuthor));
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
             const matchesLevel = filterLevel === 'all' || data.level === filterLevel;
             const matchesCategory = filterCategory === 'all' || (data.category || 'General') === filterCategory;
@@ -476,7 +427,7 @@
             if (filterStatus === 'completed') matchesStatus = isCompleted;
             if (filterStatus === 'pending') matchesStatus = !isCompleted;
             
-            if (!matchesSearch || !matchesType || !matchesLevel || !matchesCategory || !matchesStatus) return;
+            if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesStatus) return;
 
             cardCount++;
 
@@ -502,16 +453,22 @@
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   
-                  <!-- AUTOR I RANG DOCENT DESTACAT -->
+                  ${bookAuthorName ? `
+                    <p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5">
+                      <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                      <span>Autor/a de l'obra: <strong class="text-slate-900 font-bold">${bookAuthorName}</strong></span>
+                    </p>
+                  ` : ''}
+
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
-                    <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                      <i class="fa-solid fa-pen-nib text-[11px] text-indigo-500"></i>
-                      <span>Per: <strong class="text-slate-700">${authorText}</strong></span>
+                    <p class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                      <i class="fa-solid fa-chalkboard-user text-[11px] text-indigo-500"></i>
+                      <span>Lectura adaptada per: <strong class="text-slate-700">${teacherText}</strong></span>
                     </p>
                     <div class="flex items-center gap-1.5 pt-0.5">
-                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
-                        <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
-                        ${authorRank.name}
+                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
+                        <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                        ${teacherRank.name}
                       </span>
                     </div>
                   </div>
@@ -560,7 +517,6 @@
       }
     }
 
-    // --- VISTA 2: LECTOR INTERACTIU AMB RANG D'AUTOR/A ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
@@ -576,13 +532,13 @@
 
         const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
         
-        const authorText = data.authorDisplayName 
-          ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
-          : 'Docent de Lectura Aventura';
-
+        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent de Lectura Aventura';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
         const authorEmail = data.authorEmail || "";
-        const authorRank = getTeacherRankDetails(authorPoints, authorEmail);
+        const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+        const bookAuthorName = data.bookAuthor || '';
+        const editorialOrSource = data.editorialOrSource || '';
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -643,29 +599,60 @@
                   <i class="fa-solid fa-book text-4xl"></i>
                 </div>
               `}
-              <div>
-                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block mb-2">Qüestionari de Llibre</span>
-                <h2 class="text-lg font-bold text-slate-800">${data.title}</h2>
-                <div class="flex items-center gap-2 mt-2">
-                  <span class="text-xs text-slate-500">Creat per: <strong>${authorText}</strong></span>
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
-                    <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
-                    ${authorRank.name}
+              <div class="space-y-2">
+                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
+                <h2 class="text-xl font-bold text-slate-800">${data.title}</h2>
+                
+                ${bookAuthorName ? `
+                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
+                  </p>
+                ` : ''}
+
+                ${editorialOrSource ? `
+                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-columns text-slate-400"></i>
+                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
+                  </p>
+                ` : ''}
+
+                <div class="flex items-center gap-2 pt-2 border-t border-indigo-100">
+                  <span class="text-xs text-slate-500">Lectura adaptada per: <strong>${teacherText}</strong></span>
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
+                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                    ${teacherRank.name}
                   </span>
                 </div>
-                <p class="text-sm text-slate-600 mt-2">Respon a les següents preguntes sobre la lectura que has realitzat en paper.</p>
               </div>
             </div>
           `;
         } else {
           headerContentHTML = `
-            <div class="flex items-center gap-2 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100 w-fit">
-              <span class="text-xs text-slate-500 font-medium">✍️ Publicat per: <strong class="text-slate-700">${authorText}</strong></span>
-              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
-                <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
-                ${authorRank.name}
-              </span>
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-2">
+              ${bookAuthorName ? `
+                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
+                </p>
+              ` : ''}
+
+              ${editorialOrSource ? `
+                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
+                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
+                </p>
+              ` : ''}
+
+              <div class="flex items-center gap-2 pt-2 border-t border-slate-200">
+                <span class="text-xs text-slate-500 font-medium">✍️ Adaptat per: <strong class="text-slate-700">${teacherText}</strong></span>
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
+                  <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                  ${teacherRank.name}
+                </span>
+              </div>
             </div>
+
             <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
               ${data.content}
             </div>
@@ -688,7 +675,6 @@
       }
     }
 
-    // --- SUBMIT QUIZ ---
     async function submitQuiz(e, docId) {
       e.preventDefault();
       const form = e.target;
@@ -702,9 +688,7 @@
         const q = qDoc.data();
         const selected = parseInt(formData.get(`q_${qDoc.id}`));
         const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
-        if (selected === correct) {
-          score++;
-        }
+        if (selected === correct) score++;
       });
 
       const newQuizPoints = score * 10;
@@ -714,9 +698,7 @@
       if (currentUser) {
         try {
           const userDoc = await db.collection("users").doc(currentUser.uid).get();
-          if (userDoc.exists) {
-            userScores = userDoc.data().scores || {};
-          }
+          if (userDoc.exists) userScores = userDoc.data().scores || {};
         } catch (err) {
           console.warn("Error llegint puntuacions anteriors:", err);
         }
@@ -731,9 +713,7 @@
         userPoints += pointsToAdd;
       }
 
-      if (!userCompletedReadings.includes(docId)) {
-        userCompletedReadings.push(docId);
-      }
+      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
 
       if (currentUser) {
         try {
@@ -758,13 +738,12 @@
       } else if (newQuizPoints === maxPossiblePoints) {
         alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
       } else {
-        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat. Segueix intentant-ho per superar-te!`);
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat.`);
       }
 
       renderCatalog();
     }
 
-    // --- VISTA 3: EDITOR I CREADOR DE LECTURES ---
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
         renderLogin();
@@ -785,6 +764,8 @@
       let initialData = {
         type: 'text',
         title: '',
+        bookAuthor: '',
+        editorialOrSource: '',
         level: 'Cicle Inicial',
         category: 'Aventura',
         content: '',
@@ -799,9 +780,7 @@
           if (docSnap.exists) {
             initialData = docSnap.data();
             const qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
-            qSnap.forEach(qDoc => {
-              initialQuestions.push({ id: qDoc.id, ...qDoc.data() });
-            });
+            qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
           }
         } catch (err) {
           console.error("Error carregant la lectura a editar:", err);
@@ -829,6 +808,24 @@
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
               <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
+              <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-feather-pointed"></i> Dades d'Atribució i Drets d'Autor
+              </h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
+                  <input type="text" id="editor-book-author" value="${initialData.bookAuthor || ''}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+
+                <div>
+                  <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
+                  <input type="text" id="editor-source" value="${initialData.editorialOrSource || ''}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+              </div>
             </div>
 
             <div>
@@ -897,15 +894,18 @@
       const wrapContent = document.getElementById('wrapper-content');
       const wrapImage = document.getElementById('wrapper-image');
       const contentInput = document.getElementById('editor-content');
+      const labelSource = document.getElementById('label-editorial-source');
 
       if (type === 'book') {
         wrapContent.classList.add('hidden');
         if (contentInput) contentInput.removeAttribute('required');
         wrapImage.classList.remove('hidden');
+        if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
       } else {
         wrapContent.classList.remove('hidden');
         if (contentInput) contentInput.setAttribute('required', 'true');
         wrapImage.classList.add('hidden');
+        if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
       }
     }
 
@@ -951,11 +951,12 @@
       container.appendChild(qDiv);
     }
 
-    // --- GUARDAR O ACTUALITZAR LECTURA PRESERVANT L'AUTORIA ORIGINAL (v010.2) ---
     async function saveReading(e) {
       e.preventDefault();
       const type = document.getElementById('editor-type')?.value || 'text';
       const title = document.getElementById('editor-title').value;
+      const bookAuthor = document.getElementById('editor-book-author')?.value || '';
+      const editorialOrSource = document.getElementById('editor-source')?.value || '';
       const level = document.getElementById('editor-level').value;
       const category = document.getElementById('editor-category')?.value || 'General';
       const content = document.getElementById('editor-content')?.value || '';
@@ -972,6 +973,8 @@
           await db.collection(DB_COLLECTION).doc(editingDocId).update({
             type: type,
             title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
             level: level,
             category: category,
             content: content,
@@ -986,14 +989,14 @@
         } else {
           if (currentUser && userRole === 'mestre') {
             userPoints += 1;
-            await db.collection("users").doc(currentUser.uid).set({
-              points: userPoints
-            }, { merge: true });
+            await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
           }
 
           const docRef = await db.collection(DB_COLLECTION).add({
             type: type,
             title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
             level: level,
             category: category,
             content: content,
@@ -1041,18 +1044,13 @@
       }
     }
 
-    // --- VISTA 4: LOGIN / REGISTRE ---
     function renderLogin() {
       const app = document.getElementById('app');
       app.innerHTML = `
         <div class="max-w-md mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           <div class="flex border-b border-slate-200 mb-6">
-            <button id="tab-login" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm">
-              Inicia Sessió
-            </button>
-            <button id="tab-register" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600">
-              Crear Compte
-            </button>
+            <button id="tab-login" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm">Inicia Sessió</button>
+            <button id="tab-register" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600">Crear Compte</button>
           </div>
 
           <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
