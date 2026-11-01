@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v008</title>
+  <title>Lectura Aventura - v009</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -124,7 +124,7 @@
       }
     }
 
-    // --- RANGS D'ALUMNE (Ajustats V008) ---
+    // --- RANGS D'ALUMNE ---
     function getRankDetails(points) {
       if (points >= 1300) {
         return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
@@ -138,7 +138,7 @@
       return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    // --- RANGS DE MESTRE (Ajustats & Reordenats V008) ---
+    // --- RANGS DE MESTRE ---
     function getTeacherRankDetails(points) {
       if (currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) {
         return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", color: "from-purple-600 to-pink-600" };
@@ -233,8 +233,8 @@
         const nameToShow = userDisplayName || currentUser.email.split('@')[0];
 
         nav.innerHTML = `
-          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900' : 'bg-indigo-700 hover:bg-indigo-800 text-white'} font-semibold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
-            <i class="fa-solid fa-bookmark"></i>
+          <button onclick="toggleMyLectures()" class="${filterMyLectures ? 'bg-amber-300 text-slate-900 font-bold' : 'bg-indigo-700 hover:bg-indigo-800 text-white font-semibold'} px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid ${filterMyLectures ? 'fa-filter-circle-xmark' : 'fa-bookmark'}"></i>
             <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
 
@@ -294,6 +294,8 @@
       filterLevel = "all";
       filterCategory = "all";
       filterStatus = "all";
+      filterMyLectures = false;
+      renderNav();
       renderCatalog();
     }
 
@@ -360,15 +362,20 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES AMB AUTOR PÚBLIC ---
+    // --- VISTA 1: CATÀLEG DE LECTURES AMB FILTRATGE ADAPTAT (v009) ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
       try {
         let query = db.collection(DB_COLLECTION);
+        
+        // FILTRE SEGONS ROL PER AL BOTÓ «LES MEVES LECTURES»
         if (filterMyLectures && currentUser) {
-          query = query.where("authorUid", "==", currentUser.uid);
+          if (userRole === 'mestre') {
+            // Filtre Firestore directament per autor
+            query = query.where("authorUid", "==", currentUser.uid);
+          }
         }
         
         const snapshot = await query.orderBy('createdAt', 'desc').get();
@@ -376,6 +383,17 @@
         let html = `
           <div class="max-w-6xl mx-auto space-y-6">
             
+            <!-- INDICADOR SI EL FILTRE RÀPID ESTÀ ACTIU -->
+            ${filterMyLectures ? `
+              <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
+                <span class="flex items-center gap-2">
+                  <i class="fa-solid fa-filter text-amber-600"></i>
+                  ${userRole === 'mestre' ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
+                </span>
+                <button onclick="toggleMyLectures()" class="text-amber-700 hover:text-amber-900 underline text-xs">Mostrar-ho tot</button>
+              </div>
+            ` : ''}
+
             <!-- BARRA DE FILTRATGE EN 2 FILES -->
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               
@@ -450,7 +468,12 @@
               ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
               : 'Docent de Lectura Aventura';
 
-            // Comprovacions de filtre
+            // COMPROVACIÓ PER ALS ALUMNES QUAN ACTIVEN «LES MEVES LECTURES»
+            if (filterMyLectures && userRole !== 'mestre' && !isCompleted) {
+              return; // Omet les lectures no fets si l'alumne demana veure les seves
+            }
+
+            // Comprovacions de filtre estàndard
             const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
             const matchesLevel = filterLevel === 'all' || data.level === filterLevel;
