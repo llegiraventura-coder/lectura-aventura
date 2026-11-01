@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v009</title>
+  <title>Lectura Aventura - v009.1</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -362,23 +362,15 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES AMB FILTRATGE ADAPTAT (v009) ---
+    // --- VISTA 1: CATÀLEG DE LECTURES AMB FILTRATGE EN MEMÒRIA (v009.1) ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
       try {
-        let query = db.collection(DB_COLLECTION);
-        
-        // FILTRE SEGONS ROL PER AL BOTÓ «LES MEVES LECTURES»
-        if (filterMyLectures && currentUser) {
-          if (userRole === 'mestre') {
-            // Filtre Firestore directament per autor
-            query = query.where("authorUid", "==", currentUser.uid);
-          }
-        }
-        
-        const snapshot = await query.orderBy('createdAt', 'desc').get();
+        // Carreguem directament per data de creació sense fer query.where()
+        // per evitar requerir un índex compost de Firestore
+        const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
         
         let html = `
           <div class="max-w-6xl mx-auto space-y-6">
@@ -468,9 +460,13 @@
               ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
               : 'Docent de Lectura Aventura';
 
-            // COMPROVACIÓ PER ALS ALUMNES QUAN ACTIVEN «LES MEVES LECTURES»
-            if (filterMyLectures && userRole !== 'mestre' && !isCompleted) {
-              return; // Omet les lectures no fets si l'alumne demana veure les seves
+            // COMPROVACIÓ PER AL FILTRE «LES MEVES LECTURES» EN MEMÒRIA (SENSE DISSENY DE FIRESTORE INDEX)
+            if (filterMyLectures && currentUser) {
+              if (userRole === 'mestre') {
+                if (data.authorUid !== currentUser.uid) return; // Omet si no és creada per aquest mestre
+              } else {
+                if (!isCompleted) return; // Omet si l'alumne no l'ha completat
+              }
             }
 
             // Comprovacions de filtre estàndard
@@ -954,7 +950,7 @@
         let docId = editingDocId;
 
         if (editingDocId) {
-          // ACTUALITZACIÓ: NOMÉS S'ACTUALITZEN ELS CAMPS DE CONTINGUT (SENSE TOCAR L'AUTOR ORIGINAL)
+          // ACTUALITZACIÓ: NOMÉS S'ACTUALITZEN ELS CAMPS DE CONTINGUT (SENSE TOCAR L meves L'AUTOR ORIGINAL)
           await db.collection(DB_COLLECTION).doc(editingDocId).update({
             type: type,
             title: title,
