@@ -66,7 +66,7 @@
     let userCompletedReadings = [];
     let userDisplayName = "";
     let userSchool = "";
-    let userTeacherUid = ""; // UID del docent assignat per a l'alumne
+    let userTeacherUid = ""; 
     let filterMyLectures = false;
     let editingDocId = null;
 
@@ -106,7 +106,6 @@
         if (doc.exists) {
           const data = doc.data();
           userPoints = data.points !== undefined ? data.points : 0;
-          // Adaptació retrocompatible: mestre passa a docent
           let role = data.role || 'alumne';
           if (role === 'mestre') role = 'docent';
           userRole = role;
@@ -294,14 +293,17 @@
       let docentsList = [];
       if (userRole === 'alumne') {
         try {
-          const docentsSnap = await db.collection("users").where("role", "==", "docent").get();
-          docentsSnap.forEach(d => {
+          const usersSnap = await db.collection("users").get();
+          usersSnap.forEach(d => {
             const data = d.data();
-            docentsList.push({
-              uid: d.id,
-              name: data.displayName || data.email,
-              school: data.school || ""
-            });
+            const role = data.role;
+            if (role === 'docent' || role === 'mestre' || d.id === currentUser?.uid) {
+              docentsList.push({
+                uid: d.id,
+                name: data.displayName || data.email || "Docent",
+                school: data.school || ""
+              });
+            }
           });
         } catch(err) {
           console.warn("Error carregant llista de docents:", err);
@@ -344,7 +346,7 @@
                   <label class="block text-xs font-bold text-slate-700 mb-1">El teu Docent de Referència</label>
                   <select id="profile-teacher-uid" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-semibold text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500">
                     <option value="">-- Selecciona el teu Docent (Opcional) --</option>
-                    ${docentsList.map(d => `<option value="${d.uid}" ${userTeacherUid === d.uid ? 'selected' : ''}>${d.name} ${d.school ? '(' + d.school + ')' : ''}</option>`).join('')}
+                    ${docentsList.length > 0 ? docentsList.map(d => `<option value="${d.uid}" ${userTeacherUid === d.uid ? 'selected' : ''}>${d.name} ${d.school ? '(' + d.school + ')' : ''}</option>`).join('') : '<option value="" disabled>Cap docent registrat actualment</option>'}
                   </select>
                 </div>
               ` : ''}
@@ -437,7 +439,7 @@
             <tr>
               <td colspan="5" class="p-8 text-center text-slate-500">
                 <i class="fa-solid fa-user-slash text-3xl text-slate-300 mb-2"></i>
-                <p class="font-bold">Encara no cap alumne t'ha seleccionat com a docent.</p>
+                <p class="font-bold">Encara cap alumne t'ha seleccionat com a docent.</p>
                 <p class="text-xs text-slate-400 mt-1">Quan un alumne configuri el seu perfil i t'esculli al desplegable, apareixerà aquí.</p>
               </td>
             </tr>
@@ -1355,11 +1357,12 @@
         {
           version: "v0.16.0",
           date: "Actual",
-          title: "Fitxa d'Alumne, Seguiment Docent i Perfil Col·laborador",
+          title: "Fitxa d'Alumne, Cerca de Docents i Perfil Col·laborador",
           badge: "Comunitat i Seguiment",
           color: "bg-indigo-100 text-indigo-800 border-indigo-200",
           items: [
             "Fitxa d'Alumne obligatòria amb nom, centre i selecció del Docent de referència.",
+            "Desplegable de docents adaptable amb suport per a comptes 'mestre' i 'docent'.",
             "Panell de Seguiment per als Docents ('Els meus Alumnes') per veure punts i lectures realitzades.",
             "Nova distinció entre el rol 'Docent' (amb gestió d'alumnes) i 'Col·laborador/a' (lector/a creador/a).",
             "Obertura i edició del perfil personal en fer clic a la cantonada superior dreta."
