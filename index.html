@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v015</title>
+  <title>Lectura Aventura - v0.15.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,7 +31,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogModal()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v015 — Historial de versions</span>
+        <span>v0.15.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -1185,24 +1185,25 @@
       }
     }
 
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v015 --- */
+    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.15.0 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
       const changelogData = [
         {
-          version: "v015",
+          version: "v0.15.0",
           date: "Actual",
-          title: "Registre de Canvis (Changelog)",
-          badge: "Nova funcionalitat",
+          title: "Registre de Canvis (Changelog) i Nomenclatura 0.xx",
+          badge: "Fase Beta Activa",
           color: "bg-indigo-100 text-indigo-800 border-indigo-200",
           items: [
+            "Implementació del format de versió '0.xx.x' estil desenvolupament de videojocs.",
             "Afegit el registre d'historial de versions clicable al peu de pàgina.",
-            "Visualització en finestra modal amb totes les millores des de la v001."
+            "Visualització en finestra modal amb totes les millores des de la v0.0.1."
           ]
         },
         {
-          version: "v014",
+          version: "v0.14.0",
           date: "Edició Recent",
           title: "Atribució en 3 línies fixes",
           badge: "Disseny UI",
@@ -1215,7 +1216,7 @@
           ]
         },
         {
-          version: "v013",
+          version: "v0.13.0",
           date: "Versió anterior",
           title: "Puntuació configurable per pregunta",
           badge: "Gamificació",
@@ -1226,7 +1227,7 @@
           ]
         },
         {
-          version: "v012",
+          version: "v0.12.0",
           date: "Versió anterior",
           title: "Ampliació a Secundària (ESO)",
           badge: "Nivells",
@@ -1236,7 +1237,7 @@
           ]
         },
         {
-          version: "v011",
+          version: "v0.11.0",
           date: "Versió anterior",
           title: "Atribució d'Autor/a Original i Cercador",
           badge: "Drets d'Autor",
@@ -1247,7 +1248,7 @@
           ]
         },
         {
-          version: "v010",
+          version: "v0.10.0",
           date: "Versió anterior",
           title: "Rangs Docents Dinàmics",
           badge: "Gamificació Mestre",
@@ -1258,7 +1259,7 @@
           ]
         },
         {
-          version: "v009",
+          version: "v0.9.0",
           date: "Versió anterior",
           title: "Filtre 'Les meves lectures'",
           badge: "Gestió",
@@ -1268,7 +1269,7 @@
           ]
         },
         {
-          version: "v001 — v008",
+          version: "v0.1.0 — v0.8.0",
           date: "Versions Inicials",
           title: "Base de la Plataforma",
           badge: "Core",
@@ -1298,14 +1299,14 @@
 
       container.innerHTML = `
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white max-w-xl w-full rounded-2xl shadow-xl border border-slate-200 flex flex-col max-h-[85vh] overflow-hidden animate-fadeIn">
+          <div class="bg-white max-w-xl w-full rounded-2xl shadow-xl border border-slate-200 flex flex-col max-h-[85vh] overflow-hidden">
             
             <div class="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div class="flex items-center space-x-2">
                 <i class="fa-solid fa-code-branch text-indigo-600 text-xl"></i>
                 <div>
-                  <h3 class="font-bold text-slate-800 text-lg leading-tight">Historial de Versions</h3>
-                  <p class="text-xs text-slate-500">Registre de millores d'aquesta plataforma</p>
+                  <h3 class="font-bold text-slate-800 text-lg leading-tight">Historial de Versions (Changelog)</h3>
+                  <p class="text-xs text-slate-500">Desenvolupament actiu de Lectura Aventura (Fase Beta)</p>
                 </div>
               </div>
               <button onclick="closeChangelogModal()" class="w-8 h-8 rounded-xl bg-slate-200/60 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
