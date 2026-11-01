@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v011</title>
+  <title>Lectura Aventura - v012</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -360,6 +360,7 @@
                     <option value="Cicle Inicial" ${filterLevel === 'Cicle Inicial' ? 'selected' : ''}>Cicle Inicial</option>
                     <option value="Cicle Mitjà" ${filterLevel === 'Cicle Mitjà' ? 'selected' : ''}>Cicle Mitjà</option>
                     <option value="Cicle Superior" ${filterLevel === 'Cicle Superior' ? 'selected' : ''}>Cicle Superior</option>
+                    <option value="Secundària" ${filterLevel === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
                   </select>
                 </div>
 
@@ -460,10 +461,11 @@
                     </p>
                   ` : ''}
 
+                  <!-- ATRIBUCIÓ DINÀMICA AL CATÀLEG (v012) -->
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <p class="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
                       <i class="fa-solid fa-chalkboard-user text-[11px] text-indigo-500"></i>
-                      <span>Lectura adaptada per: <strong class="text-slate-700">${teacherText}</strong></span>
+                      <span>${isBook ? 'Preguntes de comprensió lectora per:' : 'Lectura adaptada per:'} <strong class="text-slate-700">${teacherText}</strong></span>
                     </p>
                     <div class="flex items-center gap-1.5 pt-0.5">
                       <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
@@ -617,8 +619,9 @@
                   </p>
                 ` : ''}
 
+                <!-- TEXT DE PREGUNTES DE COMPRENSIÓ LECTORA PER (v012) -->
                 <div class="flex items-center gap-2 pt-2 border-t border-indigo-100">
-                  <span class="text-xs text-slate-500">Lectura adaptada per: <strong>${teacherText}</strong></span>
+                  <span class="text-xs text-slate-500">Preguntes de comprensió lectora per: <strong>${teacherText}</strong></span>
                   <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
                     <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
                     ${teacherRank.name}
@@ -645,7 +648,7 @@
               ` : ''}
 
               <div class="flex items-center gap-2 pt-2 border-t border-slate-200">
-                <span class="text-xs text-slate-500 font-medium">✍️ Adaptat per: <strong class="text-slate-700">${teacherText}</strong></span>
+                <span class="text-xs text-slate-500 font-medium">✍️ Lectura adaptada per: <strong class="text-slate-700">${teacherText}</strong></span>
                 <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
                   <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
                   ${teacherRank.name}
@@ -834,6 +837,7 @@
                 <option value="Cicle Inicial" ${initialData.level === 'Cicle Inicial' ? 'selected' : ''}>Cicle Inicial</option>
                 <option value="Cicle Mitjà" ${initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>Cicle Mitjà</option>
                 <option value="Cicle Superior" ${initialData.level === 'Cicle Superior' ? 'selected' : ''}>Cicle Superior</option>
+                <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
               </select>
             </div>
 
