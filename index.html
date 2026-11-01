@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.17.0</title>
+  <title>Lectura Aventura - v0.18.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,7 +31,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogModal()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.17.0 — Historial de versions</span>
+        <span>v0.18.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -205,6 +205,7 @@
       if (currentUser) {
         const isCreator = userRole === 'docent' || userRole === 'colaborador';
         const isDocent = userRole === 'docent';
+        const isAlumne = userRole === 'alumne';
         const rank = isCreator ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
         const nameToShow = userDisplayName || currentUser.email.split('@')[0];
 
@@ -213,6 +214,13 @@
             <i class="fa-solid ${filterMyLectures ? 'fa-filter-circle-xmark' : 'fa-bookmark'}"></i>
             <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
+
+          ${isAlumne ? `
+            <button onclick="renderStudentLeaderboard()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-md transform hover:scale-105">
+              <i class="fa-solid fa-trophy text-amber-900"></i>
+              <span class="hidden md:inline">Classificació</span>
+            </button>
+          ` : ''}
 
           ${isDocent ? `
             <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
@@ -388,6 +396,175 @@
         renderCatalog();
       } catch (err) {
         alert("Error en desar la fitxa: " + err.message);
+      }
+    }
+
+    /* --- CLASSIFICACIÓ D'ALUMNES PER AL GRUP DEL DOCENT (v0.18.0) --- */
+    async function renderStudentLeaderboard() {
+      if (userRole !== 'alumne') return;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació del teu grup...</p></div>`;
+
+      if (!userTeacherUid) {
+        app.innerHTML = `
+          <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
+              <i class="fa-solid fa-user-slash"></i>
+            </div>
+            <h2 class="text-xl font-bold text-slate-800">Sens docent assignat</h2>
+            <p class="text-sm text-slate-600 leading-relaxed">
+              Per veure la classificació i formar part del ranking de la teva classe, necessites seleccionar el teu <strong>Docent de referència</strong> al teu perfil.
+            </p>
+            <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
+              Seleccionar el meu Docent
+            </button>
+          </div>
+        `;
+        return;
+      }
+
+      try {
+        // Carreguem les dades del docent assignat
+        let teacherName = "el teu Docent";
+        let teacherSchool = "";
+        const teacherDoc = await db.collection("users").doc(userTeacherUid).get();
+        if (teacherDoc.exists) {
+          const tData = teacherDoc.data();
+          teacherName = tData.displayName || tData.email || "el teu Docent";
+          teacherSchool = tData.school || "";
+        }
+
+        // Carreguem els alumnes del docent
+        const studentsSnap = await db.collection("users")
+          .where("role", "==", "alumne")
+          .where("teacherUid", "==", userTeacherUid)
+          .get();
+
+        let classmates = [];
+        studentsSnap.forEach(doc => {
+          classmates.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Ordenem de més a menys punts
+        classmates.sort((a, b) => (b.points || 0) - (a.points || 0));
+
+        // Podi (Top 3)
+        const top1 = classmates[0];
+        const top2 = classmates[1];
+        const top3 = classmates[2];
+
+        let tableRowsHTML = '';
+        classmates.forEach((st, idx) => {
+          const pts = st.points || 0;
+          const rank = getRankDetails(pts);
+          const completedCount = (st.completedReadings || []).length;
+          const isMe = st.id === currentUser.uid;
+
+          let posBadge = `<span class="font-mono font-bold text-slate-500">#${idx + 1}</span>`;
+          if (idx === 0) posBadge = `<span class="text-lg">🥇</span>`;
+          if (idx === 1) posBadge = `<span class="text-lg">🥈</span>`;
+          if (idx === 2) posBadge = `<span class="text-lg">🥉</span>`;
+
+          tableRowsHTML += `
+            <tr class="border-b border-slate-100 transition ${isMe ? 'bg-amber-50/80 font-bold border-amber-200' : 'hover:bg-slate-50'}">
+              <td class="p-3 text-center">${posBadge}</td>
+              <td class="p-3 flex items-center space-x-2">
+                <span class="text-slate-800 ${isMe ? 'text-indigo-900 font-extrabold' : ''}">${st.displayName || st.email}</span>
+                ${isMe ? `<span class="text-[10px] bg-indigo-600 text-white font-extrabold px-2 py-0.5 rounded-full">Tu</span>` : ''}
+              </td>
+              <td class="p-3">
+                <span class="text-xs font-bold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
+                  ${pts} PTS
+                </span>
+              </td>
+              <td class="p-3">
+                <span class="text-xs font-semibold text-indigo-900 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
+                  <i class="fa-solid ${rank.icon}"></i> ${rank.name}
+                </span>
+              </td>
+              <td class="p-3 text-center text-xs font-bold text-slate-600">
+                ${completedCount}
+              </td>
+            </tr>
+          `;
+        });
+
+        app.innerHTML = `
+          <div class="max-w-4xl mx-auto space-y-6">
+            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div>
+                  <button onclick="renderCatalog()" class="text-xs font-bold text-indigo-600 hover:underline mb-1 inline-flex items-center">
+                    <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+                  </button>
+                  <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-trophy text-amber-500"></i> Classificació del Grup
+                  </h1>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    Grup de <strong class="text-slate-700">${teacherName}</strong> ${teacherSchool ? '(' + teacherSchool + ')' : ''}
+                  </p>
+                </div>
+              </div>
+
+              <!-- PODI DESTACAT -->
+              ${classmates.length >= 1 ? `
+                <div class="grid grid-cols-3 gap-3 py-4 border-b border-slate-100 items-end text-center">
+                  <!-- Segon Lloc (Argent) -->
+                  <div class="flex flex-col items-center">
+                    ${top2 ? `
+                      <div class="w-12 h-12 bg-slate-200 text-slate-700 rounded-full flex items-center justify-center text-xl font-bold shadow mb-2 border-2 border-slate-300">
+                        🥈
+                      </div>
+                      <span class="text-xs font-bold text-slate-800 line-clamp-1">${top2.displayName || top2.email}</span>
+                      <span class="text-[11px] text-amber-700 font-extrabold">${top2.points || 0} pts</span>
+                    ` : '<div class="h-12"></div>'}
+                  </div>
+
+                  <!-- Primer Lloc (Or) -->
+                  <div class="flex flex-col items-center -mt-4">
+                    <div class="w-16 h-16 bg-amber-300 text-amber-900 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg mb-2 border-4 border-amber-400 transform scale-110">
+                      🥇
+                    </div>
+                    <span class="text-sm font-extrabold text-slate-900 line-clamp-1">${top1.displayName || top1.email}</span>
+                    <span class="text-xs text-amber-800 font-black bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">${top1.points || 0} pts</span>
+                  </div>
+
+                  <!-- Tercer Lloc (Bronze) -->
+                  <div class="flex flex-col items-center">
+                    ${top3 ? `
+                      <div class="w-12 h-12 bg-amber-700/20 text-amber-900 rounded-full flex items-center justify-center text-xl font-bold shadow mb-2 border-2 border-amber-600/40">
+                        🥉
+                      </div>
+                      <span class="text-xs font-bold text-slate-800 line-clamp-1">${top3.displayName || top3.email}</span>
+                      <span class="text-[11px] text-amber-700 font-extrabold">${top3.points || 0} pts</span>
+                    ` : '<div class="h-12"></div>'}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- TAULA COMPLETA -->
+              <div class="overflow-x-auto pt-2">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                      <th class="p-3 text-center w-12">Pos</th>
+                      <th class="p-3">Alumne/a</th>
+                      <th class="p-3">Puntuació</th>
+                      <th class="p-3">Rang Lector</th>
+                      <th class="p-3 text-center">Lectures</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableRowsHTML}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        alert("Error en carregar la classificació: " + err.message);
+        renderCatalog();
       }
     }
 
@@ -1367,47 +1544,46 @@
       }
     }
 
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.17.0 --- */
+    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.18.0 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
       const changelogData = [
         {
-          version: "v0.17.0",
+          version: "v0.18.0",
           date: "Actual",
+          title: "Classificació i Ranking de Grup per a Alumnes",
+          badge: "Gamificació",
+          color: "bg-amber-100 text-amber-800 border-amber-200",
+          items: [
+            "Botó 'Classificació' a la capçalera exclusiu per a alumnes.",
+            "Pantalla de ranking de grup amb podi destacat (🥇, 🥈, 🥉) per als 3 primers lectors.",
+            "Llistat ordenat per puntuació amb ressaltat del propi perfil de l'alumne.",
+            "Detecció automàtica del grup de classe segons el docent de referència assignat."
+          ]
+        },
+        {
+          version: "v0.17.0",
+          date: "Versió anterior",
           title: "Manifest i Benvinguda Col·laborativa",
-          badge: "Acollida i Comunitat",
+          badge: "Acollida",
           color: "bg-indigo-100 text-indigo-800 border-indigo-200",
           items: [
-            "Inclusió del manifest i text d'acollida pedagògic a la pantalla de creació de compte.",
-            "Presentació dels objectius col·laboratius i descripció clara dels tres rols (Alumne, Docent i Col·laborador/a)."
+            "Manifest i text d'acollida pedagògic a la pantalla de creació de compte."
           ]
         },
         {
           version: "v0.16.0",
           date: "Versió anterior",
-          title: "Fitxa d'Alumne, Cerca de Docents i Perfil Col·laborador",
-          badge: "Comunitat i Seguiment",
+          title: "Fitxa d'Alumne i Perfils d'Usuari",
+          badge: "Comunitat",
           color: "bg-slate-100 text-slate-800 border-slate-200",
           items: [
-            "Fitxa d'Alumne amb selecció de docent de referència.",
-            "Panell de Seguiment per als Docents ('Els meus Alumnes') per veure punts i lectures realitzades.",
-            "Distinció entre el rol 'Docent' i 'Col·laborador/a'."
+            "Fitxa d'Alumne amb selecció de docent de referència i Panell de Seguiment."
           ]
         },
         {
-          version: "v0.15.0",
-          date: "Versió anterior",
-          title: "Registre de Canvis (Changelog) i Nomenclatura 0.xx",
-          badge: "Fase Beta Activa",
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          items: [
-            "Implementació del format de versió '0.xx.x' estil desenvolupament de videojocs.",
-            "Afegit el registre d'historial de versions clicable al peu de pàgina."
-          ]
-        },
-        {
-          version: "v0.1.0 — v0.14.0",
+          version: "v0.1.0 — v0.15.0",
           date: "Versions Inicials",
           title: "Base de la Plataforma i Filtres",
           badge: "Core",
