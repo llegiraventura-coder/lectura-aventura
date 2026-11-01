@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v013</title>
+  <title>Lectura Aventura - v014</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -465,14 +465,17 @@
                     </p>
                   ` : ''}
 
-                  <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5">
-                    <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                      <i class="fa-solid fa-chalkboard-user text-indigo-500"></i>
+                  <!-- ATRIBUCIÓ EN 3 LÍNIES (P majúscula + Rang en línia independent) -->
+                  <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                    <span class="block text-xs text-slate-500 flex items-center gap-1">
+                      <i class="fa-solid fa-chalkboard-user text-indigo-500 text-[11px]"></i>
                       ${isBook ? 'Preguntes de comprensió lectora:' : 'Lectura adaptada:'}
                     </span>
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <strong class="text-xs text-slate-800 font-bold">${teacherText}</strong>
-                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 w-fit ${teacherRank.badgeBg}">
+                    <div class="text-xs text-slate-800 font-bold">
+                      ${teacherText}
+                    </div>
+                    <div class="pt-0.5">
+                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
                         <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
                         ${teacherRank.name}
                       </span>
@@ -632,11 +635,12 @@
                   </p>
                 ` : ''}
 
+                <!-- ATRIBUCIÓ EN 3 LÍNIES AL LECTOR -->
                 <div class="pt-2 border-t border-indigo-100 space-y-1">
-                  <span class="block text-xs text-slate-400 font-bold uppercase tracking-wider">Preguntes de comprensió lectora:</span>
-                  <div class="flex items-center gap-2">
-                    <strong class="text-sm text-slate-800">${teacherText}</strong>
-                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
+                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
+                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                  <div class="pt-0.5">
+                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
                       <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
                       ${teacherRank.name}
                     </span>
@@ -663,10 +667,10 @@
               ` : ''}
 
               <div class="pt-2 border-t border-slate-200 space-y-1">
-                <span class="block text-xs text-slate-400 font-bold uppercase tracking-wider">Lectura adaptada:</span>
-                <div class="flex items-center gap-2">
-                  <strong class="text-sm text-slate-800">${teacherText}</strong>
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${teacherRank.badgeBg}">
+                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
+                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                <div class="pt-0.5">
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
                     <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
                     ${teacherRank.name}
                   </span>
