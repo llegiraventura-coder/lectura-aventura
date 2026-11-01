@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v009.1</title>
+  <title>Lectura Aventura - v010</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -93,7 +93,6 @@
       }
       renderNav();
       
-      // Si és mestre i no té la fitxa omplerta, obrir el formulari de perfil
       if (currentUser && userRole === 'mestre' && (!userDisplayName || !userSchool)) {
         renderTeacherProfileModal();
       } else {
@@ -138,25 +137,25 @@
       return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    // --- RANGS DE MESTRE ---
-    function getTeacherRankDetails(points) {
-      if (currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) {
-        return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", color: "from-purple-600 to-pink-600" };
+    // --- RANGS DE MESTRE (I PER A L'AUTORIA) ---
+    function getTeacherRankDetails(points, email = "") {
+      if ((currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) || email === ADMIN_SUPREMO_EMAIL) {
+        return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
       }
       if (points >= 20) {
-        return { name: "👑 Mestre Déu Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", color: "from-amber-400 to-amber-600" };
+        return { name: "👑 Mestre Déu Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
       } else if (points >= 15) {
-        return { name: "📚 Mestre de Mestres", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", color: "from-blue-600 to-indigo-800" };
+        return { name: "📚 Mestre de Mestres", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
       } else if (points >= 10) {
-        return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", color: "from-amber-600 to-amber-800" };
+        return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
       } else if (points >= 6) {
-        return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", color: "from-indigo-500 to-indigo-700" };
+        return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
       } else if (points >= 3) {
-        return { name: "📝 Mestre Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", color: "from-teal-500 to-emerald-700" };
+        return { name: "📝 Mestre Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
       } else if (points >= 1) {
-        return { name: "👨‍🏫 Mestre Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", color: "from-slate-500 to-slate-700" };
+        return { name: "👨‍🏫 Mestre Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
       }
-      return { name: "🎒 Mestre Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", color: "from-slate-400 to-indigo-500" };
+      return { name: "🎒 Mestre Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
     }
 
     // --- BANNER MOTIVADOR PERMANENT ---
@@ -229,7 +228,7 @@
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
         const isTeacher = userRole === 'mestre';
-        const rank = isTeacher ? getTeacherRankDetails(userPoints) : getRankDetails(userPoints);
+        const rank = isTeacher ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
         const nameToShow = userDisplayName || currentUser.email.split('@')[0];
 
         nav.innerHTML = `
@@ -362,20 +361,17 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES AMB FILTRATGE EN MEMÒRIA (v009.1) ---
+    // --- VISTA 1: CATÀLEG DE LECTURES AMB RANG D'AUTOR/A (v010) ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
       try {
-        // Carreguem directament per data de creació sense fer query.where()
-        // per evitar requerir un índex compost de Firestore
         const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
         
         let html = `
           <div class="max-w-6xl mx-auto space-y-6">
             
-            <!-- INDICADOR SI EL FILTRE RÀPID ESTÀ ACTIU -->
             ${filterMyLectures ? `
               <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
                 <span class="flex items-center gap-2">
@@ -450,26 +446,27 @@
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
 
-            // Permís d'edició: L'autor/a mateix o l'Admin Supremo
             const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
             const canEdit = isAdmin || isAuthor;
 
-            // Formateig de la signatura pública
             const authorText = data.authorDisplayName 
               ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
               : 'Docent de Lectura Aventura';
 
-            // COMPROVACIÓ PER AL FILTRE «LES MEVES LECTURES» EN MEMÒRIA (SENSE DISSENY DE FIRESTORE INDEX)
+            // CÀLCUL I RECONEIXEMENT DEL RANG DE L'AUTOR/A (v010)
+            const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+            const authorEmail = data.authorEmail || "";
+            const authorRank = getTeacherRankDetails(authorPoints, authorEmail);
+
             if (filterMyLectures && currentUser) {
               if (userRole === 'mestre') {
-                if (data.authorUid !== currentUser.uid) return; // Omet si no és creada per aquest mestre
+                if (data.authorUid !== currentUser.uid) return;
               } else {
-                if (!isCompleted) return; // Omet si l'alumne no l'ha completat
+                if (!isCompleted) return;
               }
             }
 
-            // Comprovacions de filtre estàndard
             const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
             const matchesLevel = filterLevel === 'all' || data.level === filterLevel;
@@ -505,11 +502,19 @@
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   
-                  <!-- AUTOR I CENTRE PÚBLIC -->
-                  <p class="text-xs text-slate-400 font-medium mb-3 flex items-center gap-1">
-                    <i class="fa-solid fa-pen-nib text-[10px] text-indigo-500"></i>
-                    <span>Per: <strong class="text-slate-600">${authorText}</strong></span>
-                  </p>
+                  <!-- AUTOR I RANG DOCENT DESTACAT (v010) -->
+                  <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                    <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                      <i class="fa-solid fa-pen-nib text-[11px] text-indigo-500"></i>
+                      <span>Per: <strong class="text-slate-700">${authorText}</strong></span>
+                    </p>
+                    <div class="flex items-center gap-1.5 pt-0.5">
+                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
+                        <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
+                        ${authorRank.name}
+                      </span>
+                    </div>
+                  </div>
 
                   ${!isBook && data.content ? `
                     <p class="text-slate-600 text-sm line-clamp-3 mb-4">${data.content}</p>
@@ -522,7 +527,6 @@
                     <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
                   </button>
 
-                  <!-- BOTÓ D'EDITAR NOMÉS PER A PERMISOS -->
                   ${canEdit ? `
                     <button onclick="renderEditor('${docId}')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold py-1.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
                       <i class="fa-solid fa-pen-to-square text-amber-600"></i>
@@ -556,7 +560,7 @@
       }
     }
 
-    // --- VISTA 2: LECTOR INTERACTIU ---
+    // --- VISTA 2: LECTOR INTERACTIU AMB RANG D'AUTOR/A ---
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
@@ -575,6 +579,10 @@
         const authorText = data.authorDisplayName 
           ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
           : 'Docent de Lectura Aventura';
+
+        const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+        const authorEmail = data.authorEmail || "";
+        const authorRank = getTeacherRankDetails(authorPoints, authorEmail);
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -638,16 +646,26 @@
               <div>
                 <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block mb-2">Qüestionari de Llibre</span>
                 <h2 class="text-lg font-bold text-slate-800">${data.title}</h2>
-                <p class="text-xs text-slate-500 mt-1">Creat per: <strong>${authorText}</strong></p>
+                <div class="flex items-center gap-2 mt-2">
+                  <span class="text-xs text-slate-500">Creat per: <strong>${authorText}</strong></span>
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
+                    <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
+                    ${authorRank.name}
+                  </span>
+                </div>
                 <p class="text-sm text-slate-600 mt-2">Respon a les següents preguntes sobre la lectura que has realitzat en paper.</p>
               </div>
             </div>
           `;
         } else {
           headerContentHTML = `
-            <p class="text-xs text-slate-400 font-medium mb-4">
-              ✍️ Publicat per: <strong class="text-slate-600">${authorText}</strong>
-            </p>
+            <div class="flex items-center gap-2 mb-4 bg-slate-50 p-3 rounded-xl border border-slate-100 w-fit">
+              <span class="text-xs text-slate-500 font-medium">✍️ Publicat per: <strong class="text-slate-700">${authorText}</strong></span>
+              <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border flex items-center gap-1 ${authorRank.badgeBg}">
+                <i class="fa-solid ${authorRank.icon} text-[10px]"></i>
+                ${authorRank.name}
+              </span>
+            </div>
             <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
               ${data.content}
             </div>
@@ -933,7 +951,7 @@
       container.appendChild(qDiv);
     }
 
-    // --- GUARDAR O ACTUALITZAR LECTURA PRESERVANT L'AUTORIA ORIGINAL ---
+    // --- GUARDAR O ACTUALITZAR LECTURA AMB REGISTRE DE RANG DE L'AUTOR/A (v010) ---
     async function saveReading(e) {
       e.preventDefault();
       const type = document.getElementById('editor-type')?.value || 'text';
@@ -945,12 +963,12 @@
 
       const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Docent");
       const authorSchool = userSchool || "";
+      const authorEmail = currentUser ? currentUser.email : "";
 
       try {
         let docId = editingDocId;
 
         if (editingDocId) {
-          // ACTUALITZACIÓ: NOMÉS S'ACTUALITZEN ELS CAMPS DE CONTINGUT (SENSE TOCAR L meves L'AUTOR ORIGINAL)
           await db.collection(DB_COLLECTION).doc(editingDocId).update({
             type: type,
             title: title,
@@ -958,16 +976,24 @@
             category: category,
             content: content,
             imageUrl: imageUrl,
+            authorPoints: userPoints, // S'actualitzen els punts de l'autor
+            authorEmail: authorEmail,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
-          // Netejar preguntes anteriors
           const oldQ = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
           for (const qDoc of oldQ.docs) {
             await qDoc.ref.delete();
           }
         } else {
-          // CREACIÓ NOVA: ES REGISTRA L'AUTOR/A ORIGINAL
+          // Si és nova lectura, sumem +1 punt abans de guardar el valor a la lectura
+          if (currentUser && userRole === 'mestre') {
+            userPoints += 1;
+            await db.collection("users").doc(currentUser.uid).set({
+              points: userPoints
+            }, { merge: true });
+          }
+
           const docRef = await db.collection(DB_COLLECTION).add({
             type: type,
             title: title,
@@ -978,20 +1004,13 @@
             authorUid: currentUser ? currentUser.uid : null,
             authorDisplayName: authorDisplayName,
             authorSchool: authorSchool,
+            authorEmail: authorEmail,
+            authorPoints: userPoints,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
           docId = docRef.id;
-
-          // GAMIFICACIÓ: Sumar +1 Punt al Mestre creador (Només noves creacions)
-          if (currentUser && userRole === 'mestre') {
-            userPoints += 1;
-            await db.collection("users").doc(currentUser.uid).set({
-              points: userPoints
-            }, { merge: true });
-          }
         }
 
-        // Desar preguntes noves
         const qBlocks = document.querySelectorAll('.q-block');
         for (const block of qBlocks) {
           const qText = block.querySelector('.q-text').value;
