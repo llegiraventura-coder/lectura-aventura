@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v010</title>
+  <title>Lectura Aventura - v010.2</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -137,9 +137,9 @@
       return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    // --- RANGS DE MESTRE (I PER A L'AUTORIA) ---
+    // --- RANGS DE MESTRE (CORREGIT v010.2: SENSE DEPENDRER DE currentUser) ---
     function getTeacherRankDetails(points, email = "") {
-      if ((currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) || email === ADMIN_SUPREMO_EMAIL) {
+      if (email === ADMIN_SUPREMO_EMAIL) {
         return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
       }
       if (points >= 20) {
@@ -361,7 +361,7 @@
       }
     }
 
-    // --- VISTA 1: CATÀLEG DE LECTURES AMB RANG D'AUTOR/A (v010) ---
+    // --- VISTA 1: CATÀLEG DE LECTURES ---
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
@@ -454,7 +454,7 @@
               ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}`
               : 'Docent de Lectura Aventura';
 
-            // CÀLCUL I RECONEIXEMENT DEL RANG DE L'AUTOR/A (v010)
+            // CÀLCUL I RECONEIXEMENT DEL RANG DE L'AUTOR/A (v010.2: TOTALMENT DESVINCULAT DE currentUser)
             const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
             const authorEmail = data.authorEmail || "";
             const authorRank = getTeacherRankDetails(authorPoints, authorEmail);
@@ -502,7 +502,7 @@
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   
-                  <!-- AUTOR I RANG DOCENT DESTACAT (v010) -->
+                  <!-- AUTOR I RANG DOCENT DESTACAT -->
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
                       <i class="fa-solid fa-pen-nib text-[11px] text-indigo-500"></i>
@@ -951,7 +951,7 @@
       container.appendChild(qDiv);
     }
 
-    // --- GUARDAR O ACTUALITZAR LECTURA AMB REGISTRE DE RANG DE L'AUTOR/A (v010) ---
+    // --- GUARDAR O ACTUALITZAR LECTURA PRESERVANT L'AUTORIA ORIGINAL (v010.2) ---
     async function saveReading(e) {
       e.preventDefault();
       const type = document.getElementById('editor-type')?.value || 'text';
@@ -976,8 +976,6 @@
             category: category,
             content: content,
             imageUrl: imageUrl,
-            authorPoints: userPoints, // S'actualitzen els punts de l'autor
-            authorEmail: authorEmail,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
 
@@ -986,7 +984,6 @@
             await qDoc.ref.delete();
           }
         } else {
-          // Si és nova lectura, sumem +1 punt abans de guardar el valor a la lectura
           if (currentUser && userRole === 'mestre') {
             userPoints += 1;
             await db.collection("users").doc(currentUser.uid).set({
