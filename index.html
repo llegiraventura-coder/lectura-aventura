@@ -279,6 +279,7 @@
     /* --- HISTORIAL DE VERSIONS COMPLET EN PÀGINA PRÒPIA (v0.21.1) --- */
     function renderChangelogPage() {
       const app = document.getElementById('app');
+      if (!app) return;
       
       const detailedChangelog = [
         {
@@ -331,34 +332,34 @@
           color: "bg-amber-100 text-amber-900 border-amber-300",
           summary: "Desenvolupament de l'ecosistema de rols d'usuari i eines de control per als mestres.",
           highlights: [
-            "**v0.19.0:** Introducció dels 4 rols d'usuari (Alumne/a, Lector/a Adult/a, Docent i Col·laborador/a).",
-            "**v0.18.2:** Classificació en 3 pestanyes independents: El meu Grup, El meu Centre Educatiu i Ranking Global.",
-            "**v0.17.0:** Manifest de benvinguda col·laboratiu i blindatge de funcions d'edició segons el rol.",
-            "**v0.16.0:** Panell de seguiment 'Els meus Alumnes' per veure punts, rangs i historial de lectura de la classe."
+            "v0.19.0: Introducció dels 4 rols d'usuari (Alumne/a, Lector/a Adult/a, Docent i Col·laborador/a).",
+            "v0.18.2: Classificació en 3 pestanyes independents: El meu Grup, El meu Centre Educatiu i Ranking Global.",
+            "v0.17.0: Manifest de benvinguda col·laboratiu i blindatge de funcions d'edició segons el rol.",
+            "v0.16.0: Panell de seguiment 'Els meus Alumnes' per veure punts, rangs i historial de lectura de la classe."
           ]
         },
         {
           range: "v0.11.0 – v0.15.0",
-          category: "Drets d'Autor, Atribució i Ponderació de Punts",
+          category: "Drets d'Autor i Poneració",
           color: "bg-blue-100 text-blue-900 border-blue-300",
-          summary: "Estructuració rigorosa del reconeixement de l'autoria de les obres i ajust de la dificultat pedagògica.",
+          summary: "Estructuració del reconeixement d'autoria i ajust de dificultat pedagògica.",
           highlights: [
-            "**v0.15.0:** Sistema de versions i modal Changelog integrat al peu de pàgina.",
-            "**v0.14.0:** Targetes d'atribució en 3 línies fixes: Tipus d'adaptació, Nom del Mestre/Centre i Pegatina de Rang.",
-            "**v0.13.0:** Sistema de punts per dificultat: configuració de 1 pt o 2 pts per encert segons la complexitat.",
-            "**v0.11.0:** Reconeixement obligatori de l'Autor/a original de l'obra i font/editorial legal."
+            "v0.15.0: Sistema de versions i modal Changelog integrat al peu de pàgina.",
+            "v0.14.0: Targetes d'atribució en 3 línies fixes: Tipus d'adaptació, Mestre/Centre i Rang.",
+            "v0.13.0: Sistema de punts per dificultat: 1 pt o 2 pts per encert segons la complexitat.",
+            "v0.11.0: Reconeixement obligatori de l'Autor/a original de l'obra i font legal."
           ]
         },
         {
           range: "v0.1.0 – v0.10.0",
-          category: "Motor Base, Lectura Interactiva i Firestore",
+          category: "Motor Base i Firestore",
           color: "bg-slate-100 text-slate-800 border-slate-300",
-          summary: "Disseny de la infraestructura inicial del projecte i integració en temps real amb Firebase.",
+          summary: "Disseny de la infraestructura inicial i integració amb Firebase.",
           highlights: [
-            "**v0.10.0:** Suport dual per a lectures curtes (Text Integrat) i qüestionaris de llibres en paper (Coberta).",
-            "**v0.9.0:** Botó d'accés ràpid 'Les meves lectures' adaptable per a mestres i alumnes.",
-            "**v0.5.0:** Carregador de preguntes dinàmiques de comprensió lectora des de subcol·leccions Firestore.",
-            "**v0.1.0:** Naixement de Lectura Aventura, estructura HTML/TailwindCSS i connexió inicial amb Firebase Auth."
+            "v0.10.0: Suport dual per a lectures curtes (Text Integrat) i qüestionaris de llibres en paper.",
+            "v0.9.0: Botó d'accés ràpid 'Les meves lectures' adaptable per a mestres i alumnes.",
+            "v0.5.0: Carregador de preguntes de comprensió lectora des de subcol·leccions Firestore.",
+            "v0.1.0: Naixement de Lectura Aventura, estructura HTML/TailwindCSS i connexió Auth."
           ]
         }
       ];
@@ -430,7 +431,7 @@
                     <p class="text-xs text-slate-600 font-semibold mb-3">${m.summary}</p>
                     <div class="space-y-2 text-[11px] text-slate-700">
                       ${m.highlights.map(h => `
-                        <p class="leading-tight">• ${h.replace(/\*\*(.*?)\*\*/g, '<strong class="text-slate-900 font-bold">$1</strong>')}</p>
+                        <p class="leading-tight">• ${h}</p>
                       `).join('')}
                     </div>
                   </div>
@@ -1510,7 +1511,7 @@
                       </button>
                     ` : ''}
                     
-                    <button onclick="shareReadingLink('${docId}', '${(data.title || '').replace(/'/g, "\\'")}')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
+                    <button onclick="shareReadingLink('${docId}', 'Lectura')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
                       <i class="fa-solid fa-share-nodes text-base"></i>
                     </button>
                   </div>
