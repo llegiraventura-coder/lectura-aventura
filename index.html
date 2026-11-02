@@ -94,12 +94,11 @@
       }
       renderNav();
       
-      // Comprovar si hi ha paràmetres d'enllaç directe a la URL (v0.20.0)
       const urlParams = new URLSearchParams(window.location.search);
       const directReadingId = urlParams.get('lectura');
       
       if (directReadingId) {
-        renderReader(directReadingId);
+        await renderReader(directReadingId);
       } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
         renderUserProfileModal();
       } else {
@@ -274,6 +273,10 @@
     }
 
     function resetFiltersAndRenderCatalog() {
+      // Netegem la URL en tornar al catàleg
+      if (window.location.search) {
+        window.history.pushState({}, document.title, window.location.pathname);
+      }
       filterSearch = "";
       filterBookAuthor = "";
       filterType = "all";
@@ -298,25 +301,20 @@
       renderCatalog();
     }
 
-    /* --- ENLLAÇOS DIRECTES I COMPARTIR (v0.20.0) --- */
+    /* --- COMPARTIR ENLLAÇ DIRECTE --- */
     function shareReadingLink(docId, title) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}?lectura=${docId}`;
+      const baseUrl = window.location.href.split('?')[0];
+      const shareUrl = `${baseUrl}?lectura=${docId}`;
       
-      if (navigator.clipboard) {
+      if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(shareUrl).then(() => {
-          alert(`🔗 Enllaç copiat al porta-retalls!\n\n${shareUrl}\n\nJa el pots enganxar directament a Google Classroom, correu o WhatsApp.`);
-        }).catch(err => {
-          prompt("Enllaç directe per a compartir:", shareUrl);
+          alert(`🔗 Enllaç copiat al porta-retalls!\n\n${shareUrl}\n\nJa el pots enganxar a Google Classroom, correu o WhatsApp.`);
+        }).catch(() => {
+          prompt("Copia aquest enllaç directe per a compartir:", shareUrl);
         });
       } else {
-        prompt("Enllaç directe per a compartir:", shareUrl);
+        prompt("Copia aquest enllaç directe per a compartir:", shareUrl);
       }
-    }
-
-    function shareToGoogleClassroom(docId, title) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}?lectura=${docId}`;
-      const classroomUrl = `https://classroom.google.com/share?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(title)}`;
-      window.open(classroomUrl, '_blank', 'width=600,height=500');
     }
 
     async function renderUserProfileModal() {
@@ -442,7 +440,6 @@
               </div>
             ` : ''}
 
-            <!-- PANELL DE FILTRES AMPLIAT (v0.20.0) -->
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="relative">
@@ -617,7 +614,7 @@
                       <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
                     </button>
                     
-                    <button onclick="shareReadingLink('${docId}', '${(data.title || '').replace(/'/g, "\\'")}')" title="Copiar enllaç directe per enviar a Classroom o Email" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
+                    <button onclick="shareReadingLink('${docId}', '${(data.title || '').replace(/'/g, "\\'")}')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
                       <i class="fa-solid fa-share-nodes text-base"></i>
                     </button>
                   </div>
@@ -653,6 +650,262 @@
         console.error("Error carregant el catàleg:", err);
         app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
       }
+    }
+
+    /* --- LECTOR DE LECTURA (BLINDAT I REVISAT v0.20.0) --- */
+    async function renderReader(docId) {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
+
+      try {
+        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
+        if (!doc.exists) {
+          app.innerHTML = `
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+              <i class="fa-solid fa-file-circle-xmark text-4xl text-red-400"></i>
+              <h2 class="text-xl font-bold text-slate-800">Lectura no trobada</h2>
+              <p class="text-sm text-slate-600">L'enllaç utilitzat és incorrecte o la lectura s'ha eliminat.</p>
+              <button onclick="resetFiltersAndRenderCatalog()" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm">Anar al Catàleg General</button>
+            </div>
+          `;
+          return;
+        }
+
+        const data = doc.data();
+        const isBook = data.type === 'book';
+        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        
+        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+        const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+        const authorEmail = data.authorEmail || "";
+        const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+        const bookAuthorName = data.bookAuthor || '';
+        const editorialOrSource = data.editorialOrSource || '';
+        const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+
+        let questionsHTML = '';
+        if (!questionsSnap.empty) {
+          const totalQuestions = questionsSnap.size;
+          const maxPoints = totalQuestions * ptsPerQuestion;
+
+          questionsHTML = `
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
+                </h2>
+                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
+                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
+                </span>
+              </div>
+          `;
+
+          let qIndex = 0;
+          questionsSnap.forEach(qDoc => {
+            const q = qDoc.data();
+            const options = q.options || q.opcions || q.respostes || [];
+            const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
+
+            questionsHTML += `
+              <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
+                <div class="space-y-2">
+            `;
+
+            options.forEach((opt, oIdx) => {
+              questionsHTML += `
+                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50/50 transition">
+                  <input type="radio" name="q_${qDoc.id}" value="${oIdx}" required class="text-indigo-600 focus:ring-indigo-500">
+                  <span class="text-sm text-slate-700">${opt}</span>
+                </label>
+              `;
+            });
+
+            questionsHTML += `</div></div>`;
+            qIndex++;
+          });
+
+          questionsHTML += `
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
+                Enviar respostes i obtenir punts
+              </button>
+            </form>
+          `;
+        } else {
+          questionsHTML = `
+            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades a la subcol·lecció d'aquesta lectura.
+            </div>
+          `;
+        }
+
+        let headerContentHTML = '';
+        if (isBook) {
+          headerContentHTML = `
+            <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
+              ${data.imageUrl ? `
+                <img src="${data.imageUrl}" alt="${data.title}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
+              ` : `
+                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-book text-4xl"></i>
+                </div>
+              `}
+              <div class="space-y-2">
+                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
+                <h2 class="text-xl font-bold text-slate-800">${data.title}</h2>
+                
+                ${bookAuthorName ? `
+                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
+                  </p>
+                ` : ''}
+
+                ${editorialOrSource ? `
+                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-columns text-slate-400"></i>
+                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
+                  </p>
+                ` : ''}
+
+                <div class="pt-2 border-t border-indigo-100 space-y-1">
+                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
+                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                  <div class="pt-0.5">
+                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                      ${teacherRank.name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          headerContentHTML = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
+              ${bookAuthorName ? `
+                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
+                </p>
+              ` : ''}
+
+              ${editorialOrSource ? `
+                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
+                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
+                </p>
+              ` : ''}
+
+              <div class="pt-2 border-t border-slate-200 space-y-1">
+                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
+                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                <div class="pt-0.5">
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                    ${teacherRank.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
+              ${data.content}
+            </div>
+          `;
+        }
+
+        app.innerHTML = `
+          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title}</h1>
+            ${headerContentHTML}
+            ${questionsHTML}
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la lectura:", err);
+        app.innerHTML = `
+          <div class="max-w-lg mx-auto p-6 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
+            <p class="text-red-700 font-bold">No s'ha pogut carregar la lectura directament.</p>
+            <p class="text-xs text-red-500">${err.message}</p>
+            <button onclick="resetFiltersAndRenderCatalog()" class="bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-xs">Anar al Catàleg</button>
+          </div>
+        `;
+      }
+    }
+
+    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
+      e.preventDefault();
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let score = 0;
+      let total = questionsSnap.size;
+
+      questionsSnap.forEach(qDoc => {
+        const q = qDoc.data();
+        const selected = parseInt(formData.get(`q_${qDoc.id}`));
+        const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
+        if (selected === correct) score++;
+      });
+
+      const newQuizPoints = score * pointsPerQuestion;
+      const maxPossiblePoints = total * pointsPerQuestion;
+
+      let userScores = {};
+      if (currentUser) {
+        try {
+          const userDoc = await db.collection("users").doc(currentUser.uid).get();
+          if (userDoc.exists) userScores = userDoc.data().scores || {};
+        } catch (err) {
+          console.warn("Error llegint puntuacions anteriors:", err);
+        }
+      }
+
+      const previousQuizPoints = userScores[docId] || 0;
+      let pointsToAdd = 0;
+
+      if (newQuizPoints > previousQuizPoints) {
+        pointsToAdd = newQuizPoints - previousQuizPoints;
+        userScores[docId] = newQuizPoints;
+        userPoints += pointsToAdd;
+      }
+
+      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
+
+      if (currentUser) {
+        try {
+          await db.collection("users").doc(currentUser.uid).set({
+            points: userPoints,
+            completedReadings: userCompletedReadings,
+            scores: userScores
+          }, { merge: true });
+        } catch (err) {
+          console.warn("S'han desat les dades localment:", err);
+        }
+      }
+
+      await loadUserData();
+      renderNav();
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      if (pointsToAdd > 0) {
+        alert(`🎉 Gran millora! Has encertat ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous al teu total! (Total en aquesta lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
+      } else if (newQuizPoints === maxPossiblePoints) {
+        alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
+      } else {
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat.`);
+      }
+
+      resetFiltersAndRenderCatalog();
     }
 
     async function renderEditor(docIdToEdit = null) {
@@ -767,7 +1020,6 @@
                 </select>
               </div>
 
-              <!-- DURADA / MIDA LECTURA (v0.20.0) -->
               <div id="wrapper-duration-text">
                 <label class="block text-sm font-bold text-slate-700 mb-1">Durada Estimada *</label>
                 <select id="editor-duration" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -1001,7 +1253,6 @@
       }
     }
 
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.20.0 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
@@ -1009,33 +1260,13 @@
         {
           version: "v0.20.0",
           date: "Actual",
-          title: "Durada, Enllaços Directes i Compartició d'Aula",
+          title: "Durada, Enllaços Directes i Compatibilitat d'Aula",
           badge: "Eines Aula",
           color: "bg-emerald-100 text-emerald-800 border-emerald-200",
           items: [
-            "Filtre i registre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i nombre de pàgines per a llibres (📄).",
-            "Botó 'Compartir' a cada lectura per a copiar l'enllaç directe o compartir directament a Google Classroom.",
-            "Accés directe via paràmetre URL (?lectura=ID) per obrir la lectura assignada als alumnes sense cerca prèvia."
-          ]
-        },
-        {
-          version: "v0.19.0",
-          date: "Versió anterior",
-          title: "Lectures i Perfils per a Formació d'Adults",
-          badge: "Inclusió",
-          color: "bg-purple-100 text-purple-800 border-purple-200",
-          items: [
-            "Nivell 'Formació d'Adults / CFA' i nou perfil 'Lector/a Adult/a' per a lectors autònoms, CFA i CPNL."
-          ]
-        },
-        {
-          version: "v0.18.2",
-          date: "Versió anterior",
-          title: "Triple Classificació: Grup, Centre i Global",
-          badge: "Gamificació",
-          color: "bg-amber-100 text-amber-800 border-amber-200",
-          items: [
-            "Pestanyes de navegació entre ranking de grup, centre educatiu i classificació universal."
+            "Resolució del bloqueig visual en accedir mitjançant enllaços directes.",
+            "Filtre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i pàgines per a llibres (📄).",
+            "Botó 'Compartir' a cada lectura per a copiar l'enllaç directe (?lectura=ID)."
           ]
         }
       ];
