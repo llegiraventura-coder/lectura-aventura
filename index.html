@@ -38,6 +38,7 @@
 
   <div id="changelog-modal-container"></div>
   <div id="profile-modal-container"></div>
+  <div id="auth-modal-container"></div>
 
   <script>
     const firebaseConfig = {
@@ -69,7 +70,7 @@
     let userTeacherUid = ""; 
     let filterMyLectures = false;
     let editingDocId = null;
-    let currentLeaderboardTab = 'group';
+    let authIsSignUp = false;
 
     let filterSearch = "";
     let filterBookAuthor = "";
@@ -215,13 +216,6 @@
             <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
 
-          ${isLector ? `
-            <button onclick="renderStudentLeaderboard()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-md transform hover:scale-105">
-              <i class="fa-solid fa-trophy text-amber-900"></i>
-              <span class="hidden md:inline">Classificació</span>
-            </button>
-          ` : ''}
-
           ${isDocent ? `
             <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-users text-sm"></i>
@@ -262,6 +256,104 @@
       renderBanner();
     }
 
+    /* --- GESTIÓ D'AUTENTICACIÓ I LOGIN (RECURS RESTABLERT) --- */
+    function renderLogin(isSignUp = false) {
+      authIsSignUp = isSignUp;
+      const container = document.getElementById('auth-modal-container');
+      
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 md:p-8 relative">
+            <button onclick="closeAuthModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1">
+              <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+
+            <div class="text-center mb-6">
+              <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-xl mx-auto mb-2">
+                <i class="fa-solid ${authIsSignUp ? 'fa-user-plus' : 'fa-right-to-bracket'}"></i>
+              </div>
+              <h2 class="text-xl font-bold text-slate-800">${authIsSignUp ? 'Crear Compte Nou' : 'Inicia Sessió'}</h2>
+              <p class="text-xs text-slate-500 mt-1">Accedeix a Lectura Aventura per desar els teus progressos</p>
+            </div>
+
+            <form onsubmit="handleAuthSubmit(event)" class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Correu Electrònic *</label>
+                <input type="email" id="auth-email" required placeholder="nom@escola.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label>
+                <input type="password" id="auth-password" required placeholder="••••••••" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              ${authIsSignUp ? `
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Quin és el teu rol principal? *</label>
+                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="alumne">🎓 Alumne / Alumna</option>
+                    <option value="adult">🧑‍💼 Lector/a Adult/a</option>
+                    <option value="docent">👨‍🏫 Docent / Mestre/a</option>
+                    <option value="colaborador">🤝 Col·laborador/a</option>
+                  </select>
+                </div>
+              ` : ''}
+
+              <div id="auth-error" class="hidden p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl font-medium"></div>
+
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-sm shadow transition">
+                ${authIsSignUp ? 'Registrar-me ara' : 'Entrar'}
+              </button>
+            </form>
+
+            <div class="mt-4 pt-4 border-t border-slate-100 text-center text-xs text-slate-600">
+              ${authIsSignUp ? `
+                Això ja ho tens creat? <button onclick="renderLogin(false)" class="text-indigo-600 font-bold hover:underline">Inicia Sessió</button>
+              ` : `
+                No tens compte encara? <button onclick="renderLogin(true)" class="text-indigo-600 font-bold hover:underline">Crea un compte gratis</button>
+              `}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function closeAuthModal() {
+      const container = document.getElementById('auth-modal-container');
+      if (container) container.innerHTML = '';
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const roleSelect = document.getElementById('auth-role');
+      const errBox = document.getElementById('auth-error');
+
+      errBox.classList.add('hidden');
+
+      try {
+        if (authIsSignUp) {
+          const userCred = await auth.createUserWithEmailAndPassword(email, password);
+          const role = roleSelect ? roleSelect.value : 'alumne';
+          
+          await db.collection("users").doc(userCred.user.uid).set({
+            email: email,
+            role: role,
+            points: 0,
+            completedReadings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          await auth.signInWithEmailAndPassword(email, password);
+        }
+        closeAuthModal();
+      } catch (err) {
+        errBox.innerText = "Error d'autenticació: " + err.message;
+        errBox.classList.remove('hidden');
+      }
+    }
+
     function toggleMyLectures() {
       filterMyLectures = !filterMyLectures;
       renderNav();
@@ -300,7 +392,6 @@
       renderCatalog();
     }
 
-    /* --- COMPARTIR ENLLAÇ DIRECTE --- */
     function shareReadingLink(docId, title) {
       const baseUrl = window.location.href.split('?')[0];
       const shareUrl = `${baseUrl}?lectura=${docId}`;
@@ -651,7 +742,7 @@
       }
     }
 
-    /* --- LECTOR DE LECTURA (TOLERANT I AMB FALLBACK v0.20.0) --- */
+    /* --- LECTOR DE LECTURA (v0.20.0) --- */
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
@@ -846,6 +937,11 @@
 
     async function submitQuiz(e, docId, pointsPerQuestion = 1) {
       e.preventDefault();
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
       const form = e.target;
       const formData = new FormData(form);
 
@@ -864,13 +960,11 @@
       const maxPossiblePoints = total * pointsPerQuestion;
 
       let userScores = {};
-      if (currentUser) {
-        try {
-          const userDoc = await db.collection("users").doc(currentUser.uid).get();
-          if (userDoc.exists) userScores = userDoc.data().scores || {};
-        } catch (err) {
-          console.warn("Error llegint puntuacions anteriors:", err);
-        }
+      try {
+        const userDoc = await db.collection("users").doc(currentUser.uid).get();
+        if (userDoc.exists) userScores = userDoc.data().scores || {};
+      } catch (err) {
+        console.warn("Error llegint puntuacions anteriors:", err);
       }
 
       const previousQuizPoints = userScores[docId] || 0;
@@ -884,16 +978,14 @@
 
       if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
 
-      if (currentUser) {
-        try {
-          await db.collection("users").doc(currentUser.uid).set({
-            points: userPoints,
-            completedReadings: userCompletedReadings,
-            scores: userScores
-          }, { merge: true });
-        } catch (err) {
-          console.warn("S'han desat les dades localment:", err);
-        }
+      try {
+        await db.collection("users").doc(currentUser.uid).set({
+          points: userPoints,
+          completedReadings: userCompletedReadings,
+          scores: userScores
+        }, { merge: true });
+      } catch (err) {
+        console.warn("S'han desat les dades localment:", err);
       }
 
       await loadUserData();
@@ -1270,6 +1362,7 @@
           color: "bg-emerald-100 text-emerald-800 border-emerald-200",
           items: [
             "Resolució del bloqueig visual en accedir mitjançant enllaços directes.",
+            "Restabliment del modal de Login/Registre des d'enllaços externs.",
             "Filtre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i pàgines per a llibres (📄).",
             "Botó 'Compartir' a cada lectura per a copiar l'enllaç directe (?lectura=ID)."
           ]
