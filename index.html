@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.19.0</title>
+  <title>Lectura Aventura - v0.20.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,7 +31,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogModal()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.19.0 — Historial de versions</span>
+        <span>v0.20.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -62,7 +62,7 @@
 
     let currentUser = null;
     let userPoints = 0;
-    let userRole = 'alumne'; // 'alumne', 'adult', 'docent', 'colaborador'
+    let userRole = 'alumne'; 
     let userCompletedReadings = [];
     let userDisplayName = "";
     let userSchool = "";
@@ -77,6 +77,7 @@
     let filterLevel = "all";
     let filterCategory = "all";
     let filterStatus = "all";
+    let filterDuration = "all";
 
     auth.onAuthStateChanged(async user => {
       currentUser = user;
@@ -93,7 +94,13 @@
       }
       renderNav();
       
-      if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
+      // Comprovar si hi ha paràmetres d'enllaç directe a la URL (v0.20.0)
+      const urlParams = new URLSearchParams(window.location.search);
+      const directReadingId = urlParams.get('lectura');
+      
+      if (directReadingId) {
+        renderReader(directReadingId);
+      } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
         renderUserProfileModal();
       } else {
         renderCatalog();
@@ -114,13 +121,6 @@
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
           userTeacherUid = data.teacherUid || "";
-        } else {
-          userPoints = 0;
-          userRole = 'alumne';
-          userCompletedReadings = [];
-          userDisplayName = "";
-          userSchool = "";
-          userTeacherUid = "";
         }
       } catch (err) {
         console.warn("Error carregant dades de l'usuari:", err);
@@ -280,6 +280,7 @@
       filterLevel = "all";
       filterCategory = "all";
       filterStatus = "all";
+      filterDuration = "all";
       filterMyLectures = false;
       renderNav();
       renderCatalog();
@@ -292,13 +293,34 @@
       filterLevel = document.getElementById('level-select')?.value || 'all';
       filterCategory = document.getElementById('category-select')?.value || 'all';
       filterStatus = document.getElementById('status-select')?.value || 'all';
+      filterDuration = document.getElementById('duration-select')?.value || 'all';
 
       renderCatalog();
     }
 
+    /* --- ENLLAÇOS DIRECTES I COMPARTIR (v0.20.0) --- */
+    function shareReadingLink(docId, title) {
+      const shareUrl = `${window.location.origin}${window.location.pathname}?lectura=${docId}`;
+      
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          alert(`🔗 Enllaç copiat al porta-retalls!\n\n${shareUrl}\n\nJa el pots enganxar directament a Google Classroom, correu o WhatsApp.`);
+        }).catch(err => {
+          prompt("Enllaç directe per a compartir:", shareUrl);
+        });
+      } else {
+        prompt("Enllaç directe per a compartir:", shareUrl);
+      }
+    }
+
+    function shareToGoogleClassroom(docId, title) {
+      const shareUrl = `${window.location.origin}${window.location.pathname}?lectura=${docId}`;
+      const classroomUrl = `https://classroom.google.com/share?url=${encodeURIComponent(shareUrl)}&title=${encodeURIComponent(title)}`;
+      window.open(classroomUrl, '_blank', 'width=600,height=500');
+    }
+
     async function renderUserProfileModal() {
       const container = document.getElementById('profile-modal-container');
-      
       let docentsList = [];
       if (userRole === 'alumne') {
         try {
@@ -400,327 +422,6 @@
       }
     }
 
-    /* --- CLASSIFICACIÓ EN 3 NIVELLS: GRUP, CENTRE I GLOBAL --- */
-    function switchLeaderboardTab(tab) {
-      currentLeaderboardTab = tab;
-      renderStudentLeaderboard();
-    }
-
-    async function renderStudentLeaderboard() {
-      if (userRole !== 'alumne' && userRole !== 'adult') return;
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>`;
-
-      try {
-        let classmates = [];
-        let subtitleText = "";
-
-        if (currentLeaderboardTab === 'group') {
-          if (!userTeacherUid) {
-            app.innerHTML = `
-              <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
-                  <i class="fa-solid fa-user-slash"></i>
-                </div>
-                <h2 class="text-xl font-bold text-slate-800">Sense docent assignat</h2>
-                <p class="text-sm text-slate-600 leading-relaxed">
-                  Per veure la classificació del teu grup, necessites seleccionar el teu <strong>Docent de referència</strong> al teu perfil.
-                </p>
-                <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
-                  Seleccionar el meu Docent
-                </button>
-              </div>
-            `;
-            return;
-          }
-
-          let teacherName = "el teu Docent";
-          let teacherSchool = "";
-          const teacherDoc = await db.collection("users").doc(userTeacherUid).get();
-          if (teacherDoc.exists) {
-            const tData = teacherDoc.data();
-            teacherName = tData.displayName || tData.email || "el teu Docent";
-            teacherSchool = tData.school || "";
-          }
-          subtitleText = `Grup de <strong class="text-slate-700">${teacherName}</strong> ${teacherSchool ? '(' + teacherSchool + ')' : ''}`;
-
-          const studentsSnap = await db.collection("users")
-            .where("teacherUid", "==", userTeacherUid)
-            .get();
-
-          studentsSnap.forEach(doc => classmates.push({ id: doc.id, ...doc.data() }));
-
-        } else if (currentLeaderboardTab === 'school') {
-          if (!userSchool) {
-            app.innerHTML = `
-              <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
-                <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-3xl mx-auto">
-                  <i class="fa-solid fa-school-circle-xmark"></i>
-                </div>
-                <h2 class="text-xl font-bold text-slate-800">Sense centre assignat</h2>
-                <p class="text-sm text-slate-600 leading-relaxed">
-                  Per veure la classificació de la teva escola o centre, indica el nom al teu perfil.
-                </p>
-                <button onclick="renderUserProfileModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition shadow">
-                  Editar el meu Perfil
-                </button>
-              </div>
-            `;
-            return;
-          }
-          subtitleText = `Centre Educatiu / CFA: <strong class="text-slate-700">${userSchool}</strong>`;
-
-          const studentsSnap = await db.collection("users")
-            .where("school", "==", userSchool)
-            .get();
-
-          studentsSnap.forEach(doc => {
-            const r = doc.data().role;
-            if (r === 'alumne' || r === 'adult') classmates.push({ id: doc.id, ...doc.data() });
-          });
-
-        } else if (currentLeaderboardTab === 'global') {
-          subtitleText = `Classificació general de tota la comunitat de Lectura Aventura`;
-
-          const studentsSnap = await db.collection("users").get();
-          studentsSnap.forEach(doc => {
-            const r = doc.data().role;
-            if (r === 'alumne' || r === 'adult') classmates.push({ id: doc.id, ...doc.data() });
-          });
-        }
-
-        // Ordenem de més a menys punts
-        classmates.sort((a, b) => (b.points || 0) - (a.points || 0));
-
-        // Podi (Top 3)
-        const top1 = classmates[0];
-        const top2 = classmates[1];
-        const top3 = classmates[2];
-
-        let tableRowsHTML = '';
-        classmates.forEach((st, idx) => {
-          const pts = st.points || 0;
-          const rank = getRankDetails(pts);
-          const completedCount = (st.completedReadings || []).length;
-          const isMe = st.id === currentUser.uid;
-
-          let posBadge = `<span class="font-mono font-bold text-slate-500">#${idx + 1}</span>`;
-          if (idx === 0) posBadge = `<span class="text-lg">🥇</span>`;
-          if (idx === 1) posBadge = `<span class="text-lg">🥈</span>`;
-          if (idx === 2) posBadge = `<span class="text-lg">🥉</span>`;
-
-          tableRowsHTML += `
-            <tr class="border-b border-slate-100 transition ${isMe ? 'bg-amber-50/80 font-bold border-amber-200' : 'hover:bg-slate-50'}">
-              <td class="p-3 text-center">${posBadge}</td>
-              <td class="p-3">
-                <div class="flex items-center space-x-2">
-                  <span class="text-slate-800 ${isMe ? 'text-indigo-900 font-extrabold' : ''}">${st.displayName || st.email}</span>
-                  ${isMe ? `<span class="text-[10px] bg-indigo-600 text-white font-extrabold px-2 py-0.5 rounded-full">Tu</span>` : ''}
-                  ${st.role === 'adult' ? `<span class="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-1.5 py-0.5 rounded-md">Adult</span>` : ''}
-                </div>
-                ${currentLeaderboardTab !== 'school' && st.school ? `<span class="block text-[11px] text-slate-400 font-normal">${st.school}</span>` : ''}
-              </td>
-              <td class="p-3">
-                <span class="text-xs font-bold text-amber-700 bg-amber-100/80 border border-amber-300 px-2.5 py-1 rounded-lg">
-                  ${pts} PTS
-                </span>
-              </td>
-              <td class="p-3">
-                <span class="text-xs font-semibold text-indigo-900 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
-                  <i class="fa-solid ${rank.icon}"></i> ${rank.name}
-                </span>
-              </td>
-              <td class="p-3 text-center text-xs font-bold text-slate-600">
-                ${completedCount}
-              </td>
-            </tr>
-          `;
-        });
-
-        app.innerHTML = `
-          <div class="max-w-4xl mx-auto space-y-6">
-            <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-4">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
-                <div>
-                  <button onclick="renderCatalog()" class="text-xs font-bold text-indigo-600 hover:underline mb-1 inline-flex items-center">
-                    <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-                  </button>
-                  <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-trophy text-amber-500"></i> Classificació LECTORA
-                  </h1>
-                  <p class="text-xs text-slate-500 mt-0.5">${subtitleText}</p>
-                </div>
-              </div>
-
-              <!-- PESTANYES DE CLASSIFICACIÓ -->
-              <div class="flex border-b border-slate-200">
-                ${userRole === 'alumne' ? `
-                  <button onclick="switchLeaderboardTab('group')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'group' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
-                    👥 El meu Grup (Mestre)
-                  </button>
-                ` : ''}
-                <button onclick="switchLeaderboardTab('school')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'school' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
-                  🏫 El meu Centre / CFA
-                </button>
-                <button onclick="switchLeaderboardTab('global')" class="flex-1 py-2.5 text-center font-bold text-xs sm:text-sm transition border-b-2 ${currentLeaderboardTab === 'global' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'}">
-                  🌍 Classificació Global
-                </button>
-              </div>
-
-              <!-- PODI DESTACAT -->
-              ${classmates.length >= 1 ? `
-                <div class="grid grid-cols-3 gap-3 py-4 border-b border-slate-100 items-end text-center">
-                  <!-- Segon Lloc (Argent) -->
-                  <div class="flex flex-col items-center">
-                    ${top2 ? `
-                      <div class="w-12 h-12 bg-slate-200 text-slate-700 rounded-full flex items-center justify-center text-xl font-bold shadow mb-2 border-2 border-slate-300">
-                        🥈
-                      </div>
-                      <span class="text-xs font-bold text-slate-800 line-clamp-1">${top2.displayName || top2.email}</span>
-                      <span class="text-[11px] text-amber-700 font-extrabold">${top2.points || 0} pts</span>
-                    ` : '<div class="h-12"></div>'}
-                  </div>
-
-                  <!-- Primer Lloc (Or) -->
-                  <div class="flex flex-col items-center -mt-4">
-                    <div class="w-16 h-16 bg-amber-300 text-amber-900 rounded-full flex items-center justify-center text-3xl font-bold shadow-lg mb-2 border-4 border-amber-400 transform scale-110">
-                      🥇
-                    </div>
-                    <span class="text-sm font-extrabold text-slate-900 line-clamp-1">${top1.displayName || top1.email}</span>
-                    <span class="text-xs text-amber-800 font-black bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">${top1.points || 0} pts</span>
-                  </div>
-
-                  <!-- Tercer Lloc (Bronze) -->
-                  <div class="flex flex-col items-center">
-                    ${top3 ? `
-                      <div class="w-12 h-12 bg-amber-700/20 text-amber-900 rounded-full flex items-center justify-center text-xl font-bold shadow mb-2 border-2 border-amber-600/40">
-                        🥉
-                      </div>
-                      <span class="text-xs font-bold text-slate-800 line-clamp-1">${top3.displayName || top3.email}</span>
-                      <span class="text-[11px] text-amber-700 font-extrabold">${top3.points || 0} pts</span>
-                    ` : '<div class="h-12"></div>'}
-                  </div>
-                </div>
-              ` : ''}
-
-              <!-- TAULA COMPLETA -->
-              <div class="overflow-x-auto pt-2">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-                      <th class="p-3 text-center w-12">Pos</th>
-                      <th class="p-3">Lector/a</th>
-                      <th class="p-3">Puntuació</th>
-                      <th class="p-3">Rang Lector</th>
-                      <th class="p-3 text-center">Lectures</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${tableRowsHTML}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        alert("Error en carregar la classificació: " + err.message);
-        renderCatalog();
-      }
-    }
-
-    async function renderStudentTrackingPanel() {
-      if (userRole !== 'docent') return;
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el llistat d'alumnes...</p></div>`;
-
-      try {
-        const studentsSnap = await db.collection("users")
-          .where("role", "==", "alumne")
-          .where("teacherUid", "==", currentUser.uid)
-          .get();
-
-        let studentsList = [];
-        studentsSnap.forEach(doc => {
-          studentsList.push({ id: doc.id, ...doc.data() });
-        });
-
-        let tableRowsHTML = '';
-        if (studentsList.length > 0) {
-          studentsList.forEach(st => {
-            const pts = st.points || 0;
-            const rank = getRankDetails(pts);
-            const completedCount = (st.completedReadings || []).length;
-
-            tableRowsHTML += `
-              <tr class="border-b border-slate-100 hover:bg-slate-50 transition">
-                <td class="p-3 font-bold text-slate-800">${st.displayName || st.email}</td>
-                <td class="p-3 text-xs text-slate-500">${st.school || '-'}</td>
-                <td class="p-3">
-                  <span class="text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
-                    ${pts} PTS
-                  </span>
-                </td>
-                <td class="p-3">
-                  <span class="text-xs font-semibold text-indigo-900 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-md flex items-center gap-1 w-fit">
-                    <i class="fa-solid ${rank.icon}"></i> ${rank.name}
-                  </span>
-                </td>
-                <td class="p-3 text-center text-xs font-bold text-slate-600">
-                  ${completedCount}
-                </td>
-              </tr>
-            `;
-          });
-        } else {
-          tableRowsHTML = `
-            <tr>
-              <td colspan="5" class="p-8 text-center text-slate-500">
-                <i class="fa-solid fa-user-slash text-3xl text-slate-300 mb-2"></i>
-                <p class="font-bold">Encara cap alumne t'ha seleccionat com a docent.</p>
-                <p class="text-xs text-slate-400 mt-1">Quan un alumne configuri el seu perfil i t'esculli al desplegable, apareixerà aquí.</p>
-              </td>
-            </tr>
-          `;
-        }
-
-        app.innerHTML = `
-          <div class="max-w-5xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <button onclick="renderCatalog()" class="text-xs font-bold text-indigo-600 hover:underline mb-1 inline-flex items-center">
-                  <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-                </button>
-                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-users text-indigo-600"></i> Seguiment dels meus Alumnes (${studentsList.length})
-                </h1>
-              </div>
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="w-full text-left border-collapse">
-                <thead>
-                  <tr class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
-                    <th class="p-3">Alumne/a</th>
-                    <th class="p-3">Centre</th>
-                    <th class="p-3">Puntuació</th>
-                    <th class="p-3">Rang Lector</th>
-                    <th class="p-3 text-center">Lectures Fetes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${tableRowsHTML}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        alert("Error en carregar els teus alumnes: " + err.message);
-        renderCatalog();
-      }
-    }
-
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
@@ -741,6 +442,7 @@
               </div>
             ` : ''}
 
+            <!-- PANELL DE FILTRES AMPLIAT (v0.20.0) -->
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="relative">
@@ -762,7 +464,7 @@
                 </div>
               </div>
 
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
                 <div>
                   <select id="level-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="all" ${filterLevel === 'all' ? 'selected' : ''}>🎓 Tots els nivells</option>
@@ -784,6 +486,16 @@
                     <option value="Poesia" ${filterCategory === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
                     <option value="Tradició / Llegenda" ${filterCategory === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
                     <option value="General" ${filterCategory === 'General' ? 'selected' : ''}>📖 General</option>
+                  </select>
+                </div>
+
+                <div>
+                  <select id="duration-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-indigo-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterDuration === 'all' ? 'selected' : ''}>⏱️ Quina durada / mida?</option>
+                    <option value="5 min" ${filterDuration === '5 min' ? 'selected' : ''}>⏱️ 5 minuts (Molt curta)</option>
+                    <option value="10 min" ${filterDuration === '10 min' ? 'selected' : ''}>⏱️ 10 minuts (Curta)</option>
+                    <option value="15 min" ${filterDuration === '15 min' ? 'selected' : ''}>⏱️ 15 minuts (Mitjana)</option>
+                    <option value="+20 min" ${filterDuration === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts (Llarga)</option>
                   </select>
                 </div>
 
@@ -820,6 +532,7 @@
 
             const bookAuthorName = data.bookAuthor || '';
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+            const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
 
             if (filterMyLectures && currentUser) {
               if (userRole === 'docent' || userRole === 'colaborador') {
@@ -834,12 +547,13 @@
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
             const matchesLevel = filterLevel === 'all' || data.level === filterLevel;
             const matchesCategory = filterCategory === 'all' || (data.category || 'General') === filterCategory;
+            const matchesDuration = filterDuration === 'all' || (data.estimatedTime === filterDuration);
             
             let matchesStatus = true;
             if (filterStatus === 'completed') matchesStatus = isCompleted;
             if (filterStatus === 'pending') matchesStatus = !isCompleted;
             
-            if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesStatus) return;
+            if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) return;
 
             cardCount++;
 
@@ -851,12 +565,12 @@
                       ${isBook ? '📖 Llibre' : '📄 Text'}
                     </span>
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                      ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
                       <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2 py-0.5 rounded-md">
                         ⚡ ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt/encert' : 'pts/encert'}
                       </span>
                       ${isCompleted ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>` : ''}
                       ${data.category ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-md">${data.category}</span>` : ''}
-                      ${data.level ? `<span class="text-xs ${data.level === "Formació d'Adults" ? 'text-purple-700 font-bold bg-purple-50 px-2 py-0.5 rounded-md' : 'text-slate-500 font-medium'}">${data.level}</span>` : ''}
                     </div>
                   </div>
 
@@ -897,10 +611,16 @@
                 </div>
 
                 <div class="p-5 pt-0 mt-auto space-y-2">
-                  <button onclick="renderReader('${docId}')" class="w-full ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-sm transition flex items-center justify-center space-x-2">
-                    <i class="fa-solid fa-book-open"></i>
-                    <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
-                  </button>
+                  <div class="grid grid-cols-5 gap-1.5">
+                    <button onclick="renderReader('${docId}')" class="col-span-4 ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                      <i class="fa-solid fa-book-open"></i>
+                      <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
+                    </button>
+                    
+                    <button onclick="shareReadingLink('${docId}', '${(data.title || '').replace(/'/g, "\\'")}')" title="Copiar enllaç directe per enviar a Classroom o Email" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
+                      <i class="fa-solid fa-share-nodes text-base"></i>
+                    </button>
+                  </div>
 
                   ${canEdit ? `
                     <button onclick="renderEditor('${docId}')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold py-1.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
@@ -935,248 +655,6 @@
       }
     }
 
-    async function renderReader(docId) {
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-8"><i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i></div>`;
-
-      try {
-        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
-        if (!doc.exists) {
-          app.innerHTML = `<p class="text-red-500">Lectura no trobada.</p>`;
-          return;
-        }
-        const data = doc.data();
-        const isBook = data.type === 'book';
-
-        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-        
-        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
-        const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
-        const authorEmail = data.authorEmail || "";
-        const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
-
-        const bookAuthorName = data.bookAuthor || '';
-        const editorialOrSource = data.editorialOrSource || '';
-        const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
-
-        let questionsHTML = '';
-        if (!questionsSnap.empty) {
-          const totalQuestions = questionsSnap.size;
-          const maxPoints = totalQuestions * ptsPerQuestion;
-
-          questionsHTML = `
-            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
-              <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
-                </h2>
-                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
-                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
-                </span>
-              </div>
-          `;
-
-          let qIndex = 0;
-          questionsSnap.forEach(qDoc => {
-            const q = qDoc.data();
-            const options = q.options || q.opcions || q.respostes || [];
-            const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
-
-            questionsHTML += `
-              <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
-                <div class="space-y-2">
-            `;
-
-            options.forEach((opt, oIdx) => {
-              questionsHTML += `
-                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50/50 transition">
-                  <input type="radio" name="q_${qDoc.id}" value="${oIdx}" required class="text-indigo-600 focus:ring-indigo-500">
-                  <span class="text-sm text-slate-700">${opt}</span>
-                </label>
-              `;
-            });
-
-            questionsHTML += `</div></div>`;
-            qIndex++;
-          });
-
-          questionsHTML += `
-              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
-                Enviar respostes i obtenir punts
-              </button>
-            </form>
-          `;
-        } else {
-          questionsHTML = `
-            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades a la subcol·lecció d'aquesta lectura.
-            </div>
-          `;
-        }
-
-        let headerContentHTML = '';
-        if (isBook) {
-          headerContentHTML = `
-            <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
-              ${data.imageUrl ? `
-                <img src="${data.imageUrl}" alt="${data.title}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
-              ` : `
-                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
-                  <i class="fa-solid fa-book text-4xl"></i>
-                </div>
-              `}
-              <div class="space-y-2">
-                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
-                <h2 class="text-xl font-bold text-slate-800">${data.title}</h2>
-                
-                ${bookAuthorName ? `
-                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
-                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
-                  </p>
-                ` : ''}
-
-                ${editorialOrSource ? `
-                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                    <i class="fa-solid fa-building-columns text-slate-400"></i>
-                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
-                  </p>
-                ` : ''}
-
-                <div class="pt-2 border-t border-indigo-100 space-y-1">
-                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
-                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                  <div class="pt-0.5">
-                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                      ${teacherRank.name}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        } else {
-          headerContentHTML = `
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
-              ${bookAuthorName ? `
-                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
-                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
-                </p>
-              ` : ''}
-
-              ${editorialOrSource ? `
-                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
-                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
-                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
-                </p>
-              ` : ''}
-
-              <div class="pt-2 border-t border-slate-200 space-y-1">
-                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
-                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                <div class="pt-0.5">
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                    ${teacherRank.name}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
-              ${data.content}
-            </div>
-          `;
-        }
-
-        app.innerHTML = `
-          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title}</h1>
-            ${headerContentHTML}
-            ${questionsHTML}
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error carregant la lectura:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Error en carregar la lectura: ${err.message}</div>`;
-      }
-    }
-
-    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
-      e.preventDefault();
-      const form = e.target;
-      const formData = new FormData(form);
-
-      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-      let score = 0;
-      let total = questionsSnap.size;
-
-      questionsSnap.forEach(qDoc => {
-        const q = qDoc.data();
-        const selected = parseInt(formData.get(`q_${qDoc.id}`));
-        const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
-        if (selected === correct) score++;
-      });
-
-      const newQuizPoints = score * pointsPerQuestion;
-      const maxPossiblePoints = total * pointsPerQuestion;
-
-      let userScores = {};
-      if (currentUser) {
-        try {
-          const userDoc = await db.collection("users").doc(currentUser.uid).get();
-          if (userDoc.exists) userScores = userDoc.data().scores || {};
-        } catch (err) {
-          console.warn("Error llegint puntuacions anteriors:", err);
-        }
-      }
-
-      const previousQuizPoints = userScores[docId] || 0;
-      let pointsToAdd = 0;
-
-      if (newQuizPoints > previousQuizPoints) {
-        pointsToAdd = newQuizPoints - previousQuizPoints;
-        userScores[docId] = newQuizPoints;
-        userPoints += pointsToAdd;
-      }
-
-      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
-
-      if (currentUser) {
-        try {
-          await db.collection("users").doc(currentUser.uid).set({
-            points: userPoints,
-            completedReadings: userCompletedReadings,
-            scores: userScores
-          }, { merge: true });
-        } catch (err) {
-          console.warn("S'han desat les dades localment:", err);
-        }
-      }
-
-      await loadUserData();
-      renderNav();
-
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.disabled = true;
-
-      if (pointsToAdd > 0) {
-        alert(`🎉 Gran millora! Has encertat ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous al teu total! (Total en aquesta lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
-      } else if (newQuizPoints === maxPossiblePoints) {
-        alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
-      } else {
-        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat.`);
-      }
-
-      renderCatalog();
-    }
-
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
         renderLogin();
@@ -1201,6 +679,8 @@
         editorialOrSource: '',
         level: 'Cicle Inicial',
         category: 'Aventura',
+        estimatedTime: '10 min',
+        bookPages: '',
         pointsPerQuestion: 1,
         content: '',
         imageUrl: ''
@@ -1262,7 +742,7 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
                 <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Públic *</label>
                 <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -1287,11 +767,27 @@
                 </select>
               </div>
 
+              <!-- DURADA / MIDA LECTURA (v0.20.0) -->
+              <div id="wrapper-duration-text">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Durada Estimada *</label>
+                <select id="editor-duration" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="5 min" ${initialData.estimatedTime === '5 min' ? 'selected' : ''}>⏱️ 5 minuts</option>
+                  <option value="10 min" ${initialData.estimatedTime === '10 min' ? 'selected' : ''}>⏱️ 10 minuts</option>
+                  <option value="15 min" ${initialData.estimatedTime === '15 min' ? 'selected' : ''}>⏱️ 15 minuts</option>
+                  <option value="+20 min" ${initialData.estimatedTime === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts</option>
+                </select>
+              </div>
+
+              <div id="wrapper-duration-book" class="hidden">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nº de Pàgines *</label>
+                <input type="number" id="editor-book-pages" value="${initialData.bookPages || ''}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+
               <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Punts per pregunta encertada *</label>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Punts / encert *</label>
                 <select id="editor-points-per-q" class="w-full p-2.5 border border-amber-300 bg-amber-50/50 rounded-xl text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none">
-                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt per encert (Estàndard)</option>
-                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts per encert (Complexa / Repte)</option>
+                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt (Estàndard)</option>
+                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts (Complexa)</option>
                 </select>
               </div>
             </div>
@@ -1339,6 +835,8 @@
       const type = document.getElementById('editor-type').value;
       const wrapContent = document.getElementById('wrapper-content');
       const wrapImage = document.getElementById('wrapper-image');
+      const wrapDurText = document.getElementById('wrapper-duration-text');
+      const wrapDurBook = document.getElementById('wrapper-duration-book');
       const contentInput = document.getElementById('editor-content');
       const labelSource = document.getElementById('label-editorial-source');
 
@@ -1346,11 +844,15 @@
         wrapContent.classList.add('hidden');
         if (contentInput) contentInput.removeAttribute('required');
         wrapImage.classList.remove('hidden');
+        wrapDurText.classList.add('hidden');
+        wrapDurBook.classList.remove('hidden');
         if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
       } else {
         wrapContent.classList.remove('hidden');
         if (contentInput) contentInput.setAttribute('required', 'true');
         wrapImage.classList.add('hidden');
+        wrapDurText.classList.remove('hidden');
+        wrapDurBook.classList.add('hidden');
         if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
       }
     }
@@ -1405,6 +907,8 @@
       const editorialOrSource = document.getElementById('editor-source')?.value || '';
       const level = document.getElementById('editor-level').value;
       const category = document.getElementById('editor-category')?.value || 'General';
+      const estimatedTime = document.getElementById('editor-duration')?.value || '10 min';
+      const bookPages = document.getElementById('editor-book-pages')?.value || '';
       const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
       const content = document.getElementById('editor-content')?.value || '';
       const imageUrl = document.getElementById('editor-image')?.value || '';
@@ -1424,6 +928,8 @@
             editorialOrSource: editorialOrSource,
             level: level,
             category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
             content: content,
             imageUrl: imageUrl,
@@ -1447,6 +953,8 @@
             editorialOrSource: editorialOrSource,
             level: level,
             category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
             content: content,
             imageUrl: imageUrl,
@@ -1493,136 +1001,31 @@
       }
     }
 
-    function renderLogin() {
-      const app = document.getElementById('app');
-      app.innerHTML = `
-        <div class="max-w-lg mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          <div class="flex border-b border-slate-200 mb-6">
-            <button id="tab-login" onclick="switchAuthTab('login')" class="w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm">Inicia Sessió</button>
-            <button id="tab-register" onclick="switchAuthTab('register')" class="w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600">Crear Compte</button>
-          </div>
-
-          <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
-              <input type="email" id="login-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
-              <input type="password" id="login-password" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Inicia Sessió</button>
-          </form>
-
-          <form id="form-register" onsubmit="handleRegister(event)" class="space-y-4 hidden">
-            <div class="bg-indigo-50/80 border border-indigo-100 p-4 rounded-xl space-y-2 text-left">
-              <h3 class="font-extrabold text-indigo-900 text-sm flex items-center gap-1.5">
-                <i class="fa-solid fa-star text-amber-500"></i> Benvinguts i benvingudes a Lectura Aventura!
-              </h3>
-              <p class="text-xs text-slate-600 leading-relaxed">
-                Lectura Aventura és una iniciativa educativa lliure i col·laborativa dissenyada per transformar la comprensió lectora en una experiència engrescadora, compartida i plena de reptes.
-              </p>
-              <p class="text-xs text-slate-600 leading-relaxed">
-                Aquesta plataforma es construeix gràcies a la suma de les aportacions de tota la comunitat lectora i educativa.
-              </p>
-              <ul class="text-[11px] text-slate-700 space-y-1 pt-1 font-medium">
-                <li class="flex items-start gap-1"><span class="shrink-0">🎓</span> <span><strong>Alumnes:</strong> Lectures curtes i llibres en paper amb qüestionaris per acumular punts i pujar de rang.</span></li>
-                <li class="flex items-start gap-1"><span class="shrink-0">🧑‍💼</span> <span><strong>Lectors/es Adults:</strong> Persones que llegeixen de manera autònoma o en formació d'adults (CFA / CPNL).</span></li>
-                <li class="flex items-start gap-1"><span class="shrink-0">👨‍🏫</span> <span><strong>Docents:</strong> Acompanyeu el vostre alumnat i creeu propostes per al vostre grup.</span></li>
-                <li class="flex items-start gap-1"><span class="shrink-0">🤝</span> <span><strong>Col·laboradors/es:</strong> Compartiu lectures i preguntes per enriquir la biblioteca lliure.</span></li>
-              </ul>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Soc...</label>
-              <select id="reg-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="alumne">🎓 Alumne / Alumna (Escola / Institut)</option>
-                <option value="adult">🧑‍💼 Lector/a Adult/a (Formació d'Adults / Autònom)</option>
-                <option value="docent">👨‍🏫 Docent (Amb grup d'alumnes)</option>
-                <option value="colaborador">🤝 Col·laborador/a (Lector/a creador/a)</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Correu electrònic</label>
-              <input type="email" id="reg-email" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Contrasenya</label>
-              <input type="password" id="reg-password" required minlength="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-            <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition">Crear Compte</button>
-          </form>
-        </div>
-      `;
-    }
-
-    function switchAuthTab(tab) {
-      const fLogin = document.getElementById('form-login');
-      const fReg = document.getElementById('form-register');
-      const tLogin = document.getElementById('tab-login');
-      const tReg = document.getElementById('tab-register');
-
-      if (tab === 'register') {
-        fLogin.classList.add('hidden');
-        fReg.classList.remove('hidden');
-        tReg.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
-        tLogin.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
-      } else {
-        fReg.classList.add('hidden');
-        fLogin.classList.remove('hidden');
-        tLogin.className = "w-1/2 py-2 text-center font-bold text-indigo-600 border-b-2 border-indigo-600 text-sm";
-        tReg.className = "w-1/2 py-2 text-center font-bold text-slate-400 border-b-2 border-transparent text-sm hover:text-slate-600";
-      }
-    }
-
-    async function handleLogin(e) {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const pass = document.getElementById('login-password').value;
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-      } catch (err) {
-        alert("Error d'accés: " + err.message);
-      }
-    }
-
-    async function handleRegister(e) {
-      e.preventDefault();
-      const role = document.getElementById('reg-role').value;
-      const email = document.getElementById('reg-email').value;
-      const pass = document.getElementById('reg-password').value;
-
-      try {
-        const cred = await auth.createUserWithEmailAndPassword(email, pass);
-        await db.collection("users").doc(cred.user.uid).set({
-          email: email,
-          role: role,
-          points: 0,
-          completedReadings: [],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        alert("Compte creat amb èxit!");
-      } catch (err) {
-        alert("Error en registrar l'usuari: " + err.message);
-      }
-    }
-
-    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.19.0 --- */
+    /* --- HISTORIAL DE VERSIONS (CHANGELOG) - v0.20.0 --- */
     function renderChangelogModal() {
       const container = document.getElementById('changelog-modal-container');
       
       const changelogData = [
         {
-          version: "v0.19.0",
+          version: "v0.20.0",
           date: "Actual",
+          title: "Durada, Enllaços Directes i Compartició d'Aula",
+          badge: "Eines Aula",
+          color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+          items: [
+            "Filtre i registre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i nombre de pàgines per a llibres (📄).",
+            "Botó 'Compartir' a cada lectura per a copiar l'enllaç directe o compartir directament a Google Classroom.",
+            "Accés directe via paràmetre URL (?lectura=ID) per obrir la lectura assignada als alumnes sense cerca prèvia."
+          ]
+        },
+        {
+          version: "v0.19.0",
+          date: "Versió anterior",
           title: "Lectures i Perfils per a Formació d'Adults",
           badge: "Inclusió",
           color: "bg-purple-100 text-purple-800 border-purple-200",
           items: [
-            "Afegida la categoria de nivell 'Formació d'Adults / CFA' als filtres i a l'editor de lectures.",
-            "Nou perfil d'usuari 'Lector/a Adult/a' per a lectors autònoms, CFA i CPNL.",
-            "Classificació adaptada per als lectors adults sense dependència de docent obligatori."
+            "Nivell 'Formació d'Adults / CFA' i nou perfil 'Lector/a Adult/a' per a lectors autònoms, CFA i CPNL."
           ]
         },
         {
@@ -1633,26 +1036,6 @@
           color: "bg-amber-100 text-amber-800 border-amber-200",
           items: [
             "Pestanyes de navegació entre ranking de grup, centre educatiu i classificació universal."
-          ]
-        },
-        {
-          version: "v0.17.0",
-          date: "Versió anterior",
-          title: "Manifest i Benvinguda Col·laborativa",
-          badge: "Acollida",
-          color: "bg-slate-100 text-slate-800 border-slate-200",
-          items: [
-            "Manifest i text d'acollida pedagògic a la pantalla de creació de compte."
-          ]
-        },
-        {
-          version: "v0.1.0 — v0.16.0",
-          date: "Versions Inicials",
-          title: "Base de la Plataforma i Filtres",
-          badge: "Core",
-          color: "bg-slate-100 text-slate-700 border-slate-200",
-          items: [
-            "Filtres per cicles (Cicle Inicial a ESO), gèneres, puntuació configurable, cerca per autor/a de l'obra, gamificació de rangs i Firebase."
           ]
         }
       ];
