@@ -98,7 +98,7 @@
       const directReadingId = urlParams.get('lectura');
       
       if (directReadingId) {
-        await renderReader(directReadingId);
+        renderReader(directReadingId);
       } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
         renderUserProfileModal();
       } else {
@@ -273,7 +273,6 @@
     }
 
     function resetFiltersAndRenderCatalog() {
-      // Netegem la URL en tornar al catàleg
       if (window.location.search) {
         window.history.pushState({}, document.title, window.location.pathname);
       }
@@ -513,7 +512,7 @@
 
         if (!snapshot.empty) {
           snapshot.forEach(doc => {
-            const data = doc.data();
+            const data = doc.data() || {};
             const docId = doc.id;
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
@@ -652,7 +651,7 @@
       }
     }
 
-    /* --- LECTOR DE LECTURA (BLINDAT I REVISAT v0.20.0) --- */
+    /* --- LECTOR DE LECTURA (TOLERANT I AMB FALLBACK v0.20.0) --- */
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
@@ -671,9 +670,15 @@
           return;
         }
 
-        const data = doc.data();
+        const data = doc.data() || {};
         const isBook = data.type === 'book';
-        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+
+        let questionsSnap = { empty: true, size: 0, forEach: () => {} };
+        try {
+          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        } catch (qErr) {
+          console.warn("No s'han pogut carregar les preguntes de Firestore:", qErr);
+        }
         
         const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
@@ -703,7 +708,7 @@
 
           let qIndex = 0;
           questionsSnap.forEach(qDoc => {
-            const q = qDoc.data();
+            const q = qDoc.data() || {};
             const options = q.options || q.opcions || q.respostes || [];
             const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
 
@@ -735,7 +740,7 @@
         } else {
           questionsHTML = `
             <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades a la subcol·lecció d'aquesta lectura.
+              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades per a aquesta lectura.
             </div>
           `;
         }
@@ -745,7 +750,7 @@
           headerContentHTML = `
             <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
               ${data.imageUrl ? `
-                <img src="${data.imageUrl}" alt="${data.title}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
+                <img src="${data.imageUrl}" alt="${data.title || 'Coberta'}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
               ` : `
                 <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
                   <i class="fa-solid fa-book text-4xl"></i>
@@ -753,7 +758,7 @@
               `}
               <div class="space-y-2">
                 <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
-                <h2 class="text-xl font-bold text-slate-800">${data.title}</h2>
+                <h2 class="text-xl font-bold text-slate-800">${data.title || 'Sense títol'}</h2>
                 
                 ${bookAuthorName ? `
                   <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
@@ -812,7 +817,7 @@
             </div>
 
             <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
-              ${data.content}
+              ${data.content || ''}
             </div>
           `;
         }
@@ -822,7 +827,7 @@
             <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
               <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
             </button>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title}</h1>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
             ${headerContentHTML}
             ${questionsHTML}
           </div>
@@ -831,7 +836,7 @@
         console.error("Error carregant la lectura:", err);
         app.innerHTML = `
           <div class="max-w-lg mx-auto p-6 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
-            <p class="text-red-700 font-bold">No s'ha pogut carregar la lectura directament.</p>
+            <p class="text-red-700 font-bold">Error en carregar la lectura.</p>
             <p class="text-xs text-red-500">${err.message}</p>
             <button onclick="resetFiltersAndRenderCatalog()" class="bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-xs">Anar al Catàleg</button>
           </div>
