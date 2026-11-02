@@ -71,6 +71,7 @@
     let filterMyLectures = false;
     let editingDocId = null;
     let authIsSignUp = false;
+    let currentLeaderboardTab = 'group';
 
     let filterSearch = "";
     let filterBookAuthor = "";
@@ -216,6 +217,13 @@
             <span class="hidden sm:inline">${filterMyLectures ? 'Totes les lectures' : 'Les meves lectures'}</span>
           </button>
 
+          ${isLector ? `
+            <button onclick="renderStudentLeaderboard()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-md transform hover:scale-105">
+              <i class="fa-solid fa-trophy text-amber-900"></i>
+              <span class="hidden md:inline">Classificació</span>
+            </button>
+          ` : ''}
+
           ${isDocent ? `
             <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-users text-sm"></i>
@@ -256,7 +264,277 @@
       renderBanner();
     }
 
-    /* --- GESTIÓ D'AUTENTICACIÓ I LOGIN (RECURS RESTABLERT) --- */
+    /* --- PANELL DE SEGUIMENT D'ALUMNESI CLASSIFICACIONS (RESTABLERT) --- */
+    async function renderStudentTrackingPanel() {
+      if (!currentUser || userRole !== 'docent') return;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el seguiment dels teus alumnes...</p></div>`;
+
+      try {
+        const snapshot = await db.collection("users")
+          .where("teacherUid", "==", currentUser.uid)
+          .get();
+
+        let students = [];
+        snapshot.forEach(doc => {
+          students.push({ id: doc.id, ...doc.data() });
+        });
+
+        students.sort((a, b) => (b.points || 0) - (a.points || 0));
+
+        let html = `
+          <div class="max-w-5xl mx-auto space-y-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center">
+                  <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg
+                </button>
+                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-users text-indigo-600"></i> Seguint els meus Alumnes
+                </h1>
+                <p class="text-xs text-slate-500">Alumnes vinculats al teu compte de docent (${students.length})</p>
+              </div>
+            </div>
+
+            ${students.length === 0 ? `
+              <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
+                <i class="fa-solid fa-user-graduate text-4xl text-slate-300"></i>
+                <h3 class="font-bold text-slate-700">Encara no tens alumnes vinculats</h3>
+                <p class="text-xs text-slate-500 max-w-md mx-auto">Els alumnes poden seleccionar-te com a docent de referència des de la seva Fitxa d'Usuari en iniciar la seva aventura lectora.</p>
+              </div>
+            ` : `
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-200 text-xs text-slate-500 uppercase tracking-wider font-bold">
+                      <tr>
+                        <th class="p-4">Alumne/a</th>
+                        <th class="p-4">Escola / Centre</th>
+                        <th class="p-4 text-center">Lectures Fetes</th>
+                        <th class="p-4 text-center">Punts Totals</th>
+                        <th class="p-4">Rang Lectors/a</th>
+                        <th class="p-4 text-right">Accions</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                      ${students.map((s, idx) => {
+                        const rank = getRankDetails(s.points || 0);
+                        const completedCount = (s.completedReadings || []).length;
+                        return `
+                          <tr class="hover:bg-slate-50/80 transition">
+                            <td class="p-4 font-bold text-slate-800 flex items-center gap-3">
+                              <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-mono font-bold flex items-center justify-center">${idx + 1}</span>
+                              ${s.displayName || s.email || 'Alumne sense nom'}
+                            </td>
+                            <td class="p-4 text-xs text-slate-500 font-medium">${s.school || '—'}</td>
+                            <td class="p-4 text-center font-bold text-indigo-600">${completedCount}</td>
+                            <td class="p-4 text-center">
+                              <span class="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs px-2.5 py-1 rounded-md">
+                                ⚡ ${s.points || 0} pts
+                              </span>
+                            </td>
+                            <td class="p-4">
+                              <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                                <i class="fa-solid ${rank.icon} text-amber-500"></i> ${rank.name}
+                              </span>
+                            </td>
+                            <td class="p-4 text-right">
+                              <button onclick="viewStudentDetail('${s.id}')" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg transition">
+                                Detalls
+                              </button>
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `}
+          </div>
+        `;
+
+        app.innerHTML = html;
+      } catch (err) {
+        console.error("Error carregant el seguiment d'alumnes:", err);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error: ${err.message}</div>`;
+      }
+    }
+
+    async function viewStudentDetail(studentUid) {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la fitxa de l'alumne/a...</p></div>`;
+
+      try {
+        const doc = await db.collection("users").doc(studentUid).get();
+        if (!doc.exists) return renderStudentTrackingPanel();
+
+        const sData = doc.data();
+        const rank = getRankDetails(sData.points || 0);
+        const scores = sData.scores || {};
+        const completedIds = sData.completedReadings || [];
+
+        let readingsDetails = [];
+        if (completedIds.length > 0) {
+          for (const rId of completedIds) {
+            try {
+              const rDoc = await db.collection(DB_COLLECTION).doc(rId).get();
+              if (rDoc.exists) {
+                readingsDetails.push({ id: rDoc.id, ...rDoc.data() });
+              }
+            } catch(e) {}
+          }
+        }
+
+        app.innerHTML = `
+          <div class="max-w-4xl mx-auto space-y-6">
+            <button onclick="renderStudentTrackingPanel()" class="text-slate-500 hover:text-slate-800 text-xs font-bold inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar a la llista d'alumnes
+            </button>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+              <div class="flex items-center space-x-4">
+                <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-2xl shadow">
+                  <i class="fa-solid ${rank.icon}"></i>
+                </div>
+                <div>
+                  <h1 class="text-xl font-bold text-slate-800">${sData.displayName || 'Alumne/a'}</h1>
+                  <p class="text-xs text-slate-500">${sData.school || 'Escola no especificada'} — ${sData.email || ''}</p>
+                </div>
+              </div>
+
+              <div class="flex items-center space-x-3 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+                <div class="text-center">
+                  <span class="block text-[10px] font-bold uppercase text-indigo-400">Total Punts</span>
+                  <span class="text-lg font-black text-indigo-900">${sData.points || 0} PTS</span>
+                </div>
+                <div class="h-8 w-px bg-indigo-200"></div>
+                <div class="text-center">
+                  <span class="block text-[10px] font-bold uppercase text-indigo-400">Lectures</span>
+                  <span class="text-lg font-black text-indigo-900">${completedIds.length}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                <i class="fa-solid fa-book-check text-indigo-600"></i> Historial de Lectures Completades
+              </h3>
+
+              ${readingsDetails.length === 0 ? `
+                <p class="text-xs text-slate-500 italic">Aquest/a alumne/a encara no ha completat cap lectura.</p>
+              ` : `
+                <div class="space-y-3">
+                  ${readingsDetails.map(r => {
+                    const earned = scores[r.id] || 0;
+                    return `
+                      <div class="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+                        <div>
+                          <span class="text-xs font-bold text-indigo-900 block">${r.title || 'Lectura'}</span>
+                          <span class="text-[10px] text-slate-500">${r.type === 'book' ? '📖 Llibre' : '📄 Text integrat'} • ${r.level || ''}</span>
+                        </div>
+                        <span class="text-xs font-extrabold bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg">
+                          ${earned} PTS obtinguts
+                        </span>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+              `}
+            </div>
+          </div>
+        `;
+      } catch(err) {
+        console.error("Error carregant el detall de l'alumne:", err);
+      }
+    }
+
+    async function renderStudentLeaderboard() {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>`;
+
+      try {
+        const usersSnap = await db.collection("users").get();
+        let allUsers = [];
+        usersSnap.forEach(d => {
+          const data = d.data();
+          if (data.role === 'alumne' || data.role === 'adult' || !data.role) {
+            allUsers.push({ id: d.id, ...data });
+          }
+        });
+
+        allUsers.sort((a, b) => (b.points || 0) - (a.points || 0));
+
+        let filteredUsers = allUsers;
+        if (currentLeaderboardTab === 'group' && userTeacherUid) {
+          filteredUsers = allUsers.filter(u => u.teacherUid === userTeacherUid);
+        } else if (currentLeaderboardTab === 'school' && userSchool) {
+          filteredUsers = allUsers.filter(u => u.school === userSchool);
+        }
+
+        app.innerHTML = `
+          <div class="max-w-4xl mx-auto space-y-6">
+            <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg
+            </button>
+
+            <div class="text-center space-y-2">
+              <h1 class="text-3xl font-black text-slate-800 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-trophy text-amber-400"></i> Classificació de Lectors
+              </h1>
+              <p class="text-xs text-slate-500">Demostra el teu domini de la lectura i puja de rang!</p>
+            </div>
+
+            <div class="flex justify-center bg-slate-200 p-1 rounded-xl max-w-md mx-auto text-xs font-bold">
+              <button onclick="currentLeaderboardTab='group'; renderStudentLeaderboard()" class="w-1/3 py-2 rounded-lg transition ${currentLeaderboardTab === 'group' ? 'bg-white text-indigo-900 shadow' : 'text-slate-600'}">
+                El meu Grup
+              </button>
+              <button onclick="currentLeaderboardTab='school'; renderStudentLeaderboard()" class="w-1/3 py-2 rounded-lg transition ${currentLeaderboardTab === 'school' ? 'bg-white text-indigo-900 shadow' : 'text-slate-600'}">
+                El meu Centre
+              </button>
+              <button onclick="currentLeaderboardTab='global'; renderStudentLeaderboard()" class="w-1/3 py-2 rounded-lg transition ${currentLeaderboardTab === 'global' ? 'bg-white text-indigo-900 shadow' : 'text-slate-600'}">
+                Global
+              </button>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="divide-y divide-slate-100">
+                ${filteredUsers.map((u, idx) => {
+                  const rank = getRankDetails(u.points || 0);
+                  const isMe = currentUser && currentUser.uid === u.id;
+                  return `
+                    <div class="p-4 flex items-center justify-between ${isMe ? 'bg-indigo-50/70 border-l-4 border-indigo-600' : 'hover:bg-slate-50'} transition">
+                      <div class="flex items-center space-x-4">
+                        <span class="w-8 h-8 rounded-full ${idx === 0 ? 'bg-amber-400 text-amber-950 font-black' : idx === 1 ? 'bg-slate-300 text-slate-800 font-bold' : idx === 2 ? 'bg-amber-700 text-white font-bold' : 'bg-slate-100 text-slate-600 font-bold'} text-xs flex items-center justify-center">
+                          ${idx + 1}
+                        </span>
+                        <div>
+                          <span class="font-bold text-slate-800 text-sm block">${u.displayName || 'Lector/a'} ${isMe ? '(Tu)' : ''}</span>
+                          <span class="text-[11px] text-slate-500">${u.school || 'Escola no especificada'}</span>
+                        </div>
+                      </div>
+
+                      <div class="flex items-center space-x-4">
+                        <span class="text-xs font-bold text-slate-600 hidden sm:inline flex items-center gap-1">
+                          <i class="fa-solid ${rank.icon} text-amber-500"></i> ${rank.name}
+                        </span>
+                        <span class="bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs px-3 py-1 rounded-lg">
+                          ⚡ ${u.points || 0} pts
+                        </span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch(err) {
+        console.error("Error en carregar la classificació:", err);
+      }
+    }
+
+    /* --- GESTIÓ D'AUTENTICACIÓ I LOGIN --- */
     function renderLogin(isSignUp = false) {
       authIsSignUp = isSignUp;
       const container = document.getElementById('auth-modal-container');
@@ -456,7 +734,7 @@
               </div>
 
               <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Centre Educatiu / Escola / CFA ${userRole === 'adult' ? '(Opcional)' : '*'}</label>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Centre Educatiu / Escola / CFA ${userRole !== 'adult' ? '*' : '(Opcional)'}</label>
                 <input type="text" id="profile-school" value="${userSchool}" placeholder="Ex: Escola La Renaixença, CFA Osona, CPNL..." ${userRole !== 'adult' ? 'required' : ''} class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
               </div>
 
@@ -1362,6 +1640,7 @@
           color: "bg-emerald-100 text-emerald-800 border-emerald-200",
           items: [
             "Resolució del bloqueig visual en accedir mitjançant enllaços directes.",
+            "Restabliment del panell de seguiment 'Els meus Alumnes' i les classificacions.",
             "Restabliment del modal de Login/Registre des d'enllaços externs.",
             "Filtre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i pàgines per a llibres (📄).",
             "Botó 'Compartir' a cada lectura per a copiar l'enllaç directe (?lectura=ID)."
