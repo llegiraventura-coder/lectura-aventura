@@ -12,20 +12,27 @@
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
 
-  <header class="bg-indigo-600 text-white shadow-md">
+  <!-- CAPÇALERA PRINCIPAL -->
+  <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
       <div class="flex items-center space-x-2 cursor-pointer" onclick="resetFiltersAndRenderCatalog()">
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
-        <span class="font-bold text-xl tracking-wide">Lectura Aventura</span>
+        <div>
+          <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.22.0</span>
+        </div>
       </div>
-      <nav id="nav-actions" class="flex items-center space-x-3"></nav>
+      <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
     </div>
   </header>
 
+  <!-- BANNER DE MOTIVACIÓ / PERFIL -->
   <div id="motivation-banner"></div>
 
+  <!-- CONTINGUT PRINCIPAL DINÀMIC -->
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6"></main>
 
+  <!-- PEU DE PÀGINA -->
   <footer class="bg-slate-800 text-slate-400 py-4 text-sm mt-auto border-t border-slate-700">
     <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
@@ -36,11 +43,13 @@
     </div>
   </footer>
 
+  <!-- MODALS -->
   <div id="profile-modal-container"></div>
   <div id="auth-modal-container"></div>
   <div id="folder-modal-container"></div>
 
   <script>
+    // CONFIGURACIÓ DE FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
@@ -62,6 +71,7 @@
     const SUB_COLLECTION = "questions";
     const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
 
+    // ESTAT GLOBAL
     let currentUser = null;
     let userPoints = 0;
     let userRole = 'alumne'; 
@@ -74,6 +84,7 @@
     let authIsSignUp = false;
     let currentLeaderboardTab = 'group';
 
+    // FILTRES DEL CATÀLEG (COMPLETS RESTAURATS)
     let filterSearch = "";
     let filterBookAuthor = "";
     let filterType = "all";
@@ -82,6 +93,7 @@
     let filterStatus = "all";
     let filterDuration = "all";
 
+    // OBSERVADOR D'AUTENTICACIÓ
     auth.onAuthStateChanged(async user => {
       currentUser = user;
       if (user) {
@@ -135,6 +147,7 @@
       }
     }
 
+    // RANGS I PUNTUACIÓ (ALUMNES / DOCENTS)
     function getRankDetails(points) {
       if (points >= 1300) return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
       if (points >= 700) return { name: "Lector/a d'Or", icon: "fa-trophy", color: "from-amber-300 to-amber-500", text: "text-amber-200" };
@@ -153,7 +166,7 @@
       if (points >= 1) return { name: "👨‍🏫 Docent Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
       return { name: "🎒 Docent Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
     }
-
+    // DIBUIXAR EL BANNER DE MOTIVACIÓ
     function renderBanner() {
       const bannerContainer = document.getElementById('motivation-banner');
       if (!bannerContainer) return;
@@ -209,6 +222,7 @@
       }
     }
 
+    // DIBUIXAR NAVEGACIÓ D'ACCIÓ
     function renderNav() {
       const nav = document.getElementById('nav-actions');
       if (currentUser) {
@@ -276,595 +290,928 @@
       renderBanner();
     }
 
-    function renderChangelogPage() {
+    // CATÀLEG GENERAL AMB TARGETES RICH I ATRIBUCIONS EN 3 LÍNIES
+    async function renderCatalog() {
       const app = document.getElementById('app');
-      if (!app) return;
-      
-      const detailedChangelog = [
-        {
-          version: "v0.22.0",
-          date: "Novembre 2026",
-          badge: "Nova Funcionalitat",
-          color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-          title: "Preguntes d'Opció Múltiple",
-          description: "Nou format de qüestionari que permet definir més d'una opció correcta per pregunta amb avaluació Tot o Res.",
-          items: [
-            "Desplegable a l'editor per seleccionar el tipus de pregunta: Opció única (Radio) o Opció múltiple (Checkboxes).",
-            "Caselles de verificació quadrades per als alumnes quan la pregunta permet marcar múltiples solucions.",
-            "Avaluació estricta: Cal encertar exactament totes les caselles correctes per obtenir els punts.",
-            "Avís visual automàtic a l'enunciat quan una pregunta té més d'una resposta vàlida."
-          ]
-        },
-        {
-          version: "v0.21.1",
-          date: "Novembre 2026",
-          badge: "Nova Pantalla",
-          color: "bg-purple-100 text-purple-900 border-purple-300",
-          title: "Historial de Versions Complet i Detallat",
-          description: "Transformació del modal emergent truncat en una pàgina pròpia de desenvolupament.",
-          items: [
-            "Creació de la vista dedicada renderChangelogPage() accessible des del peu de pàgina.",
-            "Visualització detallada de totes les versions amb fitxa de canvis pedagògics i tècnics."
-          ]
-        },
-        {
-          version: "v0.21.0",
-          date: "Novembre 2026",
-          badge: "Mòdul SA",
-          color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-          title: "Carpetes Docents per a SA i Nova Nomenclatura del Currículum",
-          description: "Sistema d'itineraris per a projectes i Situacions d'Aprenentatge (SA).",
-          items: [
-            "Mòdul de Carpetes / SA per a docents amb generació d'enllaços compartibles.",
-            "Actualització dels nivells educatius a 1r cicle, 2n cicle i 3r cicle de primària."
-          ]
-        }
-      ];
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
-      const coreMilestones = [
-        {
-          range: "v0.16.0 – v0.20.0",
-          category: "Rols d'Aula i Integració Classroom",
-          color: "bg-amber-100 text-amber-900 border-amber-300",
-          summary: "Ecosistema de rols d'usuari i eines de control per a docents.",
-          highlights: [
-            "Filtres de durada i enllaços directes per a Google Classroom.",
-            "4 rols d'usuari (Alumne/a, Lector/a Adult/a, Docent i Col·laborador/a).",
-            "Panell de seguiment Els meus Alumnes per a la classe."
-          ]
-        },
-        {
-          range: "v0.11.0 – v0.15.0",
-          category: "Drets d'Autor i Ponderació",
-          color: "bg-blue-100 text-blue-900 border-blue-300",
-          summary: "Reconeixement d'autoria i ajust de dificultat pedagògica.",
-          highlights: [
-            "Targetes d'atribució en 3 línies fixes.",
-            "Sistema de punts per dificultat (1 pt o 2 pts per encert).",
-            "Reconeixement obligatori de l'Autor/a original de l'obra."
-          ]
-        },
-        {
-          range: "v0.1.0 – v0.10.0",
-          category: "Motor Base i Firestore",
-          color: "bg-slate-100 text-slate-800 border-slate-300",
-          summary: "Infraestructura inicial i integració amb Firebase.",
-          highlights: [
-            "Suport dual per a lectures curtes i llibres en paper.",
-            "Qüestionaris des de subcol·leccions Firestore.",
-            "Estructura HTML/TailwindCSS i Auth."
-          ]
+      try {
+        const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
+        
+        let html = `
+          <div class="max-w-6xl mx-auto space-y-6">
+            
+            ${filterMyLectures ? `
+              <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
+                <span class="flex items-center gap-2">
+                  <i class="fa-solid fa-filter text-amber-600"></i>
+                  ${(userRole === 'docent' || userRole === 'colaborador') ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
+                </span>
+                <button onclick="toggleMyLectures()" class="text-amber-700 hover:text-amber-900 underline text-xs">Mostrar-ho tot</button>
+              </div>
+            ` : ''}
+
+            <!-- PANEL DE FILTRES AMB TOTS ELS CAMPS RESTAURATS -->
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                  <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+
+                <div class="relative">
+                  <i class="fa-solid fa-user-pen absolute left-3.5 top-3 text-slate-400 text-sm"></i>
+                  <input type="text" id="author-search-input" value="${filterBookAuthor}" placeholder="Cercar per autor/a de l'obra..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                </div>
+                
+                <div>
+                  <select id="type-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterType === 'all' ? 'selected' : ''}>📑 Tots els tipus</option>
+                    <option value="text" ${filterType === 'text' ? 'selected' : ''}>📄 Text integrat (Lectura curta)</option>
+                    <option value="book" ${filterType === 'book' ? 'selected' : ''}>📖 Llibre de lectura</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <select id="level-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterLevel === 'all' ? 'selected' : ''}>🎓 Tots els nivells</option>
+                    <option value="1r cicle de primària" ${filterLevel === '1r cicle de primària' || filterLevel === 'Cicle Inicial' ? 'selected' : ''}>1r cicle de primària</option>
+                    <option value="2n cicle de primària" ${filterLevel === '2n cicle de primària' || filterLevel === 'Cicle Mitjà' ? 'selected' : ''}>2n cicle de primària</option>
+                    <option value="3r cicle de primària" ${filterLevel === '3r cicle de primària' || filterLevel === 'Cicle Superior' ? 'selected' : ''}>3r cicle de primària</option>
+                    <option value="Secundària" ${filterLevel === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
+                    <option value="Formació d'Adults" ${filterLevel === "Formació d'Adults" ? 'selected' : ''}>🧑‍💼 Formació d'Adults / CFA</option>
+                  </select>
+                </div>
+
+                <div>
+                  <select id="category-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterCategory === 'all' ? 'selected' : ''}>📚 Totes les categories</option>
+                    <option value="Aventura" ${filterCategory === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
+                    <option value="Misteri" ${filterCategory === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
+                    <option value="Ciència-ficció" ${filterCategory === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
+                    <option value="Teatre" ${filterCategory === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
+                    <option value="Poesia" ${filterCategory === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
+                    <option value="Tradició / Llegenda" ${filterCategory === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
+                    <option value="General" ${filterCategory === 'General' ? 'selected' : ''}>📖 General</option>
+                  </select>
+                </div>
+
+                <div>
+                  <select id="duration-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-indigo-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterDuration === 'all' ? 'selected' : ''}>⏱️ Quina durada / mida?</option>
+                    <option value="5 min" ${filterDuration === '5 min' ? 'selected' : ''}>⏱️ 5 minuts (Molt curta)</option>
+                    <option value="10 min" ${filterDuration === '10 min' ? 'selected' : ''}>⏱️ 10 minuts (Curta)</option>
+                    <option value="15 min" ${filterDuration === '15 min' ? 'selected' : ''}>⏱️ 15 minuts (Mitjana)</option>
+                    <option value="+20 min" ${filterDuration === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts (Llarga)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <select id="status-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-indigo-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>📌 Totes les lectures</option>
+                    <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>⏳ Pendents de fer</option>
+                    <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>✅ Ja fetes</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- GRAELLA DE TARGETES LECTURA -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        `;
+
+        let cardCount = 0;
+
+        if (!snapshot.empty) {
+          snapshot.forEach(doc => {
+            const data = doc.data() || {};
+            const docId = doc.id;
+            const isBook = data.type === 'book';
+            const isCompleted = userCompletedReadings.includes(docId);
+
+            const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
+            const isAuthor = currentUser && data.authorUid === currentUser.uid;
+            const canEdit = isAdmin || isAuthor;
+            const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
+
+            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+            const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+            const authorEmail = data.authorEmail || "";
+            const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+            const bookAuthorName = data.bookAuthor || '';
+            const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+            const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
+
+            let currentLevel = data.level || '';
+            if (currentLevel === 'Cicle Inicial') currentLevel = '1r cicle de primària';
+            if (currentLevel === 'Cicle Mitjà') currentLevel = '2n cicle de primària';
+            if (currentLevel === 'Cicle Superior') currentLevel = '3r cicle de primària';
+
+            if (filterMyLectures && currentUser) {
+              if (userRole === 'docent' || userRole === 'colaborador') {
+                if (data.authorUid !== currentUser.uid) return;
+              } else {
+                if (!isCompleted) return;
+              }
+            }
+
+            const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
+            const matchesBookAuthor = !filterBookAuthor || (bookAuthorName.toLowerCase().includes(filterBookAuthor));
+            const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
+            
+            let matchesLevel = filterLevel === 'all';
+            if (!matchesLevel) {
+              if (filterLevel === '1r cicle de primària') matchesLevel = currentLevel === '1r cicle de primària';
+              else if (filterLevel === '2n cicle de primària') matchesLevel = currentLevel === '2n cicle de primària';
+              else if (filterLevel === '3r cicle de primària') matchesLevel = currentLevel === '3r cicle de primària';
+              else matchesLevel = currentLevel === filterLevel;
+            }
+
+            const matchesCategory = filterCategory === 'all' || (data.category || 'General') === filterCategory;
+            const matchesDuration = filterDuration === 'all' || (data.estimatedTime === filterDuration);
+            
+            let matchesStatus = true;
+            if (filterStatus === 'completed') matchesStatus = isCompleted;
+            if (filterStatus === 'pending') matchesStatus = !isCompleted;
+            
+            if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) return;
+
+            cardCount++;
+
+            html += `
+              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+                <div class="p-5">
+                  <div class="flex items-center justify-between mb-3 gap-2">
+                    <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
+                      ${isBook ? '📖 Llibre' : '📄 Text'}
+                    </span>
+                    <div class="flex items-center gap-1.5 flex-wrap justify-end">
+                      ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
+                      <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2 py-0.5 rounded-md">
+                        ⚡ ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt/encert' : 'pts/encert'}
+                      </span>
+                      ${isCompleted ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>` : ''}
+                      ${data.category ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded-md">${data.category}</span>` : ''}
+                    </div>
+                  </div>
+
+                  ${isBook && data.imageUrl ? `
+                    <div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100">
+                      <img src="${data.imageUrl}" alt="${data.title}" class="w-full h-full object-cover">
+                    </div>
+                  ` : ''}
+
+                  <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
+                  <p class="text-xs font-semibold text-indigo-600 mb-2">${currentLevel}</p>
+                  
+                  ${bookAuthorName ? `
+                    <p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5">
+                      <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                      <span>Autor/a de l'obra: <strong class="text-slate-900 font-bold">${bookAuthorName}</strong></span>
+                    </p>
+                  ` : ''}
+
+                  <!-- ATRIBUCIÓ FIXA EN 3 LÍNIES INDEPENDENTS -->
+                  <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
+                    <span class="block text-xs text-slate-500 flex items-center gap-1">
+                      <i class="fa-solid fa-chalkboard-user text-indigo-500 text-[11px]"></i>
+                      ${isBook ? 'Preguntes de comprensió lectora:' : 'Lectura adaptada:'}
+                    </span>
+                    <div class="text-xs text-slate-800 font-bold">
+                      ${teacherText}
+                    </div>
+                    <div class="pt-0.5">
+                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                        <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                        ${teacherRank.name}
+                      </span>
+                    </div>
+                  </div>
+
+                  ${!isBook && data.content ? `
+                    <p class="text-slate-600 text-sm line-clamp-3 mb-4">${data.content}</p>
+                  ` : ''}
+                </div>
+
+                <div class="p-5 pt-0 mt-auto space-y-2">
+                  <div class="grid grid-cols-6 gap-1.5">
+                    <button onclick="renderReader('${docId}')" class="${isDocentOrCollab ? 'col-span-4' : 'col-span-5'} ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                      <i class="fa-solid fa-book-open"></i>
+                      <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
+                    </button>
+
+                    ${isDocentOrCollab ? `
+                      <button onclick="openAddToFolderModal('${docId}')" title="Afegir a una Carpeta / SA" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200">
+                        <i class="fa-solid fa-folder-plus text-base text-amber-700"></i>
+                      </button>
+                    ` : ''}
+                    
+                    <button onclick="shareReadingLink('${docId}', 'Lectura')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
+                      <i class="fa-solid fa-share-nodes text-base"></i>
+                    </button>
+                  </div>
+
+                  ${canEdit ? `
+                    <button onclick="renderEditor('${docId}')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold py-1.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+                      <i class="fa-solid fa-pen-to-square text-amber-600"></i>
+                      <span>Editar Lectura ${isAdmin && !isAuthor ? '(Admin)' : ''}</span>
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          });
         }
-      ];
+
+        if (snapshot.empty || cardCount === 0) {
+          html += `
+            <div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center">
+              <i class="fa-solid fa-filter-circle-xmark text-4xl text-slate-300 mb-3"></i>
+              <p class="text-slate-600 font-bold">No s'ha trobat cap lectura que coincideixi amb els filtres seleccionats.</p>
+              <button onclick="resetFiltersAndRenderCatalog()" class="mt-3 text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-1.5 rounded-lg transition">
+                Restablir tots els filtres
+              </button>
+            </div>
+          `;
+        }
+
+        html += `</div></div>`;
+        app.innerHTML = html;
+        renderBanner();
+      } catch (err) {
+        console.error("Error carregant el catàleg:", err);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
+      }
+    }
+    /* ==========================================================================
+       LECTOR DE LECTURA I QÜESTIONARI (Integrat amb QuestionEngine v0.22.0)
+       ========================================================================== */
+    async function renderReader(docId) {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
+
+      try {
+        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
+        if (!doc.exists) {
+          app.innerHTML = `
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+              <i class="fa-solid fa-file-circle-xmark text-4xl text-red-400"></i>
+              <h2 class="text-xl font-bold text-slate-800">Lectura no trobada</h2>
+              <p class="text-sm text-slate-600">L'enllaç utilitzat és incorrecte o la lectura s'ha eliminat.</p>
+              <button onclick="resetFiltersAndRenderCatalog()" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm">Anar al Catàleg General</button>
+            </div>
+          `;
+          return;
+        }
+
+        const data = doc.data() || {};
+        const isBook = data.type === 'book';
+
+        let questionsSnap = { empty: true, size: 0, forEach: () => {} };
+        try {
+          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        } catch (qErr) {
+          console.warn("No s'han pogut carregar les preguntes de Firestore:", qErr);
+        }
+        
+        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+        const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+        const authorEmail = data.authorEmail || "";
+        const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+        const bookAuthorName = data.bookAuthor || '';
+        const editorialOrSource = data.editorialOrSource || '';
+        const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+
+        let questionsHTML = '';
+        if (!questionsSnap.empty) {
+          const totalQuestions = questionsSnap.size;
+          const maxPoints = totalQuestions * ptsPerQuestion;
+
+          questionsHTML = `
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
+                </h2>
+                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
+                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
+                </span>
+              </div>
+          `;
+
+          let qIndex = 0;
+          questionsSnap.forEach(qDoc => {
+            const q = qDoc.data() || {};
+            // Utilitzem el motor modular QuestionEngine per renderitzar qualsevol tipus de pregunta
+            questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex);
+            qIndex++;
+          });
+
+          questionsHTML += `
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition text-base">
+                Enviar respostes i obtenir punts
+              </button>
+            </form>
+          `;
+        } else {
+          questionsHTML = `
+            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades per a aquesta lectura.
+            </div>
+          `;
+        }
+
+        let headerContentHTML = '';
+        if (isBook) {
+          headerContentHTML = `
+            <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
+              ${data.imageUrl ? `
+                <img src="${data.imageUrl}" alt="${data.title || 'Coberta'}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
+              ` : `
+                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-book text-4xl"></i>
+                </div>
+              `}
+              <div class="space-y-2">
+                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
+                <h2 class="text-xl font-bold text-slate-800">${data.title || 'Sense títol'}</h2>
+                
+                ${bookAuthorName ? `
+                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
+                  </p>
+                ` : ''}
+
+                ${editorialOrSource ? `
+                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-columns text-slate-400"></i>
+                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
+                  </p>
+                ` : ''}
+
+                <div class="pt-2 border-t border-indigo-100 space-y-1">
+                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
+                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                  <div class="pt-0.5">
+                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                      ${teacherRank.name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          headerContentHTML = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
+              ${bookAuthorName ? `
+                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
+                </p>
+              ` : ''}
+
+              ${editorialOrSource ? `
+                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
+                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
+                </p>
+              ` : ''}
+
+              <div class="pt-2 border-t border-slate-200 space-y-1">
+                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
+                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                <div class="pt-0.5">
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                    ${teacherRank.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
+              ${data.content || ''}
+            </div>
+          `;
+        }
+
+        app.innerHTML = `
+          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
+            ${headerContentHTML}
+            ${questionsHTML}
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la lectura:", err);
+      }
+    }
+
+    // AVALUACIÓ DE RESPOSTES AMB EL MOTOR MODULAR
+    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
+      e.preventDefault();
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let score = 0;
+      let total = questionsSnap.size;
+
+      questionsSnap.forEach(qDoc => {
+        const q = qDoc.data() || {};
+        // Utilitzem la funció evaluate del motor
+        if (QuestionEngine.evaluate(q, qDoc.id, formData)) {
+          score++;
+        }
+      });
+
+      const newQuizPoints = score * pointsPerQuestion;
+      const maxPossiblePoints = total * pointsPerQuestion;
+
+      let userScores = {};
+      try {
+        const userDoc = await db.collection("users").doc(currentUser.uid).get();
+        if (userDoc.exists) userScores = userDoc.data().scores || {};
+      } catch (err) {
+        console.warn("Error llegint puntuacions anteriors:", err);
+      }
+
+      const previousQuizPoints = userScores[docId] || 0;
+      let pointsToAdd = 0;
+
+      if (newQuizPoints > previousQuizPoints) {
+        pointsToAdd = newQuizPoints - previousQuizPoints;
+        userScores[docId] = newQuizPoints;
+        userPoints += pointsToAdd;
+      }
+
+      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
+
+      try {
+        await db.collection("users").doc(currentUser.uid).set({
+          points: userPoints,
+          completedReadings: userCompletedReadings,
+          scores: userScores
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Dades desades localment:", err);
+      }
+
+      await loadUserData();
+      renderNav();
+
+      if (pointsToAdd > 0) {
+        alert(`🎉 Gran treball! Encertades ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous! (Total lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
+      } else if (newQuizPoints === maxPossiblePoints) {
+        alert(`⭐ Fantàstic! Has tornat a aconseguir la puntuació màxima (${score}/${total}).`);
+      } else {
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts). Com que la teva marca anterior era de ${previousQuizPoints} pts, el teu total es manté.`);
+      }
+
+      resetFiltersAndRenderCatalog();
+    }
+
+    /* ==========================================================================
+       EDITOR DE LECTURES I PREGUNTES (Docents i Col·laboradors)
+       ========================================================================== */
+    async function renderEditor(docIdToEdit = null) {
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
+      const isAdmin = currentUser.email === ADMIN_SUPREMO_EMAIL;
+      if (userRole !== 'docent' && userRole !== 'colaborador' && !isAdmin) {
+        alert("Accés restringit a Docents i Col·laboradors.");
+        renderCatalog();
+        return;
+      }
+
+      editingDocId = docIdToEdit;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
+
+      let initialData = {
+        type: 'text',
+        title: '',
+        bookAuthor: '',
+        editorialOrSource: '',
+        level: '1r cicle de primària',
+        category: 'Aventura',
+        estimatedTime: '10 min',
+        bookPages: '',
+        pointsPerQuestion: 1,
+        content: '',
+        imageUrl: ''
+      };
+
+      let initialQuestions = [];
+
+      if (editingDocId) {
+        try {
+          const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
+          if (docSnap.exists) {
+            initialData = docSnap.data();
+            const qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+            qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
+          }
+        } catch (err) {
+          console.error("Error carregant la lectura a editar:", err);
+        }
+      }
 
       app.innerHTML = `
-        <div class="max-w-4xl mx-auto space-y-8 pb-8">
-          <div class="flex items-center justify-between border-b border-slate-200 pb-4">
-            <div>
-              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center transition">
-                <i class="fa-solid fa-arrow-left mr-1.5"></i> Tornar al Catàleg General
-              </button>
-              <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
-                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions i Desenvolupament
-              </h1>
-              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
-            </div>
-            <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.22.0
+        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center justify-between">
+            <span class="flex items-center">
+              <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
+              ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
             </span>
-          </div>
+            ${editingDocId ? `<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-md">Mode Edició</span>` : ''}
+          </h1>
+          <form onsubmit="saveReading(event)" class="space-y-5">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
+              <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="text" ${initialData.type === 'text' ? 'selected' : ''}>📄 Text Integrat (Lectura curta)</option>
+                <option value="book" ${initialData.type === 'book' ? 'selected' : ''}>📖 Llibre de Lectura (Imatge / Coberta)</option>
+              </select>
+            </div>
 
-          <div class="space-y-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <i class="fa-solid fa-sparkles text-amber-500"></i> Darreres Actualitzacions
-            </h2>
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
+              <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
 
-            ${detailedChangelog.map(ver => `
-              <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3 relative overflow-hidden">
-                <div class="flex items-center justify-between flex-wrap gap-2">
-                  <div class="flex items-center gap-2">
-                    <span class="font-mono font-black text-lg text-indigo-900">${ver.version}</span>
-                    <span class="text-xs text-slate-400 font-semibold">• ${ver.date}</span>
-                  </div>
-                  <span class="text-xs font-extrabold px-3 py-0.5 rounded-full border ${ver.color}">${ver.badge}</span>
+            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
+              <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-feather-pointed"></i> Dades d'Atribució i Drets d'Autor
+              </h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
+                  <input type="text" id="editor-book-author" value="${initialData.bookAuthor || ''}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
-                <h3 class="text-base font-bold text-slate-800">${ver.title}</h3>
-                <p class="text-xs text-slate-600 leading-relaxed">${ver.description}</p>
-                <div class="pt-2 border-t border-slate-100">
-                  <ul class="space-y-1.5 text-xs text-slate-700">
-                    ${ver.items.map(item => `
-                      <li class="flex items-start gap-2">
-                        <i class="fa-solid fa-check text-emerald-500 text-xs mt-0.5"></i>
-                        <span>${item}</span>
-                      </li>
-                    `).join('')}
-                  </ul>
+
+                <div>
+                  <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
+                  <input type="text" id="editor-source" value="${initialData.editorialOrSource || ''}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
               </div>
-            `).join('')}
-          </div>
-
-          <div class="space-y-6 pt-4">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <i class="fa-solid fa-layer-group text-indigo-600"></i> Fites Clau de la Plataforma
-            </h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-              ${coreMilestones.map(m => `
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
-                  <div>
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="font-mono text-xs font-bold text-slate-500">${m.range}</span>
-                      <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${m.color}">${m.category}</span>
-                    </div>
-                    <p class="text-xs text-slate-600 font-semibold mb-3">${m.summary}</p>
-                    <div class="space-y-2 text-[11px] text-slate-700">
-                      ${m.highlights.map(h => `<p class="leading-tight">• ${h}</p>`).join('')}
-                    </div>
-                  </div>
-                </div>
-              `).join('')}
             </div>
-          </div>
-        </div>
-      `;
-    }
 
-    async function renderTeacherFoldersList() {
-      if (!currentUser || (userRole !== 'docent' && userRole !== 'colaborador')) return;
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant les teves carpetes...</p></div>`;
-
-      try {
-        const snap = await db.collection(FOLDERS_COLLECTION)
-          .where("authorUid", "==", currentUser.uid)
-          .get();
-
-        let folders = [];
-        snap.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
-
-        let html = `
-          <div class="max-w-5xl mx-auto space-y-6">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
               <div>
-                <button onclick="renderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center">
-                  <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg
-                </button>
-                <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-folder-open text-indigo-600"></i> Reculls de Lectures / Carpetes SA
-                </h1>
-              </div>
-              <button onclick="openCreateFolderModal()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs sm:text-sm transition flex items-center gap-2 shadow-md">
-                <i class="fa-solid fa-folder-plus text-base"></i>
-                <span>Nova Carpeta / SA</span>
-              </button>
-            </div>
-
-            ${folders.length === 0 ? `
-              <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-3">
-                <i class="fa-solid fa-folder-open text-4xl text-slate-300"></i>
-                <h3 class="font-bold text-slate-700">Encara no has creat cap carpeta</h3>
-                <button onclick="openCreateFolderModal()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">Crear la primera carpeta</button>
-              </div>
-            ` : `
-              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                ${folders.map(f => {
-                  const count = (f.readingIds || []).length;
-                  return `
-                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-                      <div>
-                        <div class="flex items-center justify-between mb-2">
-                          <span class="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-800 flex items-center gap-1.5">
-                            <i class="fa-solid fa-book-bookmark text-indigo-600"></i> ${count} ${count === 1 ? 'lectura' : 'lectures'}
-                          </span>
-                          <button onclick="deleteFolder('${f.id}')" class="text-slate-400 hover:text-red-600 text-xs p-1" title="Eliminar carpeta">
-                            <i class="fa-solid fa-trash"></i>
-                          </button>
-                        </div>
-                        <h3 class="font-bold text-slate-800 text-lg mb-1">${f.title || 'Carpeta sense nom'}</h3>
-                        <p class="text-xs text-slate-600 line-clamp-2">${f.description || 'Sense descripció'}</p>
-                      </div>
-
-                      <div class="pt-3 border-t border-slate-100 flex gap-2">
-                        <button onclick="renderFolderView('${f.id}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5">
-                          <i class="fa-solid fa-eye"></i> Veure / Editar
-                        </button>
-                        <button onclick="shareFolderLink('${f.id}')" title="Copiar enllaç" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-2 rounded-xl text-xs transition border border-indigo-200">
-                          <i class="fa-solid fa-share-nodes text-sm"></i>
-                        </button>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            `}
-          </div>
-        `;
-
-        app.innerHTML = html;
-      } catch (err) {
-        console.error("Error carregant carpetes:", err);
-      }
-    }
-
-    function openCreateFolderModal(readingIdToAdd = null) {
-      const container = document.getElementById('folder-modal-container');
-      container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 relative">
-            <button onclick="closeFolderModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1">
-              <i class="fa-solid fa-xmark text-lg"></i>
-            </button>
-            <div class="text-center mb-5">
-              <h2 class="text-xl font-bold text-slate-800">Nova Carpeta / Recull SA</h2>
-            </div>
-            <form onsubmit="saveNewFolder(event, '${readingIdToAdd || ''}')" class="space-y-4">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Títol del Projecte / SA *</label>
-                <input type="text" id="folder-title" required placeholder="Ex: SA 3: Protegim els oceans" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Instruccions per als Alumnes</label>
-                <textarea id="folder-desc" rows="3" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none"></textarea>
-              </div>
-              <div class="pt-2 flex gap-2">
-                <button type="button" onclick="closeFolderModal()" class="w-1/2 bg-slate-100 font-bold py-2.5 rounded-xl text-sm">Cancel·lar</button>
-                <button type="submit" class="w-1/2 bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm shadow">Crear Carpeta</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    function closeFolderModal() {
-      const container = document.getElementById('folder-modal-container');
-      if (container) container.innerHTML = '';
-    }
-
-    async function saveNewFolder(e, readingIdToAdd) {
-      e.preventDefault();
-      const title = document.getElementById('folder-title').value;
-      const desc = document.getElementById('folder-desc').value;
-
-      try {
-        await db.collection(FOLDERS_COLLECTION).add({
-          title: title,
-          description: desc,
-          authorUid: currentUser.uid,
-          authorName: userDisplayName || currentUser.email.split('@')[0],
-          readingIds: readingIdToAdd ? [readingIdToAdd] : [],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        closeFolderModal();
-        if (readingIdToAdd) {
-          alert("Carpeta creada i lectura afegida!");
-          renderCatalog();
-        } else {
-          renderTeacherFoldersList();
-        }
-      } catch (err) {
-        alert("Error en crear carpeta: " + err.message);
-      }
-    }
-
-    async function openAddToFolderModal(readingId) {
-      if (!currentUser || (userRole !== 'docent' && userRole !== 'colaborador')) return;
-      const container = document.getElementById('folder-modal-container');
-      
-      try {
-        const snap = await db.collection(FOLDERS_COLLECTION)
-          .where("authorUid", "==", currentUser.uid)
-          .get();
-
-        let folders = [];
-        snap.forEach(doc => folders.push({ id: doc.id, ...doc.data() }));
-
-        if (folders.length === 0) {
-          openCreateFolderModal(readingId);
-          return;
-        }
-
-        container.innerHTML = `
-          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border border-slate-200 p-6 relative">
-              <button onclick="closeFolderModal()" class="absolute right-4 top-4 text-slate-400 hover:text-slate-600 p-1">
-                <i class="fa-solid fa-xmark text-lg"></i>
-              </button>
-              <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Afegir a una Carpeta</h2>
-              <div class="space-y-2 max-h-60 overflow-y-auto mb-4">
-                ${folders.map(f => {
-                  const exists = (f.readingIds || []).includes(readingId);
-                  return `
-                    <div onclick="toggleReadingInFolder('${f.id}', '${readingId}', ${exists})" class="p-3 bg-slate-50 hover:bg-indigo-50 rounded-xl border cursor-pointer flex items-center justify-between">
-                      <span class="font-bold text-slate-800 text-sm">${f.title}</span>
-                      <i class="fa-solid ${exists ? 'fa-circle-check text-emerald-600' : 'fa-circle text-slate-300'} text-lg"></i>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error carregar modal:", err);
-      }
-    }
-
-    async function toggleReadingInFolder(folderId, readingId, currentlyExists) {
-      try {
-        const folderRef = db.collection(FOLDERS_COLLECTION).doc(folderId);
-        if (currentlyExists) {
-          await folderRef.update({ readingIds: firebase.firestore.FieldValue.arrayRemove(readingId) });
-        } else {
-          await folderRef.update({ readingIds: firebase.firestore.FieldValue.arrayUnion(readingId) });
-        }
-        closeFolderModal();
-        renderCatalog();
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    async function deleteFolder(folderId) {
-      if (!confirm("Vols eliminar aquesta carpeta?")) return;
-      try {
-        await db.collection(FOLDERS_COLLECTION).doc(folderId).delete();
-        renderTeacherFoldersList();
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
-    }
-
-    function shareFolderLink(folderId) {
-      const baseUrl = window.location.href.split('?')[0];
-      const shareUrl = `${baseUrl}?carpeta=${folderId}`;
-      prompt("Copia aquest enllaç directe:", shareUrl);
-    }
-
-    async function renderFolderView(folderId) {
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el recull...</p></div>`;
-
-      try {
-        const folderDoc = await db.collection(FOLDERS_COLLECTION).doc(folderId).get();
-        if (!folderDoc.exists) {
-          app.innerHTML = `<div class="p-8 text-center bg-white rounded-2xl border"><p class="font-bold text-slate-700">Aquesta carpeta no existeix.</p></div>`;
-          return;
-        }
-
-        const fData = folderDoc.data();
-        const readingIds = fData.readingIds || [];
-
-        let readings = [];
-        if (readingIds.length > 0) {
-          for (const rId of readingIds) {
-            try {
-              const rDoc = await db.collection(DB_COLLECTION).doc(rId).get();
-              if (rDoc.exists) readings.push({ id: rDoc.id, ...rDoc.data() });
-            } catch(e) {}
-          }
-        }
-
-        app.innerHTML = `
-          <div class="max-w-5xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg
-            </button>
-
-            <div class="bg-indigo-900 text-white p-6 rounded-2xl shadow-md space-y-2">
-              <h1 class="text-2xl font-black text-white">${fData.title || 'Carpeta de Lectures'}</h1>
-              <p class="text-xs text-indigo-200">${fData.description || ''}</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              ${readings.map(data => `
-                <div class="bg-white rounded-2xl border p-5 flex flex-col justify-between">
-                  <div>
-                    <h3 class="font-bold text-slate-800 text-lg mb-1">${data.title || 'Sense títol'}</h3>
-                    <p class="text-xs text-slate-500 mb-2">${data.level || ''}</p>
-                  </div>
-                  <button onclick="renderReader('${data.id}')" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl text-xs mt-4">
-                    Llegir i Respondre
-                  </button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error carregant carpeta:", err);
-      }
-    }
-
-    async function renderStudentTrackingPanel() {
-      if (!currentUser || userRole !== 'docent') return;
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i></div>`;
-
-      try {
-        const snapshot = await db.collection("users").where("teacherUid", "==", currentUser.uid).get();
-        let students = [];
-        snapshot.forEach(doc => students.push({ id: doc.id, ...doc.data() }));
-
-        app.innerHTML = `
-          <div class="max-w-5xl mx-auto space-y-6">
-            <button onclick="renderCatalog()" class="text-slate-500 font-bold text-xs"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg</button>
-            <h1 class="text-2xl font-bold text-slate-800">Seguint els meus Alumnes (${students.length})</h1>
-            <div class="bg-white rounded-2xl border overflow-hidden">
-              <table class="w-full text-left text-sm">
-                <thead class="bg-slate-50 text-xs text-slate-500 font-bold border-b">
-                  <tr><th class="p-4">Alumne/a</th><th class="p-4 text-center">Punts</th><th class="p-4 text-right">Accions</th></tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  ${students.map(s => `
-                    <tr>
-                      <td class="p-4 font-bold text-slate-800">${s.displayName || s.email}</td>
-                      <td class="p-4 text-center font-bold text-indigo-600">${s.points || 0} pts</td>
-                      <td class="p-4 text-right">
-                        <button onclick="viewStudentDetail('${s.id}')" class="text-xs bg-indigo-50 text-indigo-700 font-bold px-3 py-1.5 rounded-lg">Detalls</button>
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error seguiment alumnes:", err);
-      }
-    }
-
-    async function viewStudentDetail(studentUid) {
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i></div>`;
-
-      try {
-        const doc = await db.collection("users").doc(studentUid).get();
-        if (!doc.exists) return renderStudentTrackingPanel();
-        const sData = doc.data();
-
-        app.innerHTML = `
-          <div class="max-w-4xl mx-auto space-y-6">
-            <button onclick="renderStudentTrackingPanel()" class="text-slate-500 font-bold text-xs"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar</button>
-            <div class="bg-white p-6 rounded-2xl border">
-              <h1 class="text-xl font-bold text-slate-800">${sData.displayName || 'Alumne/a'}</h1>
-              <p class="text-sm font-black text-indigo-900 mt-2">${sData.points || 0} PTS aculmulats</p>
-            </div>
-          </div>
-        `;
-      } catch(err) {
-        console.error("Error detall alumne:", err);
-      }
-    }
-
-    async function renderStudentLeaderboard() {
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i></div>`;
-
-      try {
-        const usersSnap = await db.collection("users").get();
-        let allUsers = [];
-        usersSnap.forEach(d => {
-          const data = d.data();
-          if (data.role === 'alumne' || data.role === 'adult' || !data.role) {
-            allUsers.push({ id: d.id, ...data });
-          }
-        });
-
-        allUsers.sort((a, b) => (b.points || 0) - (a.points || 0));
-
-        app.innerHTML = `
-          <div class="max-w-4xl mx-auto space-y-6">
-            <button onclick="renderCatalog()" class="text-slate-500 font-bold text-xs"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al Catàleg</button>
-            <h1 class="text-3xl font-black text-slate-800 text-center">Classificació de Lectors</h1>
-            <div class="bg-white rounded-2xl border divide-y divide-slate-100">
-              ${allUsers.map((u, idx) => `
-                <div class="p-4 flex items-center justify-between">
-                  <span class="font-bold text-slate-800 text-sm">${idx + 1}. ${u.displayName || 'Lector/a'}</span>
-                  <span class="bg-amber-100 text-amber-900 font-bold text-xs px-3 py-1 rounded-lg">⚡ ${u.points || 0} pts</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      } catch(err) {
-        console.error("Error classificació:", err);
-      }
-    }
-
-    function renderLogin(isSignUp = false) {
-      authIsSignUp = isSignUp;
-      const container = document.getElementById('auth-modal-container');
-      
-      container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border p-6 relative">
-            <button onclick="closeAuthModal()" class="absolute right-4 top-4 text-slate-400 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
-            <h2 class="text-xl font-bold text-slate-800 text-center mb-4">${authIsSignUp ? 'Crear Compte Nou' : 'Inicia Sessió'}</h2>
-            <form onsubmit="handleAuthSubmit(event)" class="space-y-4">
-              <input type="email" id="auth-email" required placeholder="nom@escola.cat" class="w-full p-2.5 border rounded-xl text-sm">
-              <input type="password" id="auth-password" required placeholder="••••••••" class="w-full p-2.5 border rounded-xl text-sm">
-              ${authIsSignUp ? `
-                <select id="auth-role" class="w-full p-2.5 border rounded-xl text-sm font-bold">
-                  <option value="alumne">Alumne / Alumna</option>
-                  <option value="adult">Lector/a Adult/a</option>
-                  <option value="docent">Docent / Mestre/a</option>
-                  <option value="colaborador">Col·laborador/a</option>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Públic *</label>
+                <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="1r cicle de primària" ${initialData.level === '1r cicle de primària' || initialData.level === 'Cicle Inicial' ? 'selected' : ''}>1r cicle de primària</option>
+                  <option value="2n cicle de primària" ${initialData.level === '2n cicle de primària' || initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>2n cicle de primària</option>
+                  <option value="3r cicle de primària" ${initialData.level === '3r cicle de primària' || initialData.level === 'Cicle Superior' ? 'selected' : ''}>3r cicle de primària</option>
+                  <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
+                  <option value="Formació d'Adults" ${initialData.level === "Formació d'Adults" ? 'selected' : ''}>🧑‍💼 Formació d'Adults / CFA</option>
                 </select>
-              ` : ''}
-              <div id="auth-error" class="hidden p-3 bg-red-50 text-red-600 text-xs rounded-xl"></div>
-              <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl text-sm">${authIsSignUp ? 'Registrar-me' : 'Entrar'}</button>
-            </form>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
+                <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="Aventura" ${initialData.category === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
+                  <option value="Misteri" ${initialData.category === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
+                  <option value="Ciència-ficció" ${initialData.category === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
+                  <option value="Teatre" ${initialData.category === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
+                  <option value="Poesia" ${initialData.category === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
+                  <option value="Tradició / Llegenda" ${initialData.category === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
+                  <option value="General" ${initialData.category === 'General' ? 'selected' : ''}>📖 General</option>
+                </select>
+              </div>
+
+              <div id="wrapper-duration-text">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Durada Estimada *</label>
+                <select id="editor-duration" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="5 min" ${initialData.estimatedTime === '5 min' ? 'selected' : ''}>⏱️ 5 minuts</option>
+                  <option value="10 min" ${initialData.estimatedTime === '10 min' ? 'selected' : ''}>⏱️ 10 minuts</option>
+                  <option value="15 min" ${initialData.estimatedTime === '15 min' ? 'selected' : ''}>⏱️ 15 minuts</option>
+                  <option value="+20 min" ${initialData.estimatedTime === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts</option>
+                </select>
+              </div>
+
+              <div id="wrapper-duration-book" class="hidden">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nº de Pàgines *</label>
+                <input type="number" id="editor-book-pages" value="${initialData.bookPages || ''}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Punts / encert *</label>
+                <select id="editor-points-per-q" class="w-full p-2.5 border border-amber-300 bg-amber-50/50 rounded-xl text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none">
+                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt (Estàndard)</option>
+                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts (Complexa)</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="wrapper-content">
+              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">${initialData.content || ''}</textarea>
+            </div>
+
+            <div id="wrapper-image" class="hidden">
+              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
+              <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
+                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+                </button>
+              </div>
+              <div id="questions-container" class="space-y-4"></div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
+              <button type="submit" class="px-5 py-2 ${editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl text-sm shadow transition">
+                ${editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      toggleReadingTypeInputs();
+
+      if (initialQuestions.length > 0) {
+        initialQuestions.forEach(q => addQuestionField(q));
+      } else {
+        addQuestionField();
+      }
+    }
+
+    function toggleReadingTypeInputs() {
+      const type = document.getElementById('editor-type').value;
+      const wrapContent = document.getElementById('wrapper-content');
+      const wrapImage = document.getElementById('wrapper-image');
+      const wrapDurText = document.getElementById('wrapper-duration-text');
+      const wrapDurBook = document.getElementById('wrapper-duration-book');
+      const contentInput = document.getElementById('editor-content');
+      const labelSource = document.getElementById('label-editorial-source');
+
+      if (type === 'book') {
+        wrapContent.classList.add('hidden');
+        if (contentInput) contentInput.removeAttribute('required');
+        wrapImage.classList.remove('hidden');
+        wrapDurText.classList.add('hidden');
+        wrapDurBook.classList.remove('hidden');
+        if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
+      } else {
+        wrapContent.classList.remove('hidden');
+        if (contentInput) contentInput.setAttribute('required', 'true');
+        wrapImage.classList.add('hidden');
+        wrapDurText.classList.remove('hidden');
+        wrapDurBook.classList.add('hidden');
+        if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
+      }
+    }
+
+    // AFEGIR BLOC DE PREGUNTA A L'EDITOR (Amb selector de tipus)
+    function addQuestionField(data = null) {
+      const container = document.getElementById('questions-container');
+      if (!container) return;
+
+      const qIndex = container.children.length;
+
+      const qText = data ? (data.questionText || data.pregunta || '') : '';
+      const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
+      const qType = data ? (data.questionType || QUESTION_TYPES.SINGLE.id) : QUESTION_TYPES.SINGLE.id;
+
+      let correctSingleIdx = 0;
+      let correctMultipleArr = [0];
+
+      if (data) {
+        if (Array.isArray(data.correctAnswers)) {
+          correctMultipleArr = data.correctAnswers.map(v => parseInt(v));
+          correctSingleIdx = correctMultipleArr[0] || 0;
+        } else if (data.correctAnswer !== undefined) {
+          correctSingleIdx = parseInt(data.correctAnswer);
+          correctMultipleArr = [correctSingleIdx];
+        }
+      }
+
+      const qDiv = document.createElement('div');
+      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
+      
+      qDiv.innerHTML = `
+        <div class="flex justify-between items-center gap-2">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
+            <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
+              <option value="${QUESTION_TYPES.SINGLE.id}" ${qType === QUESTION_TYPES.SINGLE.id ? 'selected' : ''}>${QUESTION_TYPES.SINGLE.name}</option>
+              <option value="${QUESTION_TYPES.MULTIPLE.id}" ${qType === QUESTION_TYPES.MULTIPLE.id ? 'selected' : ''}>${QUESTION_TYPES.MULTIPLE.name}</option>
+            </select>
+          </div>
+          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs font-bold">
+            <i class="fa-solid fa-trash"></i> Eliminar
+          </button>
+        </div>
+
+        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" value="${opts[0] || ''}" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[1] || ''}" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[2] || ''}" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[3] || ''}" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
+
+        <div class="q-single-box ${qType === QUESTION_TYPES.SINGLE.id ? '' : 'hidden'} mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+          <i class="fa-solid fa-circle-check text-indigo-600"></i>
+          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
+          <select class="q-correct-single p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
+            <option value="0" ${correctSingleIdx === 0 ? 'selected' : ''}>Opció 1</option>
+            <option value="1" ${correctSingleIdx === 1 ? 'selected' : ''}>Opció 2</option>
+            <option value="2" ${correctSingleIdx === 2 ? 'selected' : ''}>Opció 3</option>
+            <option value="3" ${correctSingleIdx === 3 ? 'selected' : ''}>Opció 4</option>
+          </select>
+        </div>
+
+        <div class="q-multiple-box ${qType === QUESTION_TYPES.MULTIPLE.id ? '' : 'hidden'} mt-3 p-2.5 bg-purple-50 rounded-lg border border-purple-100 space-y-1.5">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+            <i class="fa-solid fa-square-check text-purple-600"></i>
+            <span>Marca totes les respostes que són correctes:</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="0" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(0) ? 'checked' : ''}>
+              <span>Opció 1</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="1" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(1) ? 'checked' : ''}>
+              <span>Opció 2</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="2" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(2) ? 'checked' : ''}>
+              <span>Opció 3</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="3" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(3) ? 'checked' : ''}>
+              <span>Opció 4</span>
+            </label>
           </div>
         </div>
       `;
+      container.appendChild(qDiv);
     }
 
-    function closeAuthModal() {
-      const container = document.getElementById('auth-modal-container');
-      if (container) container.innerHTML = '';
+    function toggleQuestionAnswerType(selectElem) {
+      const block = selectElem.parentElement.parentElement.parentElement;
+      const singleBox = block.querySelector('.q-single-box');
+      const multiBox = block.querySelector('.q-multiple-box');
+
+      if (selectElem.value === QUESTION_TYPES.MULTIPLE.id) {
+        singleBox.classList.add('hidden');
+        multiBox.classList.remove('hidden');
+      } else {
+        singleBox.classList.remove('hidden');
+        multiBox.classList.add('hidden');
+      }
     }
 
-    async function handleAuthSubmit(e) {
+    async function saveReading(e) {
       e.preventDefault();
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const roleSelect = document.getElementById('auth-role');
+      const type = document.getElementById('editor-type')?.value || 'text';
+      const title = document.getElementById('editor-title').value;
+      const bookAuthor = document.getElementById('editor-book-author')?.value || '';
+      const editorialOrSource = document.getElementById('editor-source')?.value || '';
+      const level = document.getElementById('editor-level').value;
+      const category = document.getElementById('editor-category')?.value || 'General';
+      const estimatedTime = document.getElementById('editor-duration')?.value || '10 min';
+      const bookPages = document.getElementById('editor-book-pages')?.value || '';
+      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
+      const content = document.getElementById('editor-content')?.value || '';
+      const imageUrl = document.getElementById('editor-image')?.value || '';
+
+      const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Creador/a");
+      const authorSchool = userSchool || "";
+      const authorEmail = currentUser ? currentUser.email : "";
 
       try {
-        if (authIsSignUp) {
-          const userCred = await auth.createUserWithEmailAndPassword(email, password);
-          await db.collection("users").doc(userCred.user.uid).set({
-            email: email,
-            role: roleSelect ? roleSelect.value : 'alumne',
-            points: 0,
-            completedReadings: [],
+        let docId = editingDocId;
+
+        if (editingDocId) {
+          await db.collection(DB_COLLECTION).doc(editingDocId).update({
+            type: type,
+            title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
+            level: level,
+            category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
+            pointsPerQuestion: pointsPerQuestion,
+            content: content,
+            imageUrl: imageUrl,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          const oldQ = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+          for (const qDoc of oldQ.docs) {
+            await qDoc.ref.delete();
+          }
+        } else {
+          if (currentUser && (userRole === 'docent' || userRole === 'colaborador')) {
+            userPoints += 1;
+            await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
+          }
+
+          const docRef = await db.collection(DB_COLLECTION).add({
+            type: type,
+            title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
+            level: level,
+            category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
+            pointsPerQuestion: pointsPerQuestion,
+            content: content,
+            imageUrl: imageUrl,
+            authorUid: currentUser ? currentUser.uid : null,
+            authorDisplayName: authorDisplayName,
+            authorSchool: authorSchool,
+            authorEmail: authorEmail,
+            authorPoints: userPoints,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
-        } else {
-          await auth.signInWithEmailAndPassword(email, password);
+          docId = docRef.id;
         }
-        closeAuthModal();
+
+        const qBlocks = document.querySelectorAll('.q-block');
+        for (const block of qBlocks) {
+          const qText = block.querySelector('.q-text').value;
+          const opt0 = block.querySelector('.q-opt-0').value;
+          const opt1 = block.querySelector('.q-opt-1').value;
+          const opt2 = block.querySelector('.q-opt-2')?.value || '';
+          const opt3 = block.querySelector('.q-opt-3')?.value || '';
+          const qType = block.querySelector('.q-type-select')?.value || QUESTION_TYPES.SINGLE.id;
+
+          const options = [opt0, opt1];
+          if (opt2) options.push(opt2);
+          if (opt3) options.push(opt3);
+
+          if (qText && options.length >= 2) {
+            if (qType === QUESTION_TYPES.MULTIPLE.id) {
+              const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
+              const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
+
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: options,
+                questionType: QUESTION_TYPES.MULTIPLE.id,
+                correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
+              });
+            } else {
+              const correctSelect = block.querySelector('.q-correct-single');
+              const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
+
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: options,
+                questionType: QUESTION_TYPES.SINGLE.id,
+                correctAnswer: correctIdx
+              });
+            }
+          }
+        }
+
+        editingDocId = null;
+        await loadUserData();
+        renderNav();
+        renderCatalog();
       } catch (err) {
-        const errBox = document.getElementById('auth-error');
-        errBox.innerText = err.message;
-        errBox.classList.remove('hidden');
+        alert("Error en desar la lectura: " + err.message);
       }
     }
 
-    function toggleMyLectures() {
-      filterMyLectures = !filterMyLectures;
-      renderNav();
-      renderCatalog();
-    }
-
-    function logout() {
-      auth.signOut().then(() => renderCatalog());
-    }
-
+    /* ==========================================================================
+       FUNCIONS D'UTILITAT: CLASSIFICACIÓ, PANELLS I HISTORIAL
+       ========================================================================== */
     function resetFiltersAndRenderCatalog() {
       if (window.location.search) {
         window.history.pushState({}, document.title, window.location.pathname);
@@ -893,236 +1240,58 @@
       renderCatalog();
     }
 
-    function shareReadingLink(docId) {
+    function toggleMyLectures() {
+      filterMyLectures = !filterMyLectures;
+      renderNav();
+      renderCatalog();
+    }
+
+    function logout() {
+      auth.signOut().then(() => renderCatalog());
+    }
+
+    function shareReadingLink(docId, title) {
       const baseUrl = window.location.href.split('?')[0];
       const shareUrl = `${baseUrl}?lectura=${docId}`;
-      prompt("Copia aquest enllaç directe:", shareUrl);
-    }
-
-    async function renderUserProfileModal() {
-      const container = document.getElementById('profile-modal-container');
-      container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white max-w-md w-full rounded-2xl shadow-xl border p-6 relative">
-            <button onclick="closeUserProfileModal()" class="absolute right-4 top-4 text-slate-400 p-1"><i class="fa-solid fa-xmark text-lg"></i></button>
-            <h2 class="text-xl font-bold text-slate-800 text-center mb-4">Fitxa d'Usuari</h2>
-            <form onsubmit="saveUserProfile(event)" class="space-y-4">
-              <input type="text" id="profile-name" value="${userDisplayName}" placeholder="Nom i cognoms" required class="w-full p-2.5 border rounded-xl text-sm">
-              <input type="text" id="profile-school" value="${userSchool}" placeholder="Escola / Centre" class="w-full p-2.5 border rounded-xl text-sm">
-              <div class="flex gap-2">
-                <button type="button" onclick="closeUserProfileModal()" class="w-1/2 bg-slate-100 font-bold py-2.5 rounded-xl text-sm">Cancel·lar</button>
-                <button type="submit" class="w-1/2 bg-indigo-600 text-white font-bold py-2.5 rounded-xl text-sm shadow">Desar Fitxa</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    function closeUserProfileModal() {
-      const container = document.getElementById('profile-modal-container');
-      if (container) container.innerHTML = '';
-    }
-
-    async function saveUserProfile(e) {
-      e.preventDefault();
-      const name = document.getElementById('profile-name').value;
-      const school = document.getElementById('profile-school').value;
-
-      try {
-        await db.collection("users").doc(currentUser.uid).set({ displayName: name, school: school }, { merge: true });
-        userDisplayName = name;
-        userSchool = school;
-        closeUserProfileModal();
-        renderNav();
-        renderCatalog();
-      } catch (err) {
-        alert("Error: " + err.message);
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+          alert(`🔗 Enllaç copiat al porta-retalls!\n\n${shareUrl}`);
+        }).catch(() => { prompt("Copia aquest enllaç:", shareUrl); });
+      } else {
+        prompt("Copia aquest enllaç:", shareUrl);
       }
     }
 
-    async function renderCatalog() {
+    function renderChangelogPage() {
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
-
-      try {
-        const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
-        
-        let html = `
-          <div class="max-w-6xl mx-auto space-y-6">
-            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol..." oninput="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border rounded-xl text-sm">
-                <input type="text" id="author-search-input" value="${filterBookAuthor}" placeholder="Cercar per autor/a..." oninput="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border rounded-xl text-sm">
-                <select id="type-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold">
-                  <option value="all" ${filterType === 'all' ? 'selected' : ''}>Tots els tipus</option>
-                  <option value="text" ${filterType === 'text' ? 'selected' : ''}>Text integrat</option>
-                  <option value="book" ${filterType === 'book' ? 'selected' : ''}>Llibre de lectura</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        `;
-
-        let cardCount = 0;
-
-        if (!snapshot.empty) {
-          snapshot.forEach(doc => {
-            const data = doc.data() || {};
-            const docId = doc.id;
-            const isBook = data.type === 'book';
-            const isCompleted = userCompletedReadings.includes(docId);
-
-            const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
-            if (!matchesSearch) return;
-
-            cardCount++;
-
-            html += `
-              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between p-5">
-                <div>
-                  <h3 class="font-bold text-slate-800 text-lg mb-1">${data.title || 'Sense títol'}</h3>
-                  <p class="text-xs font-semibold text-indigo-600 mb-2">${data.level || ''}</p>
-                </div>
-                <div class="mt-4">
-                  <button onclick="renderReader('${docId}')" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition">
-                    ${isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre'}
-                  </button>
-                </div>
-              </div>
-            `;
-          });
-        }
-
-        if (cardCount === 0) {
-          html += `<div class="col-span-full bg-white p-8 rounded-2xl border text-center font-bold text-slate-600">No s'han trobat lectures.</div>`;
-        }
-
-        html += `</div></div>`;
-        app.innerHTML = html;
-        renderBanner();
-      } catch (err) {
-        console.error("Error catàleg:", err);
-      }
-    }
-
-    async function renderReader(docId) {
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i></div>`;
-
-      try {
-        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
-        if (!doc.exists) return resetFiltersAndRenderCatalog();
-
-        const data = doc.data() || {};
-        const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-
-        let questionsHTML = '';
-        if (!questionsSnap.empty) {
-          questionsHTML = `<form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', 1)" class="mt-6 space-y-4">`;
-          let qIdx = 0;
-          questionsSnap.forEach(qDoc => {
-            const q = qDoc.data() || {};
-            const options = q.options || [];
-            const qType = q.questionType || 'single';
-
-            questionsHTML += `
-              <div class="p-4 bg-slate-50 border rounded-xl">
-                <p class="font-bold text-slate-800 mb-2">${qIdx + 1}. ${q.questionText || ''}</p>
-                <div class="space-y-2">
-                  ${options.map((opt, oIdx) => `
-                    <label class="flex items-center space-x-2 bg-white p-2 rounded border cursor-pointer">
-                      <input type="${qType === 'multiple' ? 'checkbox' : 'radio'}" name="q_${qDoc.id}" value="${oIdx}" class="w-4 h-4">
-                      <span class="text-sm">${opt}</span>
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-            `;
-            qIdx++;
-          });
-          questionsHTML += `<button type="submit" class="w-full bg-emerald-600 text-white font-bold py-3 rounded-xl">Enviar respostes</button></form>`;
-        }
-
-        app.innerHTML = `
-          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 text-sm font-medium mb-4"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar</button>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
-            <div class="prose text-slate-700 mb-6">${data.content || ''}</div>
-            ${questionsHTML}
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error lector:", err);
-      }
-    }
-
-    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
-      e.preventDefault();
-      if (!currentUser) return renderLogin();
-
-      const form = e.target;
-      const formData = new FormData(form);
-      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      if (!app) return;
       
-      let score = 0;
-      questionsSnap.forEach(qDoc => {
-        const q = qDoc.data() || {};
-        if (q.questionType === 'multiple') {
-          const selected = formData.getAll(`q_${qDoc.id}`).map(v => parseInt(v)).sort();
-          const correct = (q.correctAnswers || []).map(v => parseInt(v)).sort();
-          if (selected.length === correct.length && selected.every((v, i) => v === correct[i])) score++;
-        } else {
-          const selected = parseInt(formData.get(`q_${qDoc.id}`));
-          if (selected === (q.correctAnswer || 0)) score++;
-        }
-      });
-
-      userPoints += score * pointsPerQuestion;
-      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
-
-      await db.collection("users").doc(currentUser.uid).set({
-        points: userPoints,
-        completedReadings: userCompletedReadings
-      }, { merge: true });
-
-      alert(`Has encertat ${score} preguntes!`);
-      resetFiltersAndRenderCatalog();
-    }
-
-    async function renderEditor(docIdToEdit = null) {
-      if (!currentUser) return renderLogin();
-      editingDocId = docIdToEdit;
-      const app = document.getElementById('app');
-
       app.innerHTML = `
-        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl border">
-          <h1 class="text-2xl font-bold text-slate-800 mb-6">Crear / Editar Lectura</h1>
-          <form onsubmit="saveReading(event)" class="space-y-4">
-            <input type="text" id="editor-title" required placeholder="Títol de la lectura" class="w-full p-2.5 border rounded-xl text-sm">
-            <textarea id="editor-content" rows="6" placeholder="Text de la lectura" class="w-full p-2.5 border rounded-xl text-sm"></textarea>
-            <button type="submit" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl shadow">Publicar Lectura</button>
-          </form>
+        <div class="max-w-4xl mx-auto space-y-8 pb-8">
+          <div class="flex items-center justify-between border-b border-slate-200 pb-4">
+            <div>
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i> Tornar al Catàleg
+              </button>
+              <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions i Desenvolupament
+              </h1>
+            </div>
+            <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
+              ⚡ Versió Actual: v0.22.0
+            </span>
+          </div>
+
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+            <div class="flex items-center gap-2">
+              <span class="font-mono font-black text-lg text-indigo-900">v0.22.0</span>
+              <span class="text-xs font-extrabold px-3 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">Motor Modular</span>
+            </div>
+            <h3 class="text-base font-bold text-slate-800">Arquitectura Extensible de Preguntes i Opció Múltiple</h3>
+            <p class="text-xs text-slate-600">Integració del nou motor QuestionEngine que permet qüestionaris amb vàries respostes correctes (Tot o Res) i prepara la plataforma per a futurs tipus de preguntes.</p>
+          </div>
         </div>
       `;
-    }
-
-    async function saveReading(e) {
-      e.preventDefault();
-      const title = document.getElementById('editor-title').value;
-      const content = document.getElementById('editor-content').value;
-
-      try {
-        await db.collection(DB_COLLECTION).add({
-          title: title,
-          content: content,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        resetFiltersAndRenderCatalog();
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
     }
   </script>
 </body>
