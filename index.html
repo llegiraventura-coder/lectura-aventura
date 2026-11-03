@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.23.0 (Integrada i Reals)</title>
+  <title>Lectura Aventura - v0.24.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.23.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.24.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.23.0 — Historial de versions</span>
+        <span>v0.24.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -94,7 +94,7 @@
     let filterDuration = "all";
 
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (v0.23.0)
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex) {
@@ -550,7 +550,6 @@
                     </p>
                   ` : ''}
 
-                  <!-- ATRIBUCIÓ FIXA EN 3 LÍNIES INDEPENDENTS -->
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <span class="block text-xs text-slate-500 flex items-center gap-1">
                       <i class="fa-solid fa-chalkboard-user text-indigo-500 text-[11px]"></i>
@@ -624,7 +623,756 @@
     }
 
     /* ==========================================================================
-       1. CLASSIFICACIÓ COMPLETA RESTRABLETA (Grup / Centre / Global)
+       EDITOR DE LECTURES I PREGUNTES (v0.24.0 - Amb Guia Pedagògica i Reordenació)
+       ========================================================================== */
+    async function renderEditor(docIdToEdit = null) {
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
+      const isAdmin = currentUser.email === ADMIN_SUPREMO_EMAIL;
+      if (userRole !== 'docent' && userRole !== 'colaborador' && !isAdmin) {
+        alert("Accés restringit a Docents i Col·laboradors.");
+        renderCatalog();
+        return;
+      }
+
+      editingDocId = docIdToEdit;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
+
+      let initialData = {
+        type: 'text',
+        title: '',
+        bookAuthor: '',
+        editorialOrSource: '',
+        level: '1r cicle de primària',
+        category: 'Aventura',
+        estimatedTime: '10 min',
+        bookPages: '',
+        pointsPerQuestion: 1,
+        content: '',
+        imageUrl: ''
+      };
+
+      let initialQuestions = [];
+
+      if (editingDocId) {
+        try {
+          const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
+          if (docSnap.exists) {
+            initialData = docSnap.data();
+            const qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+            qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
+          }
+        } catch (err) {
+          console.error("Error carregant la lectura a editar:", err);
+        }
+      }
+
+      app.innerHTML = `
+        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          
+          <!-- BANNER 1: GUIA PEDAGÒGICA PER A CREADORS I COL·LABORADORS (v0.24.0) -->
+          <div class="bg-gradient-to-r from-amber-50 via-indigo-50 to-amber-50 border border-amber-200/80 p-4 rounded-2xl mb-6 shadow-sm">
+            <h3 class="text-sm font-black text-amber-900 mb-2 flex items-center gap-2">
+              <i class="fa-solid fa-lightbulb text-amber-500 text-base"></i> Recomanacions de Qualitat per a Col·laboradors i Docents
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-700">
+              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                <span class="font-bold text-amber-800 block mb-0.5">✍️ Ortografia i Cura:</span>
+                Assegura't de revisar l'ortografia i la sintaxi abans de publicar.
+              </div>
+              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                <span class="font-bold text-indigo-800 block mb-0.5">🔢 Target d'extensió:</span>
+                Recomanem afegir unes <strong>10 preguntes</strong> per qüestionari.
+              </div>
+              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
+                <span class="font-bold text-purple-800 block mb-0.5">🎯 Diversitat cognitiva:</span>
+                Combina preguntes <strong>Literals, Inferencials, d'Opinió i Creatives</strong>.
+              </div>
+            </div>
+          </div>
+
+          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center justify-between">
+            <span class="flex items-center">
+              <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
+              ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
+            </span>
+            ${editingDocId ? `<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-md">Mode Edició</span>` : ''}
+          </h1>
+
+          <form onsubmit="saveReading(event)" class="space-y-5">
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
+              <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
+                <option value="text" ${initialData.type === 'text' ? 'selected' : ''}>📄 Text Integrat (Lectura curta)</option>
+                <option value="book" ${initialData.type === 'book' ? 'selected' : ''}>📖 Llibre de Lectura (Imatge / Coberta)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
+              <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
+              <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-feather-pointed"></i> Dades d'Atribució i Drets d'Autor
+              </h3>
+              
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
+                  <input type="text" id="editor-book-author" value="${initialData.bookAuthor || ''}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+
+                <div>
+                  <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
+                  <input type="text" id="editor-source" value="${initialData.editorialOrSource || ''}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Públic *</label>
+                <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="1r cicle de primària" ${initialData.level === '1r cicle de primària' || initialData.level === 'Cicle Inicial' ? 'selected' : ''}>1r cicle de primària</option>
+                  <option value="2n cicle de primària" ${initialData.level === '2n cicle de primària' || initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>2n cicle de primària</option>
+                  <option value="3r cicle de primària" ${initialData.level === '3r cicle de primària' || initialData.level === 'Cicle Superior' ? 'selected' : ''}>3r cicle de primària</option>
+                  <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
+                  <option value="Formació d'Adults" ${initialData.level === "Formació d'Adults" ? 'selected' : ''}>🧑‍💼 Formació d'Adults / CFA</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
+                <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="Aventura" ${initialData.category === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
+                  <option value="Misteri" ${initialData.category === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
+                  <option value="Ciència-ficció" ${initialData.category === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
+                  <option value="Teatre" ${initialData.category === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
+                  <option value="Poesia" ${initialData.category === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
+                  <option value="Tradició / Llegenda" ${initialData.category === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
+                  <option value="General" ${initialData.category === 'General' ? 'selected' : ''}>📖 General</option>
+                </select>
+              </div>
+
+              <div id="wrapper-duration-text">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Durada Estimada *</label>
+                <select id="editor-duration" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="5 min" ${initialData.estimatedTime === '5 min' ? 'selected' : ''}>⏱️ 5 minuts</option>
+                  <option value="10 min" ${initialData.estimatedTime === '10 min' ? 'selected' : ''}>⏱️ 10 minuts</option>
+                  <option value="15 min" ${initialData.estimatedTime === '15 min' ? 'selected' : ''}>⏱️ 15 minuts</option>
+                  <option value="+20 min" ${initialData.estimatedTime === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts</option>
+                </select>
+              </div>
+
+              <div id="wrapper-duration-book" class="hidden">
+                <label class="block text-sm font-bold text-slate-700 mb-1">Nº de Pàgines *</label>
+                <input type="number" id="editor-book-pages" value="${initialData.bookPages || ''}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+
+              <div>
+                <label class="block text-sm font-bold text-slate-700 mb-1">Punts / encert *</label>
+                <select id="editor-points-per-q" class="w-full p-2.5 border border-amber-300 bg-amber-50/50 rounded-xl text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none">
+                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt (Estàndard)</option>
+                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts (Complexa)</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="wrapper-content">
+              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">${initialData.content || ''}</textarea>
+            </div>
+
+            <div id="wrapper-image" class="hidden">
+              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
+              <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+
+            <div class="pt-4 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                  <span>Preguntes de Comprensió</span>
+                  <span id="question-count-badge" class="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">0</span>
+                </h3>
+                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+                </button>
+              </div>
+              <div id="questions-container" class="space-y-4"></div>
+            </div>
+
+            <div class="flex justify-end space-x-3 pt-4">
+              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
+              <button type="submit" class="px-5 py-2 ${editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl text-sm shadow transition">
+                ${editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'}
+              </button>
+            </div>
+          </form>
+        </div>
+      `;
+
+      toggleReadingTypeInputs();
+
+      if (initialQuestions.length > 0) {
+        initialQuestions.forEach(q => addQuestionField(q));
+      } else {
+        addQuestionField();
+      }
+    }
+
+    function toggleReadingTypeInputs() {
+      const type = document.getElementById('editor-type').value;
+      const wrapContent = document.getElementById('wrapper-content');
+      const wrapImage = document.getElementById('wrapper-image');
+      const wrapDurText = document.getElementById('wrapper-duration-text');
+      const wrapDurBook = document.getElementById('wrapper-duration-book');
+      const contentInput = document.getElementById('editor-content');
+      const labelSource = document.getElementById('label-editorial-source');
+
+      if (type === 'book') {
+        wrapContent.classList.add('hidden');
+        if (contentInput) contentInput.removeAttribute('required');
+        wrapImage.classList.remove('hidden');
+        wrapDurText.classList.add('hidden');
+        wrapDurBook.classList.remove('hidden');
+        if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
+      } else {
+        wrapContent.classList.remove('hidden');
+        if (contentInput) contentInput.setAttribute('required', 'true');
+        wrapImage.classList.add('hidden');
+        wrapDurText.classList.remove('hidden');
+        wrapDurBook.classList.add('hidden');
+        if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
+      }
+    }
+
+    /* ==========================================================================
+       FUNCIONS DE REORDENACIÓ DE PREGUNTES (v0.24.0)
+       ========================================================================== */
+    function addQuestionField(data = null) {
+      const container = document.getElementById('questions-container');
+      if (!container) return;
+
+      const qText = data ? (data.questionText || data.pregunta || '') : '';
+      const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
+      const qType = data ? (data.questionType || 'single') : 'single';
+
+      let correctSingleIdx = 0;
+      let correctMultipleArr = [0];
+
+      if (data) {
+        if (Array.isArray(data.correctAnswers)) {
+          correctMultipleArr = data.correctAnswers.map(v => parseInt(v));
+          correctSingleIdx = correctMultipleArr[0] || 0;
+        } else if (data.correctAnswer !== undefined) {
+          correctSingleIdx = parseInt(data.correctAnswer);
+          correctMultipleArr = [correctSingleIdx];
+        }
+      }
+
+      const qDiv = document.createElement('div');
+      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
+      
+      qDiv.innerHTML = `
+        <div class="flex justify-between items-center gap-2 border-b border-slate-200/60 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="q-number-label text-xs font-bold text-slate-500">Pregunta</span>
+            <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
+              <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
+              <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
+              <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
+            </select>
+          </div>
+          
+          <!-- BOTONS DE REORDENACIÓ I ELIMINACIÓ -->
+          <div class="flex items-center space-x-1">
+            <button type="button" onclick="moveQuestionUp(this)" title="Pujar pregunta" class="p-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg">
+              <i class="fa-solid fa-arrow-up"></i>
+            </button>
+            <button type="button" onclick="moveQuestionDown(this)" title="Baixar pregunta" class="p-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg">
+              <i class="fa-solid fa-arrow-down"></i>
+            </button>
+            <button type="button" onclick="removeQuestionField(this)" title="Eliminar" class="p-1.5 text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg ml-2">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        
+        <div class="grid grid-cols-2 gap-2">
+          <input type="text" value="${opts[0] || ''}" placeholder="Opció A" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[1] || ''}" placeholder="Opció B" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
+          <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        </div>
+
+        <div class="q-single-box ${qType === 'single' ? '' : 'hidden'} mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+          <i class="fa-solid fa-circle-check text-indigo-600"></i>
+          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
+          <select class="q-correct-single p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
+            <option value="0" ${correctSingleIdx === 0 ? 'selected' : ''}>Opció A</option>
+            <option value="1" ${correctSingleIdx === 1 ? 'selected' : ''}>Opció B</option>
+            <option value="2" ${correctSingleIdx === 2 ? 'selected' : ''}>Opció C</option>
+            <option value="3" ${correctSingleIdx === 3 ? 'selected' : ''}>Opció D</option>
+          </select>
+        </div>
+
+        <div class="q-multiple-box ${qType === 'multiple' ? '' : 'hidden'} mt-3 p-2.5 bg-purple-50 rounded-lg border border-purple-100 space-y-1.5">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-purple-900">
+            <i class="fa-solid fa-square-check text-purple-600"></i>
+            <span>Marca totes les respostes que són correctes:</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="0" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(0) ? 'checked' : ''}>
+              <span>Opció A</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="1" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(1) ? 'checked' : ''}>
+              <span>Opció B</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="2" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(2) ? 'checked' : ''}>
+              <span>Opció C</span>
+            </label>
+            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="3" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(3) ? 'checked' : ''}>
+              <span>Opció D</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="q-opinion-box ${qType === 'opinion' ? '' : 'hidden'} mt-3 p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
+          <i class="fa-solid fa-comment-dots text-blue-600 text-sm"></i>
+          <span>💡 Pregunta de Reflexió: Qualsevol opció seleccionada per l'alumne comptarà com a encert.</span>
+        </div>
+      `;
+
+      container.appendChild(qDiv);
+      updateQuestionIndexes();
+    }
+
+    function removeQuestionField(btn) {
+      btn.closest('.q-block').remove();
+      updateQuestionIndexes();
+    }
+
+    function moveQuestionUp(btn) {
+      const currentBlock = btn.closest('.q-block');
+      const prevBlock = currentBlock.previousElementSibling;
+      if (prevBlock) {
+        currentBlock.parentNode.insertBefore(currentBlock, prevBlock);
+        updateQuestionIndexes();
+      }
+    }
+
+    function moveQuestionDown(btn) {
+      const currentBlock = btn.closest('.q-block');
+      const nextBlock = currentBlock.nextElementSibling;
+      if (nextBlock) {
+        currentBlock.parentNode.insertBefore(nextBlock, currentBlock);
+        updateQuestionIndexes();
+      }
+    }
+
+    function updateQuestionIndexes() {
+      const blocks = document.querySelectorAll('#questions-container .q-block');
+      blocks.forEach((block, idx) => {
+        const label = block.querySelector('.q-number-label');
+        if (label) label.innerText = `Pregunta ${idx + 1}`;
+      });
+
+      const badge = document.getElementById('question-count-badge');
+      if (badge) badge.innerText = blocks.length;
+    }
+
+    function toggleQuestionAnswerType(selectElem) {
+      const block = selectElem.closest('.q-block');
+      const singleBox = block.querySelector('.q-single-box');
+      const multiBox = block.querySelector('.q-multiple-box');
+      const opinionBox = block.querySelector('.q-opinion-box');
+
+      singleBox.classList.add('hidden');
+      multiBox.classList.add('hidden');
+      opinionBox.classList.add('hidden');
+
+      if (selectElem.value === 'multiple') {
+        multiBox.classList.remove('hidden');
+      } else if (selectElem.value === 'opinion') {
+        opinionBox.classList.remove('hidden');
+      } else {
+        singleBox.classList.remove('hidden');
+      }
+    }
+
+    async function saveReading(e) {
+      e.preventDefault();
+      const type = document.getElementById('editor-type')?.value || 'text';
+      const title = document.getElementById('editor-title').value;
+      const bookAuthor = document.getElementById('editor-book-author')?.value || '';
+      const editorialOrSource = document.getElementById('editor-source')?.value || '';
+      const level = document.getElementById('editor-level').value;
+      const category = document.getElementById('editor-category')?.value || 'General';
+      const estimatedTime = document.getElementById('editor-duration')?.value || '10 min';
+      const bookPages = document.getElementById('editor-book-pages')?.value || '';
+      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
+      const content = document.getElementById('editor-content')?.value || '';
+      const imageUrl = document.getElementById('editor-image')?.value || '';
+
+      const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Creador/a");
+      const authorSchool = userSchool || "";
+      const authorEmail = currentUser ? currentUser.email : "";
+
+      try {
+        let docId = editingDocId;
+
+        if (editingDocId) {
+          await db.collection(DB_COLLECTION).doc(editingDocId).update({
+            type: type,
+            title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
+            level: level,
+            category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
+            pointsPerQuestion: pointsPerQuestion,
+            content: content,
+            imageUrl: imageUrl,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          const oldQ = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+          for (const qDoc of oldQ.docs) {
+            await qDoc.ref.delete();
+          }
+        } else {
+          if (currentUser && (userRole === 'docent' || userRole === 'colaborador')) {
+            userPoints += 1;
+            await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
+          }
+
+          const docRef = await db.collection(DB_COLLECTION).add({
+            type: type,
+            title: title,
+            bookAuthor: bookAuthor,
+            editorialOrSource: editorialOrSource,
+            level: level,
+            category: category,
+            estimatedTime: estimatedTime,
+            bookPages: bookPages,
+            pointsPerQuestion: pointsPerQuestion,
+            content: content,
+            imageUrl: imageUrl,
+            authorUid: currentUser ? currentUser.uid : null,
+            authorDisplayName: authorDisplayName,
+            authorSchool: authorSchool,
+            authorEmail: authorEmail,
+            authorPoints: userPoints,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          docId = docRef.id;
+        }
+
+        const qBlocks = document.querySelectorAll('.q-block');
+        for (const block of qBlocks) {
+          const qText = block.querySelector('.q-text').value;
+          const opt0 = block.querySelector('.q-opt-0').value;
+          const opt1 = block.querySelector('.q-opt-1').value;
+          const opt2 = block.querySelector('.q-opt-2')?.value || '';
+          const opt3 = block.querySelector('.q-opt-3')?.value || '';
+          const qType = block.querySelector('.q-type-select')?.value || 'single';
+
+          const options = [opt0, opt1];
+          if (opt2) options.push(opt2);
+          if (opt3) options.push(opt3);
+
+          if (qText && options.length >= 2) {
+            if (qType === 'opinion') {
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: options,
+                questionType: 'opinion'
+              });
+            } else if (qType === 'multiple') {
+              const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
+              const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
+
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: options,
+                questionType: 'multiple',
+                correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
+              });
+            } else {
+              const correctSelect = block.querySelector('.q-correct-single');
+              const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
+
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: options,
+                questionType: 'single',
+                correctAnswer: correctIdx
+              });
+            }
+          }
+        }
+
+        editingDocId = null;
+        await loadUserData();
+        renderNav();
+        renderCatalog();
+      } catch (err) {
+        alert("Error en desar la lectura: " + err.message);
+      }
+    }
+
+    /* ==========================================================================
+       LECTOR DE LECTURA I QÜESTIONARI
+       ========================================================================== */
+    async function renderReader(docId) {
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
+
+      try {
+        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
+        if (!doc.exists) {
+          app.innerHTML = `
+            <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
+              <i class="fa-solid fa-file-circle-xmark text-4xl text-red-400"></i>
+              <h2 class="text-xl font-bold text-slate-800">Lectura no trobada</h2>
+              <p class="text-sm text-slate-600">L'enllaç utilitzat és incorrecte o la lectura s'ha eliminat.</p>
+              <button onclick="resetFiltersAndRenderCatalog()" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm">Anar al Catàleg General</button>
+            </div>
+          `;
+          return;
+        }
+
+        const data = doc.data() || {};
+        const isBook = data.type === 'book';
+
+        let questionsSnap = { empty: true, size: 0, forEach: () => {} };
+        try {
+          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        } catch (qErr) {
+          console.warn("No s'han pogut carregar les preguntes de Firestore:", qErr);
+        }
+        
+        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+        const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+        const authorEmail = data.authorEmail || "";
+        const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+        const bookAuthorName = data.bookAuthor || '';
+        const editorialOrSource = data.editorialOrSource || '';
+        const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+
+        let questionsHTML = '';
+        if (!questionsSnap.empty) {
+          const totalQuestions = questionsSnap.size;
+          const maxPoints = totalQuestions * ptsPerQuestion;
+
+          questionsHTML = `
+            <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
+              <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-slate-800 flex items-center">
+                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
+                </h2>
+                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
+                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
+                </span>
+              </div>
+          `;
+
+          let qIndex = 0;
+          questionsSnap.forEach(qDoc => {
+            const q = qDoc.data() || {};
+            questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex);
+            qIndex++;
+          });
+
+          questionsHTML += `
+              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition text-base">
+                Enviar respostes i obtenir punts
+              </button>
+            </form>
+          `;
+        } else {
+          questionsHTML = `
+            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
+              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades per a aquesta lectura.
+            </div>
+          `;
+        }
+
+        let headerContentHTML = '';
+        if (isBook) {
+          headerContentHTML = `
+            <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
+              ${data.imageUrl ? `
+                <img src="${data.imageUrl}" alt="${data.title || 'Coberta'}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
+              ` : `
+                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-book text-4xl"></i>
+                </div>
+              `}
+              <div class="space-y-2">
+                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
+                <h2 class="text-xl font-bold text-slate-800">${data.title || 'Sense títol'}</h2>
+                
+                ${bookAuthorName ? `
+                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
+                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
+                  </p>
+                ` : ''}
+
+                ${editorialOrSource ? `
+                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-columns text-slate-400"></i>
+                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
+                  </p>
+                ` : ''}
+
+                <div class="pt-2 border-t border-indigo-100 space-y-1">
+                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
+                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                  <div class="pt-0.5">
+                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                      ${teacherRank.name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          headerContentHTML = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
+              ${bookAuthorName ? `
+                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
+                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
+                </p>
+              ` : ''}
+
+              ${editorialOrSource ? `
+                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
+                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
+                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
+                </p>
+              ` : ''}
+
+              <div class="pt-2 border-t border-slate-200 space-y-1">
+                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
+                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                <div class="pt-0.5">
+                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
+                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
+                    ${teacherRank.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
+              ${data.content || ''}
+            </div>
+          `;
+        }
+
+        app.innerHTML = `
+          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
+            ${headerContentHTML}
+            ${questionsHTML}
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la lectura:", err);
+      }
+    }
+
+    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
+      e.preventDefault();
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+
+      const form = e.target;
+      const formData = new FormData(form);
+
+      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let score = 0;
+      let total = questionsSnap.size;
+
+      questionsSnap.forEach(qDoc => {
+        const q = qDoc.data() || {};
+        if (QuestionEngine.evaluate(q, qDoc.id, formData)) {
+          score++;
+        }
+      });
+
+      const newQuizPoints = score * pointsPerQuestion;
+      const maxPossiblePoints = total * pointsPerQuestion;
+
+      let userScores = {};
+      try {
+        const userDoc = await db.collection("users").doc(currentUser.uid).get();
+        if (userDoc.exists) userScores = userDoc.data().scores || {};
+      } catch (err) {
+        console.warn("Error llegint puntuacions anteriors:", err);
+      }
+
+      const previousQuizPoints = userScores[docId] || 0;
+      let pointsToAdd = 0;
+
+      if (newQuizPoints > previousQuizPoints) {
+        pointsToAdd = newQuizPoints - previousQuizPoints;
+        userScores[docId] = newQuizPoints;
+        userPoints += pointsToAdd;
+      }
+
+      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
+
+      try {
+        await db.collection("users").doc(currentUser.uid).set({
+          points: userPoints,
+          completedReadings: userCompletedReadings,
+          scores: userScores
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Dades desades localment:", err);
+      }
+
+      await loadUserData();
+      renderNav();
+
+      if (pointsToAdd > 0) {
+        alert(`🎉 Gran treball! Encertades ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous! (Total lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
+      } else if (newQuizPoints === maxPossiblePoints) {
+        alert(`⭐ Fantàstic! Has tornat a aconseguir la puntuació màxima (${score}/${total}).`);
+      } else {
+        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts). Com que la teva marca anterior era de ${previousQuizPoints} pts, el teu total es manté.`);
+      }
+
+      resetFiltersAndRenderCatalog();
+    }
+
+    /* ==========================================================================
+       CLASSIFICACIÓ COMPLETA (Grup / Centre / Global)
        ========================================================================== */
     async function renderStudentLeaderboard() {
       const app = document.getElementById('app');
@@ -640,7 +1388,6 @@
           }
         });
 
-        // Filtrar segons la pestanya
         let filteredUsers = [...allUsers];
         if (currentLeaderboardTab === 'group' && currentUser) {
           filteredUsers = allUsers.filter(u => u.teacherUid === userTeacherUid || u.id === currentUser.uid);
@@ -718,7 +1465,7 @@
     }
 
     /* ==========================================================================
-       2. MÒDUL DE CARPETES / SA RESTRABLET I FUNCIONAL
+       MÒDUL DE CARPETES / SA
        ========================================================================== */
     async function renderTeacherFoldersList() {
       if (!currentUser) return;
@@ -903,7 +1650,7 @@
     }
 
     /* ==========================================================================
-       3. PANELL DE SEGUIMENT D'ALUMNES RESTRABLET I FUNCIONAL
+       PANELL DE SEGUIMENT D'ALUMNES
        ========================================================================== */
     async function renderStudentTrackingPanel() {
       if (!currentUser) return;
@@ -939,7 +1686,7 @@
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-users text-indigo-600"></i> Seguiment dels meues Alumnes
+                  <i class="fa-solid fa-users text-indigo-600"></i> Els meus Alumnes
                 </h1>
                 <span class="text-xs bg-indigo-50 text-indigo-700 font-mono font-bold px-3 py-1 rounded-lg">Codi Docent: ${currentUser.uid}</span>
               </div>
@@ -967,7 +1714,7 @@
     }
 
     /* ==========================================================================
-       4. GESTIÓ DE PERFIL D'USUARI I MODAL COMPLETA
+       GESTIÓ DE PERFIL D'USUARI
        ========================================================================== */
     function renderUserProfileModal() {
       if (!currentUser) return;
@@ -1025,13 +1772,8 @@
     }
 
     /* ==========================================================================
-       FUNCIONS AUXILIARS DE NAVEGACIÓ I EDITOR
+       FUNCIONS AUXILIARS DE NAVEGACIÓ
        ========================================================================== */
-    function renderReader(docId) {
-      // Carregador del lector conservat
-      location.href = `?lectura=${docId}`;
-    }
-
     function shareFolderLink(folderId) {
       const shareUrl = `${window.location.href.split('?')[0]}?carpeta=${folderId}`;
       prompt("Copia aquest enllaç directe a la carpeta:", shareUrl);
@@ -1088,29 +1830,61 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (3 FILES DE 3 BLOCS - v0.23.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.24.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
       if (!app) return;
       
       const changelogRows = [
+        // FILA 1: FUTURES ACTUALITZACIONS
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.24.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Aquí anirem afegint les dades i novetats directes de les pròximes versions."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Noves funcions pedagògiques en preparació.", highlights: ["Paginació de preguntes, estadístiques visuals per al docent i gamificació avançada."] },
-            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Blocs d'informació modulars i dinàmics per sumar-hi novetats a mesura que creixi el projecte."] }
+            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.25.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Paginació visual de preguntes i barres de progrés en temps real."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals per al docent.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
+            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Noves dinàmiques gamificades i diplomes descarregables."] }
           ]
         },
+        // FILA 2: DARRERES VERSIONS (AMB v0.24.0 AL CAPDAVANT)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
-            { version: "v0.23.0", date: "Novembre 2026", badge: "Reflexió i Reals", color: "bg-blue-100 text-blue-900 border-blue-300", summary: "Reflexió/Opinió i Restauració Real de Mòduls.", highlights: ["Nou tipus de pregunta: Reflexió / Opinió (Totes vàlides).", "Blindatge i restauració completa de la Classificació 3x, Carpetes SA i Seguiment."] },
-            { version: "v0.22.2", date: "Novembre 2026", badge: "Changelog 3x3", color: "bg-amber-100 text-amber-900 border-amber-300", summary: "Restauració de l'estructura en 3 files de 3 blocs.", highlights: ["Organització visual basada en matrius de 3 blocs per fila."] },
-            { version: "v0.22.0", date: "Novembre 2026", badge: "Motor Modular", color: "bg-emerald-100 text-emerald-900 border-emerald-300", summary: "Integració del nou QuestionEngine.", highlights: ["Preguntes d'Opció Múltiple amb vàries respostes correctes (Checkboxes)."] }
+            {
+              version: "v0.24.0",
+              date: "Novembre 2026",
+              badge: "DX Docent / Creadors",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
+              summary: "Qualitat i Reordenació de Preguntes a l'Editor.",
+              highlights: [
+                "Guia pedagògica superior a l'editor (ortografia, ~10 preguntes, 4 tipologies).",
+                "Reordenació fluida de preguntes amb botons '▲ Pujar' / '▼ Baixar'."
+              ]
+            },
+            {
+              version: "v0.23.0",
+              date: "Novembre 2026",
+              badge: "Reflexió i Reals",
+              color: "bg-blue-100 text-blue-900 border-blue-300",
+              summary: "Nou tipus de pregunta: Reflexió / Opinió.",
+              highlights: [
+                "Avaluació automàtica 'Totes vàlides' per fomentar l'argumentació.",
+                "Restauració completa de la Classificació 3x, Carpetes SA i Seguiment."
+              ]
+            },
+            {
+              version: "v0.22.2",
+              date: "Novembre 2026",
+              badge: "Changelog 3x3",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
+              summary: "Restauració de l'estructura en 3 files de 3 blocs.",
+              highlights: [
+                "Organització visual basada en matrius de 3 blocs per fila."
+              ]
+            }
           ]
         },
+        // FILA 3: HISTORIAL CONSOLIDAT
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
@@ -1134,7 +1908,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.23.0
+              ⚡ Versió Actual: v0.24.0
             </span>
           </div>
 
