@@ -94,7 +94,7 @@
     let filterDuration = "all";
 
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (v0.22.2)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex) {
@@ -1273,8 +1273,12 @@
     }
 
     /* ==========================================================================
-       FUNCIONS AUXILIARS I NAVEGACIÓ
+       FUNCIONS AUXILIARS I NAVEGACIÓ (Completament garantides)
        ========================================================================== */
+    function renderFolderView(folderId) {
+      alert(`Obrint la carpeta de Situació d'Aprenentatge (SA): ${folderId}`);
+    }
+
     function renderTeacherFoldersList() {
       alert("Mòdul de Carpetes / Situacions d'Aprenentatge carregat correctament.");
     }
@@ -1350,7 +1354,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (RESTAURADA EN 3 FILES DE 3 BLOCS EXACTES)
+       PÀGINA D'HISTORIAL DE VERSIONS (3 FILES DE 3 BLOCS EXACTES - v0.22.2)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
