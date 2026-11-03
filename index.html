@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.21.1</title>
+  <title>Lectura Aventura - v0.22.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -31,7 +31,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.21.1 — Historial de versions</span>
+        <span>v0.22.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -276,12 +276,26 @@
       renderBanner();
     }
 
-    /* --- HISTORIAL DE VERSIONS COMPLET EN PÀGINA PRÒPIA (v0.21.1) --- */
+    /* --- HISTORIAL DE VERSIONS COMPLET EN PÀGINA PRÒPIA (v0.22.0) --- */
     function renderChangelogPage() {
       const app = document.getElementById('app');
       if (!app) return;
       
       const detailedChangelog = [
+        {
+          version: "v0.22.0",
+          date: "Novembre 2026",
+          badge: "Nova Funcionalitat",
+          color: "bg-emerald-100 text-emerald-900 border-emerald-300",
+          title: "Preguntes d'Opció Múltiple (Vàries respostes correctes)",
+          description: "Nou format de qüestionari que permet definir més d'una opció correcta per pregunta amb avaluació 'Tot o Res'.",
+          items: [
+            "Desplegable a l'editor per seleccionar el tipus de pregunta: Opció única (Radio) o Opció múltiple (Checkboxes).",
+            "Caselles de verificació quadrades per als alumnes quan la pregunta permet marcar múltiples solucions.",
+            "Avaluació estricta: Cal encertar exactament totes les caselles correctes per obtenir els punts.",
+            "Avís visual automàtic a l'enunciat quan una pregunta té més d'una resposta vàlida."
+          ]
+        },
         {
           version: "v0.21.1",
           date: "Novembre 2026",
@@ -308,39 +322,25 @@
             "Botó d'accés ràpid (📁) a les targetes del catàleg per afegir/treure lectures de les teves carpetes.",
             "Actualització dels nivells educatius a '1r cicle de primària', '2n cicle de primària' i '3r cicle de primària'."
           ]
-        },
-        {
-          version: "v0.20.0",
-          date: "Octubre 2026",
-          badge: "Eines Aula",
-          color: "bg-emerald-100 text-emerald-800 border-emerald-200",
-          title: "Durada de Lectura, Enllaços Directes i Compatibilitat d'Aula",
-          description: "Resolució de problemes d'accés directes des d'enllaços compartits i incorporació de mides de lectura.",
-          items: [
-            "Carregador blindat per evitar pantalles en blanc en accedir des d'enllaços de Google Classroom (?lectura=ID).",
-            "Restabliment complet del mòdul d'autenticació per a usuaris anònims que entren via enllaç directe.",
-            "Filtre de durada per a textos curts (⏱️ 5, 10, 15, +20 min) i nombre de pàgines per a llibres (📄).",
-            "Botó 'Compartir' a cada targeta de lectura per a copiar l'enllaç al porta-retalls."
-          ]
         }
       ];
 
       const coreMilestones = [
         {
-          range: "v0.16.0 – v0.19.0",
-          category: "Seguiment de la Classe i Rols d'Aula",
+          range: "v0.16.0 – v0.20.0",
+          category: "Rols d'Aula i Integració Classroom",
           color: "bg-amber-100 text-amber-900 border-amber-300",
-          summary: "Desenvolupament de l'ecosistema de rols d'usuari i eines de control per als mestres.",
+          summary: "Ecosistema de rols d'usuari, durada de lectura i eines de control per a docents.",
           highlights: [
-            "v0.19.0: Introducció dels 4 rols d'usuari (Alumne/a, Lector/a Adult/a, Docent i Col·laborador/a).",
-            "v0.18.2: Classificació en 3 pestanyes independents: El meu Grup, El meu Centre Educatiu i Ranking Global.",
-            "v0.17.0: Manifest de benvinguda col·laboratiu i blindatge de funcions d'edició segons el rol.",
-            "v0.16.0: Panell de seguiment 'Els meus Alumnes' per veure punts, rangs i historial de lectura de la classe."
+            "v0.20.0: Filtres de durada (⏱️ 5-20 min) i enllaços directes blindats per a Google Classroom.",
+            "v0.19.0: 4 rols d'usuari (Alumne/a, Lector/a Adult/a, Docent i Col·laborador/a).",
+            "v0.18.2: Classificació en 3 pestanyes: El meu Grup, El meu Centre i Ranking Global.",
+            "v0.16.0: Panell de seguiment 'Els meus Alumnes' per a la classe."
           ]
         },
         {
           range: "v0.11.0 – v0.15.0",
-          category: "Drets d'Autor i Poneració",
+          category: "Drets d'Autor i Ponderació",
           color: "bg-blue-100 text-blue-900 border-blue-300",
           summary: "Estructuració del reconeixement d'autoria i ajust de dificultat pedagògica.",
           highlights: [
@@ -357,7 +357,7 @@
           summary: "Disseny de la infraestructura inicial i integració amb Firebase.",
           highlights: [
             "v0.10.0: Suport dual per a lectures curtes (Text Integrat) i qüestionaris de llibres en paper.",
-            "v0.9.0: Botó d'accés ràpid 'Les meves lectures' adaptable per a mestres i alumnes.",
+            "v0.9.0: Botó d'accés ràpid 'Les meves lectures' adaptable.",
             "v0.5.0: Carregador de preguntes de comprensió lectora des de subcol·leccions Firestore.",
             "v0.1.0: Naixement de Lectura Aventura, estructura HTML/TailwindCSS i connexió Auth."
           ]
@@ -379,7 +379,7 @@
             </div>
             
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.21.1
+              ⚡ Versió Actual: v0.22.0
             </span>
           </div>
 
@@ -1549,7 +1549,7 @@
       }
     }
 
-    /* --- LECTOR DE LECTURA --- */
+    /* --- LECTOR DE LECTURA (SUPORT OPCIÓ MÚLTIPLE v0.22.0) --- */
     async function renderReader(docId) {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
@@ -1609,553 +1609,23 @@
             const q = qDoc.data() || {};
             const options = q.options || q.opcions || q.respostes || [];
             const questionText = q.questionText || q.pregunta || q.text || `Pregunta ${qIndex + 1}`;
+            const qType = q.questionType || 'single';
 
             questionsHTML += `
               <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <p class="font-semibold text-slate-800 mb-3">${qIndex + 1}. ${questionText}</p>
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                  <p class="font-semibold text-slate-800">${qIndex + 1}. ${questionText}</p>
+                  ${qType === 'multiple' ? `
+                    <span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">
+                      ☑️ Opció Múltiple (Més d'una resposta correcta)
+                    </span>
+                  ` : ''}
+                </div>
                 <div class="space-y-2">
             `;
 
             options.forEach((opt, oIdx) => {
-              questionsHTML += `
-                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-indigo-50/50 transition">
-                  <input type="radio" name="q_${qDoc.id}" value="${oIdx}" required class="text-indigo-600 focus:ring-indigo-500">
-                  <span class="text-sm text-slate-700">${opt}</span>
-                </label>
-              `;
-            });
-
-            questionsHTML += `</div></div>`;
-            qIndex++;
-          });
-
-          questionsHTML += `
-              <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition">
-                Enviar respostes i obtenir punts
-              </button>
-            </form>
-          `;
-        } else {
-          questionsHTML = `
-            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades per a aquesta lectura.
-            </div>
-          `;
-        }
-
-        let headerContentHTML = '';
-        if (isBook) {
-          headerContentHTML = `
-            <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
-              ${data.imageUrl ? `
-                <img src="${data.imageUrl}" alt="${data.title || 'Coberta'}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
-              ` : `
-                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
-                  <i class="fa-solid fa-book text-4xl"></i>
-                </div>
-              `}
-              <div class="space-y-2">
-                <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
-                <h2 class="text-xl font-bold text-slate-800">${data.title || 'Sense títol'}</h2>
-                
-                ${bookAuthorName ? `
-                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
-                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
-                  </p>
-                ` : ''}
-
-                ${editorialOrSource ? `
-                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                    <i class="fa-solid fa-building-columns text-slate-400"></i>
-                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
-                  </p>
-                ` : ''}
-
-                <div class="pt-2 border-t border-indigo-100 space-y-1">
-                  <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
-                  <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                  <div class="pt-0.5">
-                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                      ${teacherRank.name}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        } else {
-          headerContentHTML = `
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
-              ${bookAuthorName ? `
-                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
-                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
-                </p>
-              ` : ''}
-
-              ${editorialOrSource ? `
-                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
-                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
-                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
-                </p>
-              ` : ''}
-
-              <div class="pt-2 border-t border-slate-200 space-y-1">
-                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
-                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                <div class="pt-0.5">
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                    ${teacherRank.name}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
-              ${data.content || ''}
-            </div>
-          `;
-        }
-
-        app.innerHTML = `
-          <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
-            ${headerContentHTML}
-            ${questionsHTML}
-          </div>
-        `;
-      } catch (err) {
-        console.error("Error carregant la lectura:", err);
-        app.innerHTML = `
-          <div class="max-w-lg mx-auto p-6 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
-            <p class="text-red-700 font-bold">Error en carregar la lectura.</p>
-            <p class="text-xs text-red-500">${err.message}</p>
-            <button onclick="resetFiltersAndRenderCatalog()" class="bg-red-600 text-white font-bold px-4 py-2 rounded-xl text-xs">Anar al Catàleg</button>
-          </div>
-        `;
-      }
-    }
-
-    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
-      e.preventDefault();
-      if (!currentUser) {
-        renderLogin();
-        return;
-      }
-
-      const form = e.target;
-      const formData = new FormData(form);
-
-      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-      let score = 0;
-      let total = questionsSnap.size;
-
-      questionsSnap.forEach(qDoc => {
-        const q = qDoc.data();
-        const selected = parseInt(formData.get(`q_${qDoc.id}`));
-        const correct = q.correctAnswer !== undefined ? q.correctAnswer : 0;
-        if (selected === correct) score++;
-      });
-
-      const newQuizPoints = score * pointsPerQuestion;
-      const maxPossiblePoints = total * pointsPerQuestion;
-
-      let userScores = {};
-      try {
-        const userDoc = await db.collection("users").doc(currentUser.uid).get();
-        if (userDoc.exists) userScores = userDoc.data().scores || {};
-      } catch (err) {
-        console.warn("Error llegint puntuacions anteriors:", err);
-      }
-
-      const previousQuizPoints = userScores[docId] || 0;
-      let pointsToAdd = 0;
-
-      if (newQuizPoints > previousQuizPoints) {
-        pointsToAdd = newQuizPoints - previousQuizPoints;
-        userScores[docId] = newQuizPoints;
-        userPoints += pointsToAdd;
-      }
-
-      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
-
-      try {
-        await db.collection("users").doc(currentUser.uid).set({
-          points: userPoints,
-          completedReadings: userCompletedReadings,
-          scores: userScores
-        }, { merge: true });
-      } catch (err) {
-        console.warn("S'han desat les dades localment:", err);
-      }
-
-      await loadUserData();
-      renderNav();
-
-      const submitBtn = form.querySelector('button[type="submit"]');
-      if (submitBtn) submitBtn.disabled = true;
-
-      if (pointsToAdd > 0) {
-        alert(`🎉 Gran millora! Has encertat ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous al teu total! (Total en aquesta lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
-      } else if (newQuizPoints === maxPossiblePoints) {
-        alert(`⭐ Molt bé! Has tornat a encertar totes les preguntes (${score}/${total}), però ja tenies la puntuació màxima d'aquesta lectura.`);
-      } else {
-        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts).\n\nCom que la teva millor marca anterior era de ${previousQuizPoints} pts, el teu total no ha canviat.`);
-      }
-
-      resetFiltersAndRenderCatalog();
-    }
-
-    async function renderEditor(docIdToEdit = null) {
-      if (!currentUser) {
-        renderLogin();
-        return;
-      }
-
-      const isAdmin = currentUser.email === ADMIN_SUPREMO_EMAIL;
-      if (userRole !== 'docent' && userRole !== 'colaborador' && !isAdmin) {
-        alert("Accés restringit: Només els usuaris amb rol de Docent, Col·laborador/a o Admin poden gestionar lectures.");
-        renderCatalog();
-        return;
-      }
-
-      editingDocId = docIdToEdit;
-      const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
-
-      let initialData = {
-        type: 'text',
-        title: '',
-        bookAuthor: '',
-        editorialOrSource: '',
-        level: '1r cicle de primària',
-        category: 'Aventura',
-        estimatedTime: '10 min',
-        bookPages: '',
-        pointsPerQuestion: 1,
-        content: '',
-        imageUrl: ''
-      };
-
-      let initialQuestions = [];
-
-      if (editingDocId) {
-        try {
-          const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
-          if (docSnap.exists) {
-            initialData = docSnap.data();
-            const qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
-            qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
-          }
-        } catch (err) {
-          console.error("Error carregant la lectura a editar:", err);
-        }
-      }
-
-      app.innerHTML = `
-        <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center justify-between">
-            <span class="flex items-center">
-              <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
-              ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
-            </span>
-            ${editingDocId ? `<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-md">Mode Edició</span>` : ''}
-          </h1>
-          <form onsubmit="saveReading(event)" class="space-y-5">
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
-              <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="text" ${initialData.type === 'text' ? 'selected' : ''}>📄 Text Integrat (Lectura curta)</option>
-                <option value="book" ${initialData.type === 'book' ? 'selected' : ''}>📖 Llibre de Lectura (Imatge / Coberta)</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
-              <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
-
-            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
-              <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
-                <i class="fa-solid fa-feather-pointed"></i> Dades d'Atribució i Drets d'Autor
-              </h3>
-              
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
-                  <input type="text" id="editor-book-author" value="${initialData.bookAuthor || ''}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-
-                <div>
-                  <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
-                  <input type="text" id="editor-source" value="${initialData.editorialOrSource || ''}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                </div>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Nivell Educatiu / Públic *</label>
-                <select id="editor-level" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="1r cicle de primària" ${initialData.level === '1r cicle de primària' || initialData.level === 'Cicle Inicial' ? 'selected' : ''}>1r cicle de primària</option>
-                  <option value="2n cicle de primària" ${initialData.level === '2n cicle de primària' || initialData.level === 'Cicle Mitjà' ? 'selected' : ''}>2n cicle de primària</option>
-                  <option value="3r cicle de primària" ${initialData.level === '3r cicle de primària' || initialData.level === 'Cicle Superior' ? 'selected' : ''}>3r cicle de primària</option>
-                  <option value="Secundària" ${initialData.level === 'Secundària' ? 'selected' : ''}>Secundària (ESO)</option>
-                  <option value="Formació d'Adults" ${initialData.level === "Formació d'Adults" ? 'selected' : ''}>🧑‍💼 Formació d'Adults / CFA</option>
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Categoria / Gènere *</label>
-                <select id="editor-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="Aventura" ${initialData.category === 'Aventura' ? 'selected' : ''}>🧭 Aventura</option>
-                  <option value="Misteri" ${initialData.category === 'Misteri' ? 'selected' : ''}>🔍 Misteri</option>
-                  <option value="Ciència-ficció" ${initialData.category === 'Ciència-ficció' ? 'selected' : ''}>🚀 Ciència-ficció</option>
-                  <option value="Teatre" ${initialData.category === 'Teatre' ? 'selected' : ''}>🎭 Teatre</option>
-                  <option value="Poesia" ${initialData.category === 'Poesia' ? 'selected' : ''}>📜 Poesia</option>
-                  <option value="Tradició / Llegenda" ${initialData.category === 'Tradició / Llegenda' ? 'selected' : ''}>🏛️ Tradició / Llegenda</option>
-                  <option value="General" ${initialData.category === 'General' ? 'selected' : ''}>📖 General</option>
-                </select>
-              </div>
-
-              <div id="wrapper-duration-text">
-                <label class="block text-sm font-bold text-slate-700 mb-1">Durada Estimada *</label>
-                <select id="editor-duration" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                  <option value="5 min" ${initialData.estimatedTime === '5 min' ? 'selected' : ''}>⏱️ 5 minuts</option>
-                  <option value="10 min" ${initialData.estimatedTime === '10 min' ? 'selected' : ''}>⏱️ 10 minuts</option>
-                  <option value="15 min" ${initialData.estimatedTime === '15 min' ? 'selected' : ''}>⏱️ 15 minuts</option>
-                  <option value="+20 min" ${initialData.estimatedTime === '+20 min' ? 'selected' : ''}>⏱️ +20 minuts</option>
-                </select>
-              </div>
-
-              <div id="wrapper-duration-book" class="hidden">
-                <label class="block text-sm font-bold text-slate-700 mb-1">Nº de Pàgines *</label>
-                <input type="number" id="editor-book-pages" value="${initialData.bookPages || ''}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-              </div>
-
-              <div>
-                <label class="block text-sm font-bold text-slate-700 mb-1">Punts / encert *</label>
-                <select id="editor-points-per-q" class="w-full p-2.5 border border-amber-300 bg-amber-50/50 rounded-xl text-sm font-bold text-amber-900 focus:ring-2 focus:ring-amber-500 outline-none">
-                  <option value="1" ${(initialData.pointsPerQuestion || 1) === 1 ? 'selected' : ''}>1 Punt (Estàndard)</option>
-                  <option value="2" ${(initialData.pointsPerQuestion || 1) === 2 ? 'selected' : ''}>2 Punts (Complexa)</option>
-                </select>
-              </div>
-            </div>
-
-            <div id="wrapper-content">
-              <label class="block text-sm font-bold text-slate-700 mb-1">Text de la Lectura *</label>
-              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">${initialData.content || ''}</textarea>
-            </div>
-
-            <div id="wrapper-image" class="hidden">
-              <label class="block text-sm font-bold text-slate-700 mb-1">URL de la Imatge / Coberta del Llibre (Opcional)</label>
-              <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
-
-            <div class="pt-4 border-t border-slate-200">
-              <div class="flex items-center justify-between mb-4">
-                <h3 class="font-bold text-slate-800">Preguntes de Comprensió</h3>
-                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
-                </button>
-              </div>
-              <div id="questions-container" class="space-y-4"></div>
-            </div>
-
-            <div class="flex justify-end space-x-3 pt-4">
-              <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
-              <button type="submit" class="px-5 py-2 ${editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl text-sm shadow transition">
-                ${editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'}
-              </button>
-            </div>
-          </form>
-        </div>
-      `;
-
-      toggleReadingTypeInputs();
-
-      if (initialQuestions.length > 0) {
-        initialQuestions.forEach(q => addQuestionField(q));
-      } else {
-        addQuestionField();
-      }
-    }
-
-    function toggleReadingTypeInputs() {
-      const type = document.getElementById('editor-type').value;
-      const wrapContent = document.getElementById('wrapper-content');
-      const wrapImage = document.getElementById('wrapper-image');
-      const wrapDurText = document.getElementById('wrapper-duration-text');
-      const wrapDurBook = document.getElementById('wrapper-duration-book');
-      const contentInput = document.getElementById('editor-content');
-      const labelSource = document.getElementById('label-editorial-source');
-
-      if (type === 'book') {
-        wrapContent.classList.add('hidden');
-        if (contentInput) contentInput.removeAttribute('required');
-        wrapImage.classList.remove('hidden');
-        wrapDurText.classList.add('hidden');
-        wrapDurBook.classList.remove('hidden');
-        if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
-      } else {
-        wrapContent.classList.remove('hidden');
-        if (contentInput) contentInput.setAttribute('required', 'true');
-        wrapImage.classList.add('hidden');
-        wrapDurText.classList.remove('hidden');
-        wrapDurBook.classList.add('hidden');
-        if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
-      }
-    }
-
-    function addQuestionField(data = null) {
-      const container = document.getElementById('questions-container');
-      if (!container) return;
-
-      const qIndex = container.children.length;
-
-      const qText = data ? (data.questionText || data.pregunta || '') : '';
-      const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
-      const correctIdx = data ? (data.correctAnswer !== undefined ? data.correctAnswer : 0) : 0;
-
-      const qDiv = document.createElement('div');
-      qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
-      qDiv.innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-xs font-bold text-slate-500">Pregunta ${qIndex + 1}</span>
-          <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-red-500 hover:text-red-700 text-xs">
-            <i class="fa-solid fa-trash"></i> Eliminar
-          </button>
-        </div>
-        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
-        
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" value="${opts[0] || ''}" placeholder="Opció 1" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[1] || ''}" placeholder="Opció 2" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[2] || ''}" placeholder="Opció 3" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[3] || ''}" placeholder="Opció 4" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
-        </div>
-
-        <div class="mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
-          <i class="fa-solid fa-circle-check text-indigo-600"></i>
-          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
-          <select class="q-correct p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
-            <option value="0" ${correctIdx === 0 ? 'selected' : ''}>Opció 1</option>
-            <option value="1" ${correctIdx === 1 ? 'selected' : ''}>Opció 2</option>
-            <option value="2" ${correctIdx === 2 ? 'selected' : ''}>Opció 3</option>
-            <option value="3" ${correctIdx === 3 ? 'selected' : ''}>Opció 4</option>
-          </select>
-        </div>
-      `;
-      container.appendChild(qDiv);
-    }
-
-    async function saveReading(e) {
-      e.preventDefault();
-      const type = document.getElementById('editor-type')?.value || 'text';
-      const title = document.getElementById('editor-title').value;
-      const bookAuthor = document.getElementById('editor-book-author')?.value || '';
-      const editorialOrSource = document.getElementById('editor-source')?.value || '';
-      const level = document.getElementById('editor-level').value;
-      const category = document.getElementById('editor-category')?.value || 'General';
-      const estimatedTime = document.getElementById('editor-duration')?.value || '10 min';
-      const bookPages = document.getElementById('editor-book-pages')?.value || '';
-      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
-      const content = document.getElementById('editor-content')?.value || '';
-      const imageUrl = document.getElementById('editor-image')?.value || '';
-
-      const authorDisplayName = userDisplayName || (currentUser ? currentUser.email.split('@')[0] : "Creador/a");
-      const authorSchool = userSchool || "";
-      const authorEmail = currentUser ? currentUser.email : "";
-
-      try {
-        let docId = editingDocId;
-
-        if (editingDocId) {
-          await db.collection(DB_COLLECTION).doc(editingDocId).update({
-            type: type,
-            title: title,
-            bookAuthor: bookAuthor,
-            editorialOrSource: editorialOrSource,
-            level: level,
-            category: category,
-            estimatedTime: estimatedTime,
-            bookPages: bookPages,
-            pointsPerQuestion: pointsPerQuestion,
-            content: content,
-            imageUrl: imageUrl,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-
-          const oldQ = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
-          for (const qDoc of oldQ.docs) {
-            await qDoc.ref.delete();
-          }
-        } else {
-          if (currentUser && (userRole === 'docent' || userRole === 'colaborador')) {
-            userPoints += 1;
-            await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
-          }
-
-          const docRef = await db.collection(DB_COLLECTION).add({
-            type: type,
-            title: title,
-            bookAuthor: bookAuthor,
-            editorialOrSource: editorialOrSource,
-            level: level,
-            category: category,
-            estimatedTime: estimatedTime,
-            bookPages: bookPages,
-            pointsPerQuestion: pointsPerQuestion,
-            content: content,
-            imageUrl: imageUrl,
-            authorUid: currentUser ? currentUser.uid : null,
-            authorDisplayName: authorDisplayName,
-            authorSchool: authorSchool,
-            authorEmail: authorEmail,
-            authorPoints: userPoints,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-          docId = docRef.id;
-        }
-
-        const qBlocks = document.querySelectorAll('.q-block');
-        for (const block of qBlocks) {
-          const qText = block.querySelector('.q-text').value;
-          const opt0 = block.querySelector('.q-opt-0').value;
-          const opt1 = block.querySelector('.q-opt-1').value;
-          const opt2 = block.querySelector('.q-opt-2')?.value || '';
-          const opt3 = block.querySelector('.q-opt-3')?.value || '';
-          
-          const correctSelect = block.querySelector('.q-correct');
-          const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
-
-          const options = [opt0, opt1];
-          if (opt2) options.push(opt2);
-          if (opt3) options.push(opt3);
-
-          if (qText && options.length >= 2) {
-            await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-              questionText: qText,
-              options: options,
-              correctAnswer: correctIdx
-            });
-          }
-        }
-
-        editingDocId = null;
-        await loadUserData();
-        renderNav();
-        renderCatalog();
-      } catch (err) {
-        alert("Error en desar la lectura: " + err.message);
-      }
-    }
-  </script>
-</body>
-</html>
+              if (qType === 'multiple') {
+                questionsHTML += `
+                  <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-purple-50/50 transition">
+                    <input type="checkbox" name="q_${qDoc.id}" value="${oIdx}" class
