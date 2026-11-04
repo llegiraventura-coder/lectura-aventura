@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.28.0</title>
+  <title>Lectura Aventura - v0.29.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.28.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.29.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.28.0 — Historial de versions</span>
+        <span>v0.29.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -70,6 +70,7 @@
     const DB_COLLECTION = "lectures";
     const FOLDERS_COLLECTION = "folders";
     const SUB_COLLECTION = "questions";
+    const FEEDBACK_COLLECTION = "teacher_feedback";
     const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
 
     // ESTAT GLOBAL
@@ -102,6 +103,14 @@
       opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
       creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
     };
+
+    /* ==========================================================================
+       GENERADOR DE CÓDIGO MATRÍCULA ÚNICA (#CL-XXXXX)
+       ========================================================================== */
+    function formatReadingCode(num) {
+      if (!num || isNaN(num)) return "#CL-00001";
+      return `#CL-${String(num).padStart(5, '0')}`;
+    }
 
     /* ==========================================================================
        ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
@@ -251,7 +260,6 @@
           return selectedVals.length === correctVals.length && 
                  selectedVals.every((val, idx) => val === correctVals[idx]);
         } else {
-          // Opció Única (text) i Selecció d'Imatges (image_single)
           const selected = parseInt(formData.get(`q_${qDocId}`));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
           return selected === correct;
@@ -440,6 +448,11 @@
               <span class="hidden md:inline">Carpetes / SA</span>
             </button>
 
+            <button onclick="renderTeacherFeedbackInbox()" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-comments text-amber-300"></i>
+              <span class="hidden md:inline">Suggeriments</span>
+            </button>
+
             <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-users text-sm"></i>
               <span class="hidden md:inline">Els meus Alumnes</span>
@@ -505,7 +518,7 @@
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="relative">
                   <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                  <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol o codi #CL..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
 
                 <div class="relative">
@@ -572,14 +585,19 @@
         `;
 
         let cardCount = 0;
+        const totalDocsInDb = snapshot.docs.length;
 
         if (!snapshot.empty) {
           const docsArray = snapshot.docs;
-          for (const doc of docsArray) {
+          for (let i = 0; i < docsArray.length; i++) {
+            const doc = docsArray[i];
             const data = doc.data() || {};
             const docId = doc.id;
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
+
+            const readingNum = data.readingNumber || (totalDocsInDb - i);
+            const readingCode = formatReadingCode(readingNum);
 
             const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
@@ -617,7 +635,7 @@
               }
             }
 
-            const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch);
+            const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch) || readingCode.toLowerCase().includes(filterSearch);
             const matchesBookAuthor = !filterBookAuthor || (bookAuthorName.toLowerCase().includes(filterBookAuthor));
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
             
@@ -644,13 +662,19 @@
               <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between">
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
-                    <span class="text-xs font-bold px-2.5 py-1 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
-                      ${isBook ? '📖 Llibre' : '📄 Text'}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                      <span class="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-slate-900 text-amber-300 border border-slate-800 shadow-xs">
+                        ${readingCode}
+                      </span>
+                      <span class="text-xs font-bold px-2 py-0.5 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
+                        ${isBook ? '📖 Llibre' : '📄 Text'}
+                      </span>
+                    </div>
+
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
                       ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
                       
-                      <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2.5 py-0.5 rounded-md shadow-xs">
+                      <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2 py-0.5 rounded-md shadow-xs">
                         🏆 ${totalPointsInGame} PTS
                       </span>
 
@@ -709,7 +733,7 @@
                       </button>
                     ` : ''}
                     
-                    <button onclick="shareReadingLink('${docId}', 'Lectura')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
+                    <button onclick="shareReadingLink('${docId}', '${readingCode}')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
                       <i class="fa-solid fa-share-nodes text-base"></i>
                     </button>
                   </div>
@@ -748,7 +772,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.28.0 - 5È TIPUS SELECCIÓ D'IMATGE)
+       EDITOR DE LECTURES I PREGUNTES (v0.29.0 - CODI DE REGISTRE ÚNIC)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -778,7 +802,8 @@
         bookPages: '',
         pointsPerQuestion: 1,
         content: '',
-        imageUrl: ''
+        imageUrl: '',
+        readingNumber: null
       };
 
       let initialQuestions = [];
@@ -808,10 +833,11 @@
         }
       }
 
+      const assignedCode = initialData.readingNumber ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
+
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          <!-- BANNER 1: QUALITAT DE REDACCIÓ I TARGET D'EXTENSIÓ -->
           <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
             <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
               <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
@@ -828,7 +854,6 @@
             </div>
           </div>
 
-          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES -->
           <div class="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 p-4 rounded-2xl mb-6 shadow-sm">
             <h3 class="text-xs font-black text-indigo-900 mb-1 flex items-center gap-2 uppercase tracking-wide">
               <i class="fa-solid fa-lightbulb text-indigo-500"></i> Guia de Tipologies Cognitives
@@ -862,13 +887,15 @@
             </div>
           </div>
 
-          <h1 class="text-2xl font-bold text-slate-800 mb-6 flex items-center justify-between">
-            <span class="flex items-center">
+          <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center">
               <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
               ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
+            </h1>
+            <span class="text-xs font-mono font-black bg-slate-900 text-amber-300 px-3 py-1 rounded-xl border border-slate-800 shadow-xs">
+              <i class="fa-solid fa-barcode text-slate-400 mr-1"></i> ${assignedCode}
             </span>
-            ${editingDocId ? `<span class="text-xs bg-amber-100 text-amber-800 font-bold px-2.5 py-1 rounded-md">Mode Edició</span>` : ''}
-          </h1>
+          </div>
 
           <form onsubmit="saveReading(event)" class="space-y-5">
             <div>
@@ -961,9 +988,7 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
-            <!-- SECCIÓ DE PREGUNTES AMB DOBLE BOTÓ -->
             <div class="pt-4 border-t border-slate-200">
-              <!-- BOTÓ 1: CAPÇALERA SUPERIOR DE PREGUNTES -->
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
                   <span>Preguntes de Comprensió</span>
@@ -974,10 +999,8 @@
                 </button>
               </div>
               
-              <!-- CONTENIDOR DE PREGUNTES -->
               <div id="questions-container" class="space-y-4"></div>
 
-              <!-- BOTÓ 2: PEU INFERIOR DE PREGUNTES -->
               <div class="mt-4 pt-2">
                 <button type="button" onclick="addQuestionField()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl transition border border-indigo-200 flex items-center justify-center gap-2 text-xs md:text-sm shadow-xs">
                   <i class="fa-solid fa-plus text-sm"></i>
@@ -1032,7 +1055,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS I PREGUNTES (v0.28.0 - INTEGRACIÓ 5È TIPUS: SELECCIÓ D'IMATGE)
+       CAMP D'OPCIONS I PREGUNTES
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -1097,7 +1120,6 @@
 
         <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <!-- MATRIU D'OPCIONS -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '1r' : 'A'}</span>
@@ -1120,7 +1142,6 @@
           </div>
         </div>
 
-        <!-- REQUADRE DE VISTA PRÈVIA PER A IMATGES -->
         <div class="q-image-previews-box ${qType === 'image_single' ? '' : 'hidden'} grid grid-cols-4 gap-2 pt-1">
           <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
             <img class="img-preview-0 w-full h-full object-cover" src="${opts[0] || ''}" onerror="this.src='https://via.placeholder.com/100?text=A'">
@@ -1257,7 +1278,6 @@
         b.innerText = isOrdering ? labelsOrder[idx] : labelsLetter[idx];
       });
 
-      // Actualitzar placeholders
       for (let i = 0; i < 4; i++) {
         const input = block.querySelector(`.q-opt-${i}`);
         if (input) {
@@ -1334,6 +1354,9 @@
             await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
           }
 
+          const countSnap = await db.collection(DB_COLLECTION).get();
+          const nextNum = countSnap.size + 1;
+
           const docRef = await db.collection(DB_COLLECTION).add({
             type: type,
             title: title,
@@ -1346,6 +1369,7 @@
             pointsPerQuestion: pointsPerQuestion,
             content: content,
             imageUrl: imageUrl,
+            readingNumber: nextNum,
             authorUid: currentUser ? currentUser.uid : null,
             authorDisplayName: authorDisplayName,
             authorSchool: authorSchool,
@@ -1392,7 +1416,6 @@
                 correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
               });
             } else {
-              // Opció Única (text) i Selecció d'Imatge (image_single)
               const correctSelect = block.querySelector('.q-correct-single');
               const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
 
@@ -1416,7 +1439,7 @@
     }
 
     /* ==========================================================================
-       LECTOR I QÜESTIONARI AMB ORDRE ESTRICTE
+       LECTOR I QÜESTIONARI AMB CÓDI MATRÍCULA I BOTÓ DE SUGGERIMENTS
        ========================================================================== */
     async function renderReader(docId) {
       const app = document.getElementById('app');
@@ -1438,6 +1461,10 @@
 
         const data = doc.data() || {};
         const isBook = data.type === 'book';
+
+        const totalDocsInDb = (await db.collection(DB_COLLECTION).get()).size;
+        const readingNum = data.readingNumber || totalDocsInDb;
+        const readingCode = formatReadingCode(readingNum);
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
@@ -1463,6 +1490,8 @@
         const bookAuthorName = data.bookAuthor || '';
         const editorialOrSource = data.editorialOrSource || '';
         const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+
+        const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -1581,16 +1610,141 @@
 
         app.innerHTML = `
           <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium mb-4 inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
-            <h1 class="text-3xl font-bold text-slate-900 mb-2">${data.title || 'Lectura'}</h1>
+            <div class="flex items-center justify-between mb-4">
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+              </button>
+              
+              <span class="text-xs font-mono font-black bg-slate-900 text-amber-300 px-3 py-1 rounded-xl border border-slate-800 shadow-xs">
+                ${readingCode}
+              </span>
+            </div>
+
+            <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title || 'Lectura'}</h1>
             ${headerContentHTML}
             ${questionsHTML}
+
+            ${isDocentOrCollab ? `
+              <div class="mt-8 pt-4 border-t border-slate-200 bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-xs text-amber-900 font-medium">
+                  <strong class="block font-bold">💬 Bústia Docent de Millora i Col·laboració:</strong>
+                  Has trobat cap errada o vols deixar un comentari o suggeriment al creador/a d'aquesta lectura?
+                </div>
+                <button onclick="openTeacherFeedbackModal('${docId}', '${data.title || 'Lectura'}', '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>Enviar suggeriment al docent</span>
+                </button>
+              </div>
+            ` : ''}
           </div>
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
+      }
+    }
+
+    /* ==========================================================================
+       SISTEMA DE SUGGERIMENTS / FEEDBACK ENTRE DOCENTS (v0.29.0)
+       ========================================================================== */
+    function openTeacherFeedbackModal(readingId, readingTitle, authorUid) {
+      if (!currentUser) return;
+      const modal = document.getElementById('feedback-modal-container');
+
+      modal.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-comments text-indigo-600"></i> Suggeriment Docent
+              </h3>
+              <button onclick="modal.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-600">
+              Envies un comentari respectuós al creador/a de la lectura: <strong class="text-slate-800">${readingTitle}</strong>.
+            </p>
+
+            <textarea id="feedback-comment-text" rows="4" placeholder="Escriu el teu suggeriment, millora ortogràfica o missatge d'ànim..." class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+
+            <div class="flex justify-end space-x-2 pt-2">
+              <button onclick="modal.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
+              <button onclick="sendTeacherFeedback('${readingId}', '${readingTitle}', '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+                Enviar Suggeriment
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    async function sendTeacherFeedback(readingId, readingTitle, authorUid) {
+      const commentText = document.getElementById('feedback-comment-text').value.trim();
+      if (!commentText) {
+        alert("Si us plau, escriu un comentari abans d'enviar.");
+        return;
+      }
+
+      try {
+        await db.collection(FEEDBACK_COLLECTION).add({
+          readingId: readingId,
+          readingTitle: readingTitle,
+          authorUid: authorUid,
+          senderUid: currentUser.uid,
+          senderDisplayName: userDisplayName || currentUser.email.split('@')[0],
+          senderSchool: userSchool || '',
+          senderEmail: currentUser.email,
+          comment: commentText,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        document.getElementById('feedback-modal-container').innerHTML = '';
+        alert("🎉 Suggeriment enviat correctament! Moltes gràcies per fer xarxa i comunitat.");
+      } catch (err) {
+        alert("Error en enviar el suggeriment: " + err.message);
+      }
+    }
+
+    async function renderTeacherFeedbackInbox() {
+      if (!currentUser) return;
+      const app = document.getElementById('app');
+      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la bústia de suggeriments...</p></div>`;
+
+      try {
+        const snap = await db.collection(FEEDBACK_COLLECTION).where('authorUid', '==', currentUser.uid).get();
+
+        let commentsHTML = '';
+        snap.forEach(doc => {
+          const fb = doc.data();
+          commentsHTML += `
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md">${fb.readingTitle}</span>
+                <span class="text-[10px] text-slate-400 font-mono">${fb.senderDisplayName} (${fb.senderSchool || 'Docent'})</span>
+              </div>
+              <p class="text-xs text-slate-700 font-medium leading-relaxed">${fb.comment}</p>
+            </div>
+          `;
+        });
+
+        app.innerHTML = `
+          <div class="max-w-4xl mx-auto space-y-6">
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+            
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-comments text-amber-500"></i> Suggeriments Rebuts per les teves Lectures
+              </h1>
+              
+              <div class="space-y-3">
+                ${commentsHTML || `<p class="text-xs text-slate-500 italic p-4 text-center">Encara no has rebut cap suggeriment per a les teves lectures publicades.</p>`}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la bústia:", err);
       }
     }
 
@@ -2184,12 +2338,12 @@
       auth.signOut().then(() => renderCatalog());
     }
 
-    function shareReadingLink(docId, title) {
+    function shareReadingLink(docId, titleOrCode) {
       const baseUrl = window.location.href.split('?')[0];
       const shareUrl = `${baseUrl}?lectura=${docId}`;
       if (navigator.clipboard && window.isSecureContext) {
         navigator.clipboard.writeText(shareUrl).then(() => {
-          alert(`🔗 Enllaç copiat al porta-retalls!\n\n${shareUrl}`);
+          alert(`🔗 Enllaç copiat al porta-retalls (${titleOrCode})!\n\n${shareUrl}`);
         }).catch(() => { prompt("Copia aquest enllaç:", shareUrl); });
       } else {
         prompt("Copia aquest enllaç:", shareUrl);
@@ -2197,31 +2351,40 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.28.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.29.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
       if (!app) return;
       
       const changelogRows = [
-        // FILA 1: FUTURES ACTUALITZACIONS
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.29.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Exportador de fitxes PDF.", highlights: ["Generador de fulls de comprensió per imprimir en paper."] },
+            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.30.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador de PDF per a lectura i examen en paper."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals d'aula.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Sistema de medalles o insignies per a l'alumnat."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS RECENTMENT PUBLICADES
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.29.0",
+              date: "Novembre 2026",
+              badge: "Codi Únic + Feedback",
+              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
+              summary: "Identificador #CL-00001 i Bústia entre Docents.",
+              highlights: [
+                "Generació automàtica de matrícula única (#CL-XXXXX) per a cada lectura.",
+                "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
+              ]
+            },
+            {
               version: "v0.28.0",
               date: "Novembre 2026",
               badge: "5è Tipus: Respostes Visuals",
-              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
               summary: "Nou tipus de pregunta: 🖼️ Selecció d'Imatge.",
               highlights: [
                 "Reciclatge del motor d'Opció Única per a preguntes basades en 4 URLs d'imatge.",
@@ -2232,61 +2395,49 @@
               version: "v0.27.1",
               date: "Novembre 2026",
               badge: "Doble Botó UX",
-              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
               summary: "Botó 'Afegir pregunta' duplicat a dalt i a baix.",
               highlights: [
                 "Botó superior ràpid a la capçalera de preguntes per a inici ràpid.",
                 "Botó inferior gran al peu de la llista per afegir en acabar de repassar."
               ]
-            },
-            {
-              version: "v0.27.0",
-              date: "Novembre 2026",
-              badge: "4t Tipus Pregunta",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
-              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica de fets.",
-              highlights: [
-                "Afegit el 4t tipus de pregunta d'ordenació seqüencial temporal.",
-                "Interfície dinàmica amb botons ▲/▼ adaptada a mòbils i tauletes."
-              ]
             }
           ]
         },
-        // FILA 3: HISTORIAL CONSOLIDAT ANTERIOR
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
             {
+              version: "v0.27.0",
+              date: "Novembre 2026",
+              badge: "4t Tipus Pregunta",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
+              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica de fets.",
+              highlights: [
+                "4t tipus d'ordenació seqüencial temporal amb botons ▲/▼ adaptats.",
+                "Avaluació de seqüència exacta de primer a últim."
+              ]
+            },
+            {
               version: "v0.26.3",
               date: "Novembre 2026",
               badge: "Redacció Guia",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
+              color: "bg-indigo-100 text-indigo-900 border-indigo-300",
               summary: "Ajust exacte i introducció pedagògica a les guies visuals.",
               highlights: [
                 "Frase introductòria recomanant l'ús combinat de totes les tipologies.",
-                "Redacció refinada de la Guia de Taxonomies (Literals, Inferencials, etc.)."
+                "Redacció refinada de la Guia de Taxonomies."
               ]
             },
             {
-              version: "v0.26.2",
-              date: "Novembre 2026",
-              badge: "Ordre Estricte",
-              color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-              summary: "Persistència de l'ordre (`orderIndex`) i numeració dinàmica.",
-              highlights: [
-                "Persistència estricta de l'ordre a Firestore.",
-                "Chapeta amb número de pregunta dinàmic."
-              ]
-            },
-            {
-              version: "v0.1 – v0.26.1",
+              version: "v0.1 – v0.26.2",
               date: "2025 - 2026",
               badge: "Infraestructura Base",
               color: "bg-slate-100 text-slate-800 border-slate-300",
               summary: "Ecosistema complet d'aula, rols, rankings i Firestore.",
               highlights: [
-                "Panell 'Els meus Alumnes', 4 rols d'usuari i atribucions fixes.",
-                "Carpetes SA, Taxonomies en 5 Nivells i Feedback desglossat."
+                "Panell 'Els meus Alumnes', 4 rols d'usuari, Carpetes SA i Atribució.",
+                "Taxonomies en 5 Nivells, Persistència estricta i Feedback desglossat."
               ]
             }
           ]
@@ -2306,7 +2457,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.28.0
+              ⚡ Versió Actual: v0.29.0
             </span>
           </div>
 
