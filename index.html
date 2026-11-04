@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.27.1</title>
+  <title>Lectura Aventura - v0.28.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -11,7 +11,7 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
-  
+
   <!-- CAPÇALERA PRINCIPAL -->
   <header class="bg-indigo-600 text-white shadow-md sticky top-0 z-40">
     <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.27.1</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.28.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.27.1 — Historial de versions</span>
+        <span>v0.28.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -121,6 +121,8 @@
           badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió (Vàlides totes)</span>`;
         } else if (type === 'ordering') {
           badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació Cronològica</span>`;
+        } else if (type === 'image_single') {
+          badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Selecció d'Imatge</span>`;
         }
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
@@ -129,7 +131,26 @@
 
         let optionsHTML = '';
 
-        if (type === 'ordering') {
+        if (type === 'image_single') {
+          const letterLabels = ['A', 'B', 'C', 'D'];
+          optionsHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">`;
+          options.forEach((optImgUrl, oIdx) => {
+            const letter = letterLabels[oIdx] || '';
+            const imgSrc = optImgUrl.trim() || 'https://via.placeholder.com/300x200?text=Sense+Imatge';
+            optionsHTML += `
+              <label class="group relative flex flex-col items-center bg-white p-2.5 rounded-xl border-2 border-slate-200 cursor-pointer hover:border-indigo-500 hover:shadow-md transition">
+                <div class="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-slate-900/80 text-white text-xs font-bold px-2 py-1 rounded-lg backdrop-blur-xs">
+                  <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                  <span>Opció ${letter}</span>
+                </div>
+                <div class="w-full h-40 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
+                  <img src="${imgSrc}" alt="Opció ${letter}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Carregant+Imatge'">
+                </div>
+              </label>
+            `;
+          });
+          optionsHTML += `</div>`;
+        } else if (type === 'ordering') {
           let indexedOptions = options.map((opt, idx) => ({ text: opt, originalIdx: idx }));
           indexedOptions.sort(() => Math.random() - 0.5);
 
@@ -230,6 +251,7 @@
           return selectedVals.length === correctVals.length && 
                  selectedVals.every((val, idx) => val === correctVals[idx]);
         } else {
+          // Opció Única (text) i Selecció d'Imatges (image_single)
           const selected = parseInt(formData.get(`q_${qDocId}`));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
           return selected === correct;
@@ -726,7 +748,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.27.1 - DOBLE BOTÓ AFEGIR A DALT I A BAIX)
+       EDITOR DE LECTURES I PREGUNTES (v0.28.0 - 5È TIPUS SELECCIÓ D'IMATGE)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -939,7 +961,7 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
-            <!-- SECCIÓ DE PREGUNTES AMB DOBLE BOTÓ (v0.27.1) -->
+            <!-- SECCIÓ DE PREGUNTES AMB DOBLE BOTÓ -->
             <div class="pt-4 border-t border-slate-200">
               <!-- BOTÓ 1: CAPÇALERA SUPERIOR DE PREGUNTES -->
               <div class="flex items-center justify-between mb-4">
@@ -955,7 +977,7 @@
               <!-- CONTENIDOR DE PREGUNTES -->
               <div id="questions-container" class="space-y-4"></div>
 
-              <!-- BOTÓ 2: PEU INFERIOR DE PREGUNTES (MÉS ANMPLE I VISIBLE) -->
+              <!-- BOTÓ 2: PEU INFERIOR DE PREGUNTES -->
               <div class="mt-4 pt-2">
                 <button type="button" onclick="addQuestionField()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl transition border border-indigo-200 flex items-center justify-center gap-2 text-xs md:text-sm shadow-xs">
                   <i class="fa-solid fa-plus text-sm"></i>
@@ -1010,7 +1032,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS I PREGUNTES (v0.27.1)
+       CAMP D'OPCIONS I PREGUNTES (v0.28.0 - INTEGRACIÓ 5È TIPUS: SELECCIÓ D'IMATGE)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -1048,6 +1070,7 @@
               <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
               <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
+              <option value="image_single" ${qType === 'image_single' ? 'selected' : ''}>🖼️ Selecció d'Imatge (Respostes visuals)</option>
             </select>
 
             <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
@@ -1072,34 +1095,50 @@
           </div>
         </div>
 
-        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta (Ex: Ordena aquests fets segons van passar)" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
         <!-- MATRIU D'OPCIONS -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '1r' : 'A'}</span>
-            <input type="text" value="${opts[0] || ''}" placeholder="${qType === 'ordering' ? 'Primer fet que passa' : 'Opció A'}" required class="q-opt-0 w-full p-2 text-xs outline-none">
+            <input type="text" value="${opts[0] || ''}" placeholder="${qType === 'image_single' ? 'URL de la imatge A (https://...)' : (qType === 'ordering' ? 'Primer fet que passa' : 'Opció A')}" required class="q-opt-0 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '2n' : 'B'}</span>
-            <input type="text" value="${opts[1] || ''}" placeholder="${qType === 'ordering' ? 'Segon fet que passa' : 'Opció B'}" required class="q-opt-1 w-full p-2 text-xs outline-none">
+            <input type="text" value="${opts[1] || ''}" placeholder="${qType === 'image_single' ? 'URL de la imatge B (https://...)' : (qType === 'ordering' ? 'Segon fet que passa' : 'Opció B')}" required class="q-opt-1 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '3r' : 'C'}</span>
-            <input type="text" value="${opts[2] || ''}" placeholder="${qType === 'ordering' ? 'Tercer fet que passa' : 'Opció C'}" class="q-opt-2 w-full p-2 text-xs outline-none">
+            <input type="text" value="${opts[2] || ''}" placeholder="${qType === 'image_single' ? 'URL de la imatge C (https://...)' : (qType === 'ordering' ? 'Tercer fet que passa' : 'Opció C')}" class="q-opt-2 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '4t' : 'D'}</span>
-            <input type="text" value="${opts[3] || ''}" placeholder="${qType === 'ordering' ? 'Quart fet que passa' : 'Opció D'}" class="q-opt-3 w-full p-2 text-xs outline-none">
+            <input type="text" value="${opts[3] || ''}" placeholder="${qType === 'image_single' ? 'URL de la imatge D (https://...)' : (qType === 'ordering' ? 'Quart fet que passa' : 'Opció D')}" class="q-opt-3 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
           </div>
         </div>
 
-        <div class="q-single-box ${qType === 'single' ? '' : 'hidden'} mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
+        <!-- REQUADRE DE VISTA PRÈVIA PER A IMATGES -->
+        <div class="q-image-previews-box ${qType === 'image_single' ? '' : 'hidden'} grid grid-cols-4 gap-2 pt-1">
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-0 w-full h-full object-cover" src="${opts[0] || ''}" onerror="this.src='https://via.placeholder.com/100?text=A'">
+          </div>
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-1 w-full h-full object-cover" src="${opts[1] || ''}" onerror="this.src='https://via.placeholder.com/100?text=B'">
+          </div>
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-2 w-full h-full object-cover" src="${opts[2] || ''}" onerror="this.src='https://via.placeholder.com/100?text=C'">
+          </div>
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-3 w-full h-full object-cover" src="${opts[3] || ''}" onerror="this.src='https://via.placeholder.com/100?text=D'">
+          </div>
+        </div>
+
+        <div class="q-single-box ${(qType === 'single' || qType === 'image_single') ? '' : 'hidden'} mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
           <i class="fa-solid fa-circle-check text-indigo-600"></i>
-          <label class="text-xs font-bold text-indigo-900">Quina és la resposta correcta?</label>
+          <label class="q-single-label text-xs font-bold text-indigo-900">${qType === 'image_single' ? 'Quina és la imatge correcta?' : 'Quina és la resposta correcta?'}</label>
           <select class="q-correct-single p-1 text-xs border border-indigo-300 rounded-md font-bold text-indigo-700 bg-white outline-none">
             <option value="0" ${correctSingleIdx === 0 ? 'selected' : ''}>Opció A</option>
             <option value="1" ${correctSingleIdx === 1 ? 'selected' : ''}>Opció B</option>
@@ -1148,6 +1187,15 @@
       updateQuestionIndexes();
     }
 
+    function updateImagePreview(inputElem) {
+      const block = inputElem.closest('.q-block');
+      const optIdx = inputElem.className.match(/q-opt-(\d)/)?.[1];
+      if (optIdx !== undefined) {
+        const img = block.querySelector(`.img-preview-${optIdx}`);
+        if (img) img.src = inputElem.value.trim() || `https://via.placeholder.com/100?text=${['A','B','C','D'][optIdx]}`;
+      }
+    }
+
     function removeQuestionField(btn) {
       btn.closest('.q-block').remove();
       updateQuestionIndexes();
@@ -1187,17 +1235,21 @@
     function toggleQuestionAnswerType(selectElem) {
       const block = selectElem.closest('.q-block');
       const singleBox = block.querySelector('.q-single-box');
+      const singleLabel = block.querySelector('.q-single-label');
       const multiBox = block.querySelector('.q-multiple-box');
       const opinionBox = block.querySelector('.q-opinion-box');
       const orderingBox = block.querySelector('.q-ordering-box');
+      const imagePreviewsBox = block.querySelector('.q-image-previews-box');
       const badges = block.querySelectorAll('.opt-label-badge');
 
       singleBox.classList.add('hidden');
       multiBox.classList.add('hidden');
       opinionBox.classList.add('hidden');
       orderingBox.classList.add('hidden');
+      if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
       const isOrdering = selectElem.value === 'ordering';
+      const isImage = selectElem.value === 'image_single';
 
       badges.forEach((b, idx) => {
         const labelsLetter = ['A', 'B', 'C', 'D'];
@@ -1205,14 +1257,33 @@
         b.innerText = isOrdering ? labelsOrder[idx] : labelsLetter[idx];
       });
 
+      // Actualitzar placeholders
+      for (let i = 0; i < 4; i++) {
+        const input = block.querySelector(`.q-opt-${i}`);
+        if (input) {
+          if (isImage) {
+            input.placeholder = `URL de la imatge ${['A','B','C','D'][i]} (https://...)`;
+          } else if (isOrdering) {
+            input.placeholder = `${['Primer','Segon','Tercer','Quart'][i]} fet que passa`;
+          } else {
+            input.placeholder = `Opció ${['A','B','C','D'][i]}`;
+          }
+        }
+      }
+
       if (selectElem.value === 'multiple') {
         multiBox.classList.remove('hidden');
       } else if (selectElem.value === 'opinion') {
         opinionBox.classList.remove('hidden');
       } else if (selectElem.value === 'ordering') {
         orderingBox.classList.remove('hidden');
+      } else if (selectElem.value === 'image_single') {
+        singleBox.classList.remove('hidden');
+        if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
+        if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
       } else {
         singleBox.classList.remove('hidden');
+        if (singleLabel) singleLabel.innerText = "Quina és la resposta correcta?";
       }
     }
 
@@ -1321,6 +1392,7 @@
                 correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
               });
             } else {
+              // Opció Única (text) i Selecció d'Imatge (image_single)
               const correctSelect = block.querySelector('.q-correct-single');
               const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
 
@@ -2125,7 +2197,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.27.1)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.28.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -2136,15 +2208,26 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.28.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Preguntes visuals (Kahoot style) i imatges en opcions."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals per al docent.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
-            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
+            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.29.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Exportador de fitxes PDF.", highlights: ["Generador de fulls de comprensió per imprimir en paper."] },
+            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Sistema de medalles o insignies per a l'alumnat."] }
           ]
         },
         // FILA 2: DARRERES VERSIONS RECENTMENT PUBLICADES
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.28.0",
+              date: "Novembre 2026",
+              badge: "5è Tipus: Respostes Visuals",
+              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
+              summary: "Nou tipus de pregunta: 🖼️ Selecció d'Imatge.",
+              highlights: [
+                "Reciclatge del motor d'Opció Única per a preguntes basades en 4 URLs d'imatge.",
+                "Graella visual de targetes 2x2 per a la tria interactiva de l'alumne."
+              ]
+            },
             {
               version: "v0.27.1",
               date: "Novembre 2026",
@@ -2166,7 +2249,13 @@
                 "Afegit el 4t tipus de pregunta d'ordenació seqüencial temporal.",
                 "Interfície dinàmica amb botons ▲/▼ adaptada a mòbils i tauletes."
               ]
-            },
+            }
+          ]
+        },
+        // FILA 3: HISTORIAL CONSOLIDAT ANTERIOR
+        {
+          title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
+          blocks: [
             {
               version: "v0.26.3",
               date: "Novembre 2026",
@@ -2177,13 +2266,7 @@
                 "Frase introductòria recomanant l'ús combinat de totes les tipologies.",
                 "Redacció refinada de la Guia de Taxonomies (Literals, Inferencials, etc.)."
               ]
-            }
-          ]
-        },
-        // FILA 3: HISTORIAL CONSOLIDAT ANTERIOR
-        {
-          title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
-          blocks: [
+            },
             {
               version: "v0.26.2",
               date: "Novembre 2026",
@@ -2196,25 +2279,14 @@
               ]
             },
             {
-              version: "v0.21 – v0.26.1",
-              date: "Novembre 2026",
-              badge: "Engine & Reordenació",
-              color: "bg-purple-100 text-purple-900 border-purple-300",
-              summary: "Carpetes SA, Taxonomies en 5 Nivells i Punts Dinàmics.",
-              highlights: [
-                "Opció múltiple, preguntes d'opnió, reordenació ▲/▼ i carpetes SA.",
-                "Feedback desglossat per nivell cognitiu."
-              ]
-            },
-            {
-              version: "v0.1 – v0.20",
+              version: "v0.1 – v0.26.1",
               date: "2025 - 2026",
               badge: "Infraestructura Base",
               color: "bg-slate-100 text-slate-800 border-slate-300",
               summary: "Ecosistema complet d'aula, rols, rankings i Firestore.",
               highlights: [
                 "Panell 'Els meus Alumnes', 4 rols d'usuari i atribucions fixes.",
-                "Lectures curtes a pantalla i qüestionaris de llibres en paper."
+                "Carpetes SA, Taxonomies en 5 Nivells i Feedback desglossat."
               ]
             }
           ]
@@ -2234,7 +2306,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.27.1
+              ⚡ Versió Actual: v0.28.0
             </span>
           </div>
 
