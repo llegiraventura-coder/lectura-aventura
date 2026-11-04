@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.26.3</title>
+  <title>Lectura Aventura - v0.27.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.26.3</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.27.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.26.3 — Historial de versions</span>
+        <span>v0.27.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -104,7 +104,7 @@
     };
 
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine v0.27.0)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0) {
@@ -123,37 +123,81 @@
           badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">
             💬 Reflexió / Opinió (Vàlides totes)
           </span>`;
+        } else if (type === 'ordering') {
+          badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">
+            ↕️ Ordenació Cronològica
+          </span>`;
         }
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
           <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
         </span>`;
 
-        const letterLabels = ['A', 'B', 'C', 'D'];
         let optionsHTML = '';
-        options.forEach((opt, oIdx) => {
-          const letterBadge = `<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">${letterLabels[oIdx] || ''}</span>`;
-          if (type === 'multiple') {
+
+        if (type === 'ordering') {
+          // Barreja inicial aleatòria determinista o basada en l'ordre de la pàgina
+          let indexedOptions = options.map((opt, idx) => ({ text: opt, originalIdx: idx }));
+          // Shuffle simple per a la presentació de l'alumne
+          indexedOptions.sort(() => Math.random() - 0.5);
+
+          optionsHTML = `
+            <div class="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 mb-2">
+              <p class="text-xs font-bold text-amber-900 mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-up-down-left-right text-amber-600"></i>
+                Fes servir les fletxes per ordenar els fets de primer (1r) a últim:
+              </p>
+              <div id="ordering_list_${qDocId}" class="ordering-container space-y-2">
+          `;
+
+          indexedOptions.forEach((optObj, posIdx) => {
             optionsHTML += `
-              <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-purple-50/50 transition">
-                <input type="checkbox" name="q_${qDocId}" value="${oIdx}" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
-                ${letterBadge}
-                <span class="text-sm text-slate-700 font-medium">${opt}</span>
-              </label>
+              <div class="ordering-item flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 shadow-xs" data-original-idx="${optObj.originalIdx}">
+                <div class="flex items-center space-x-3">
+                  <span class="pos-badge w-6 h-6 rounded-md bg-amber-500 text-white font-black text-xs flex items-center justify-center shrink-0">
+                    ${posIdx + 1}º
+                  </span>
+                  <span class="text-sm font-medium text-slate-800">${optObj.text}</span>
+                </div>
+                <div class="flex items-center space-x-1">
+                  <button type="button" onclick="moveOrderItem(this, -1)" class="p-1 px-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300">▲</button>
+                  <button type="button" onclick="moveOrderItem(this, 1)" class="p-1 px-2 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-300">▼</button>
+                </div>
+              </div>
             `;
-          } else {
-            const hoverColor = type === 'opinion' ? 'hover:bg-blue-50/50' : 'hover:bg-indigo-50/50';
-            const radioColor = type === 'opinion' ? 'text-blue-600 focus:ring-blue-500' : 'text-indigo-600 focus:ring-indigo-500';
-            
-            optionsHTML += `
-              <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer ${hoverColor} transition">
-                <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 ${radioColor}">
-                ${letterBadge}
-                <span class="text-sm text-slate-700 font-medium">${opt}</span>
-              </label>
-            `;
-          }
-        });
+          });
+
+          optionsHTML += `
+              </div>
+              <input type="hidden" name="q_${qDocId}" id="q_input_${qDocId}" value="${indexedOptions.map(o => o.originalIdx).join(',')}">
+            </div>
+          `;
+        } else {
+          const letterLabels = ['A', 'B', 'C', 'D'];
+          options.forEach((opt, oIdx) => {
+            const letterBadge = `<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">${letterLabels[oIdx] || ''}</span>`;
+            if (type === 'multiple') {
+              optionsHTML += `
+                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-purple-50/50 transition">
+                  <input type="checkbox" name="q_${qDocId}" value="${oIdx}" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
+                  ${letterBadge}
+                  <span class="text-sm text-slate-700 font-medium">${opt}</span>
+                </label>
+              `;
+            } else {
+              const hoverColor = type === 'opinion' ? 'hover:bg-blue-50/50' : 'hover:bg-indigo-50/50';
+              const radioColor = type === 'opinion' ? 'text-blue-600 focus:ring-blue-500' : 'text-indigo-600 focus:ring-indigo-500';
+              
+              optionsHTML += `
+                <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer ${hoverColor} transition">
+                  <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 ${radioColor}">
+                  ${letterBadge}
+                  <span class="text-sm text-slate-700 font-medium">${opt}</span>
+                </label>
+              `;
+            }
+          });
+        }
 
         const progressIndicator = totalQuestions > 0 ? `<span class="text-xs text-indigo-600 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Pregunta ${qIndex + 1} de ${totalQuestions}</span>` : '';
 
@@ -174,7 +218,13 @@
       evaluate(qData, qDocId, formData) {
         const type = qData.questionType || 'single';
 
-        if (type === 'opinion') {
+        if (type === 'ordering') {
+          const val = formData.get(`q_${qDocId}`);
+          if (!val) return false;
+          const userSequence = val.split(',').map(v => parseInt(v));
+          // L'ordre correcte sempre és 0, 1, 2, 3...
+          return userSequence.every((v, idx) => v === idx);
+        } else if (type === 'opinion') {
           const selected = formData.get(`q_${qDocId}`);
           return selected !== null && selected !== undefined;
         } else if (type === 'multiple') {
@@ -195,6 +245,32 @@
         }
       }
     };
+
+    function moveOrderItem(btn, dir) {
+      const item = btn.closest('.ordering-item');
+      const container = item.parentNode;
+      const items = Array.from(container.children);
+      const currentIdx = items.indexOf(item);
+      const targetIdx = currentIdx + dir;
+
+      if (targetIdx >= 0 && targetIdx < items.length) {
+        if (dir === -1) {
+          container.insertBefore(item, items[targetIdx]);
+        } else {
+          container.insertBefore(item, items[targetIdx].nextSibling);
+        }
+        
+        // Recalcular valors del camp ocult
+        const updatedItems = Array.from(container.children);
+        updatedItems.forEach((it, idx) => {
+          it.querySelector('.pos-badge').innerText = `${idx + 1}º`;
+        });
+        const hiddenInput = container.parentNode.querySelector('input[type="hidden"]');
+        if (hiddenInput) {
+          hiddenInput.value = updatedItems.map(it => it.getAttribute('data-original-idx')).join(',');
+        }
+      }
+    }
 
     // OBSERVADOR D'AUTENTICACIÓ
     auth.onAuthStateChanged(async user => {
@@ -660,7 +736,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.26.3 - INTRO DINS EL BLOC 2 INCLOSA)
+       EDITOR DE LECTURES I PREGUNTES (v0.27.0 AMB SUPORT PER A ORDENACIÓ)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -733,7 +809,7 @@
             </div>
           </div>
 
-          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES (AMB FRRASE INTRODUCTÒRIA DINS) -->
+          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES -->
           <div class="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 p-4 rounded-2xl mb-6 shadow-sm">
             <h3 class="text-xs font-black text-indigo-900 mb-1 flex items-center gap-2 uppercase tracking-wide">
               <i class="fa-solid fa-lightbulb text-indigo-500"></i> Guia de Tipologies Cognitives
@@ -925,7 +1001,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS AMB NUMERACIÓ DINÀMICA A L'EDITOR
+       CAMP D'OPCIONS AMB SUPORT PER A 4t TIPUS "ORDENACIÓ CRONOLÒGICA" (v0.27.0)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -962,6 +1038,7 @@
               <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
               <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
+              <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
             </select>
 
             <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
@@ -986,28 +1063,28 @@
           </div>
         </div>
 
-        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta (Ex: Ordena aquests fets segons van passar)" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <!-- MATRIU D'OPCIONS AMB ETIQUETES FIXES A, B, C, D -->
+        <!-- MATRIU D'OPCIONS -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">A</span>
-            <input type="text" value="${opts[0] || ''}" placeholder="Opció A" required class="q-opt-0 w-full p-2 text-xs outline-none">
+            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '1r' : 'A'}</span>
+            <input type="text" value="${opts[0] || ''}" placeholder="${qType === 'ordering' ? 'Primer fet que passa' : 'Opció A'}" required class="q-opt-0 w-full p-2 text-xs outline-none">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">B</span>
-            <input type="text" value="${opts[1] || ''}" placeholder="Opció B" required class="q-opt-1 w-full p-2 text-xs outline-none">
+            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '2n' : 'B'}</span>
+            <input type="text" value="${opts[1] || ''}" placeholder="${qType === 'ordering' ? 'Segon fet que passa' : 'Opció B'}" required class="q-opt-1 w-full p-2 text-xs outline-none">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">C</span>
-            <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 text-xs outline-none">
+            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '3r' : 'C'}</span>
+            <input type="text" value="${opts[2] || ''}" placeholder="${qType === 'ordering' ? 'Tercer fet que passa' : 'Opció C'}" class="q-opt-2 w-full p-2 text-xs outline-none">
           </div>
 
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">D</span>
-            <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 text-xs outline-none">
+            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">${qType === 'ordering' ? '4t' : 'D'}</span>
+            <input type="text" value="${opts[3] || ''}" placeholder="${qType === 'ordering' ? 'Quart fet que passa' : 'Opció D'}" class="q-opt-3 w-full p-2 text-xs outline-none">
           </div>
         </div>
 
@@ -1050,6 +1127,11 @@
         <div class="q-opinion-box ${qType === 'opinion' ? '' : 'hidden'} mt-3 p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
           <i class="fa-solid fa-comment-dots text-blue-600 text-sm"></i>
           <span>💡 Pregunta de Reflexió: Qualsevol opció seleccionada per l'alumne comptarà com a encert.</span>
+        </div>
+
+        <div class="q-ordering-box ${qType === 'ordering' ? '' : 'hidden'} mt-3 p-2.5 bg-amber-50 rounded-lg border border-amber-200 flex items-center space-x-2 text-xs font-bold text-amber-900">
+          <i class="fa-solid fa-arrow-down-short-wide text-amber-600 text-sm"></i>
+          <span>↕️ Escriu les frases en l’ordre cronològic REAL (1r, 2n, 3r, 4t). Es mostraran barrejades a l’alumne automàticament.</span>
         </div>
       `;
 
@@ -1098,15 +1180,28 @@
       const singleBox = block.querySelector('.q-single-box');
       const multiBox = block.querySelector('.q-multiple-box');
       const opinionBox = block.querySelector('.q-opinion-box');
+      const orderingBox = block.querySelector('.q-ordering-box');
+      const badges = block.querySelectorAll('.opt-label-badge');
 
       singleBox.classList.add('hidden');
       multiBox.classList.add('hidden');
       opinionBox.classList.add('hidden');
+      orderingBox.classList.add('hidden');
+
+      const isOrdering = selectElem.value === 'ordering';
+
+      badges.forEach((b, idx) => {
+        const labelsLetter = ['A', 'B', 'C', 'D'];
+        const labelsOrder = ['1r', '2n', '3r', '4t'];
+        b.innerText = isOrdering ? labelsOrder[idx] : labelsLetter[idx];
+      });
 
       if (selectElem.value === 'multiple') {
         multiBox.classList.remove('hidden');
       } else if (selectElem.value === 'opinion') {
         opinionBox.classList.remove('hidden');
+      } else if (selectElem.value === 'ordering') {
+        orderingBox.classList.remove('hidden');
       } else {
         singleBox.classList.remove('hidden');
       }
@@ -1206,7 +1301,7 @@
               orderIndex: orderIndex
             };
 
-            if (qType === 'opinion') {
+            if (qType === 'opinion' || qType === 'ordering') {
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
             } else if (qType === 'multiple') {
               const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
@@ -2011,35 +2106,47 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.3)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.27.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
       if (!app) return;
       
       const changelogRows = [
-        // FILA 1: FUTURES ACTUALITZACIONS
+        // FILA 1: FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT (MANTINGUDA TAL QUAL)
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.27.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Preguntes visuals (Kahoot style) i imatges en opcions."] },
+            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.28.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Preguntes visuals (Kahoot style) i imatges en opcions."] },
             { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals per al docent.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS (AMB v0.26.3 AL CAPDAVANT)
+        // FILA 2: DARRERES VERSIONS RECENTMENT PUBLICADES (INCLOU v0.27.0)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.27.0",
+              date: "Novembre 2026",
+              badge: "4t Tipus Pregunta",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica de fets.",
+              highlights: [
+                "Afegit el 4t tipus de pregunta d'ordenació seqüencial temporal.",
+                "Interfície dinàmica amb botons ▲/▼ adaptada a mòbils i tauletes.",
+                "Motor d'avaluació de seqüència exacta (100% encert)."
+              ]
+            },
             {
               version: "v0.26.3",
               date: "Novembre 2026",
               badge: "Redacció Guia",
               color: "bg-amber-100 text-amber-900 border-amber-300",
-              summary: "Ajust exacte i introducció pedagògica a les guies visuals de l'editor.",
+              summary: "Ajust exacte i introducció pedagògica a les guies visuals.",
               highlights: [
-                "Afegida frase d'introducció recomanant l'ús combinat de totes les tipologies de comprensió.",
-                "Redacció refinada i ajustada a la Guia de Tipologies Cognitives (Literals, Inferencials, Sentit Figurat, Opinió, Creatives)."
+                "Frase introductòria recomanant l'ús combinat de totes les tipologies.",
+                "Redacció refinada de la Guia de Taxonomies (Literals, Inferencials, etc.)."
               ]
             },
             {
@@ -2050,9 +2157,15 @@
               summary: "Persistència de l'ordre (`orderIndex`) i numeració dinàmica.",
               highlights: [
                 "Persistència de l'ordre de les preguntes a Firestore (`orderIndex`).",
-                "Chapeta amb número de pregunta dinàmic que es reordena automàticament a l'editor i lector."
+                "Chapeta amb número de pregunta dinàmic que es reordena a l'editor i lector."
               ]
-            },
+            }
+          ]
+        },
+        // FILA 3: HISTORIAL CONSOLIDAT ANTERIOR
+        {
+          title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
+          blocks: [
             {
               version: "v0.26.1",
               date: "Novembre 2026",
@@ -2061,18 +2174,31 @@
               summary: "Chapetes d'Opcions (A,B,C,D) i Doble Guia de Creadors.",
               highlights: [
                 "Chapetes visuals A, B, C i D davant de cada camp d'opció a l'editor.",
-                "Doble requadre superior: Guia de Qualitat/Ortografia (~10 preguntes) i Guia de Taxonomia."
+                "Doble requadre superior: Guia de Qualitat/Ortografia i Taxonomies."
+              ]
+            },
+            {
+              version: "v0.21 – v0.26.0",
+              date: "Novembre 2026",
+              badge: "Engine & Reordenació",
+              color: "bg-purple-100 text-purple-900 border-purple-300",
+              summary: "Carpetes SA, Taxonomies en 5 Nivells i Punts Dinàmics.",
+              highlights: [
+                "Opció múltiple, preguntes d'opnió, reordenació ▲/▼ i carpetes SA.",
+                "Feedback desglossat per nivell cognitiu en finalitzar."
+              ]
+            },
+            {
+              version: "v0.1 – v0.20",
+              date: "2025 - 2026",
+              badge: "Infraestructura Base",
+              color: "bg-slate-100 text-slate-800 border-slate-300",
+              summary: "Ecosistema complet d'aula, rols, rankings i Firestore.",
+              highlights: [
+                "Panell 'Els meus Alumnes', 4 rols d'usuari i atribucions fixes.",
+                "Lectures curtes a pantalla i qüestionaris de llibres en paper."
               ]
             }
-          ]
-        },
-        // FILA 3: HISTORIAL CONSOLIDAT
-        {
-          title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
-          blocks: [
-            { version: "v0.21 – v0.26", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Taxonomies i Punts Dinàmics.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼, carpetes SA i indicador 🏆 X PTS."] },
-            { version: "v0.11 – v0.20", date: "2025 - 2026", badge: "Ecosistema Docent", color: "bg-indigo-100 text-indigo-900 border-indigo-300", summary: "Ecosistema de rols d'aula, drets d'autor i ranking.", highlights: ["Panell 'Els meus Alumnes', filtres de durada, 4 rols d'usuari i atribucions fixes."] },
-            { version: "v0.1 – v0.10", date: "2025", badge: "Infraestructura Base", color: "bg-slate-100 text-slate-800 border-slate-300", summary: "Creació de la infraestructura i integració.", highlights: ["Suport per a lectures curtes a pantalla i qüestionaris de llibres en paper."] }
           ]
         }
       ];
@@ -2090,7 +2216,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.26.3
+              ⚡ Versió Actual: v0.27.0
             </span>
           </div>
 
