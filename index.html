@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.26.2</title>
+  <title>Lectura Aventura - v0.26.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.26.2</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.26.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.26.2 — Historial de versions</span>
+        <span>v0.26.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -660,7 +660,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES AMB PERSISTÈNCIA D'ORDRE (v0.26.2)
+       EDITOR DE LECTURES I PREGUNTES (v0.26.3 - INTRO DINS EL BLOC 2 INCLOSA)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -700,12 +700,10 @@
           const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
           if (docSnap.exists) {
             initialData = docSnap.data();
-            // CÀRREGA AMB ORDRE ESTRICTE
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
             } catch (orderErr) {
-              // Fallback si no tenen orderIndex encara
               qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
             }
             qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
@@ -735,29 +733,34 @@
             </div>
           </div>
 
-          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES -->
+          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES (AMB FRRASE INTRODUCTÒRIA DINS) -->
           <div class="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 p-4 rounded-2xl mb-6 shadow-sm">
-            <h3 class="text-xs font-black text-indigo-900 mb-2 flex items-center gap-2 uppercase tracking-wide">
+            <h3 class="text-xs font-black text-indigo-900 mb-1 flex items-center gap-2 uppercase tracking-wide">
               <i class="fa-solid fa-lightbulb text-indigo-500"></i> Guia de Tipologies Cognitives
             </h3>
+            
+            <p class="text-xs text-indigo-900 font-medium italic mb-3">
+              Recomanem que intenteu fer servir preguntes en les vostres comprensions lectores de tots els tipus possibles.
+            </p>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700">
-              <div class="bg-white/80 p-2 rounded-xl border border-emerald-200">
+              <div class="bg-white/90 p-2.5 rounded-xl border border-emerald-200 shadow-xs">
                 <span class="font-bold text-emerald-800 block mb-0.5">🟢 1. Literals:</span>
                 Buscar informació explícita en el text.
               </div>
-              <div class="bg-white/80 p-2 rounded-xl border border-blue-200">
+              <div class="bg-white/90 p-2.5 rounded-xl border border-blue-200 shadow-xs">
                 <span class="font-bold text-blue-800 block mb-0.5">🔵 2. Inferencials:</span>
                 Deduir informació implícita a partir de pistes.
               </div>
-              <div class="bg-white/80 p-2 rounded-xl border border-purple-200">
+              <div class="bg-white/90 p-2.5 rounded-xl border border-purple-200 shadow-xs">
                 <span class="font-bold text-purple-800 block mb-0.5">🟣 3. Sentit Figurat:</span>
                 Desxifrar frases fetes, dites i llenguatge no literal.
               </div>
-              <div class="bg-white/80 p-2 rounded-xl border border-amber-200">
-                <span class="font-bold text-amber-800 block mb-0.5">💬 4. D'Opinió:</span>
+              <div class="bg-white/90 p-2.5 rounded-xl border border-amber-200 shadow-xs">
+                <span class="font-bold text-amber-900 block mb-0.5">💬 4. D'Opinió:</span>
                 Valorar, jutjar o donar el punt de vista crític.
               </div>
-              <div class="bg-white/80 p-2 rounded-xl border border-rose-200 sm:col-span-2 md:col-span-2">
+              <div class="bg-white/90 p-2.5 rounded-xl border border-rose-200 shadow-xs sm:col-span-2 md:col-span-2">
                 <span class="font-bold text-rose-800 block mb-0.5">🎨 5. Creatives:</span>
                 Proposar alternatives, inventar continuacions o connectar amb l'expressió artística.
               </div>
@@ -922,7 +925,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS AMB NUMERACIÓ DINÀMICA A L'EDITOR (v0.26.2)
+       CAMP D'OPCIONS AMB NUMERACIÓ DINÀMICA A L'EDITOR
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -952,7 +955,6 @@
       qDiv.innerHTML = `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200/60 pb-2">
           <div class="flex items-center gap-2 flex-wrap">
-            <!-- NUMERACIÓ DINÀMICA AMB CHAPETA (v0.26.2) -->
             <span class="q-number-badge w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">1</span>
             <span class="q-number-label text-xs font-bold text-slate-700">Pregunta 1</span>
             
@@ -1201,7 +1203,7 @@
               options: options,
               questionType: qType,
               taxonomyType: taxonomyType,
-              orderIndex: orderIndex // PERSISTÈNCIA D'ORDRE A FIRESTORE (v0.26.2)
+              orderIndex: orderIndex
             };
 
             if (qType === 'opinion') {
@@ -1238,7 +1240,7 @@
     }
 
     /* ==========================================================================
-       LECTOR I QÜESTIONARI AMB ORDRE ESTRICTE (v0.26.2)
+       LECTOR I QÜESTIONARI AMB ORDRE ESTRICTE
        ========================================================================== */
     async function renderReader(docId) {
       const app = document.getElementById('app');
@@ -1263,10 +1265,8 @@
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
-          // CARREGAR AMB ORDRE PERSTISTENT
           questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
         } catch (qErr) {
-          // Fallback
           try {
             questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
           } catch (e) {
@@ -2011,7 +2011,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.2)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.3)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -2027,10 +2027,21 @@
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS (AMB v0.26.2 AL CAPDAVANT)
+        // FILA 2: DARRERES VERSIONS (AMB v0.26.3 AL CAPDAVANT)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.26.3",
+              date: "Novembre 2026",
+              badge: "Redacció Guia",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
+              summary: "Ajust exacte i introducció pedagògica a les guies visuals de l'editor.",
+              highlights: [
+                "Afegida frase d'introducció recomanant l'ús combinat de totes les tipologies de comprensió.",
+                "Redacció refinada i ajustada a la Guia de Tipologies Cognitives (Literals, Inferencials, Sentit Figurat, Opinió, Creatives)."
+              ]
+            },
             {
               version: "v0.26.2",
               date: "Novembre 2026",
@@ -2046,22 +2057,11 @@
               version: "v0.26.1",
               date: "Novembre 2026",
               badge: "UX & Guies",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
+              color: "bg-indigo-100 text-indigo-900 border-indigo-300",
               summary: "Chapetes d'Opcions (A,B,C,D) i Doble Guia de Creadors.",
               highlights: [
                 "Chapetes visuals A, B, C i D davant de cada camp d'opció a l'editor.",
                 "Doble requadre superior: Guia de Qualitat/Ortografia (~10 preguntes) i Guia de Taxonomia."
-              ]
-            },
-            {
-              version: "v0.26.0",
-              date: "Novembre 2026",
-              badge: "Taxonomia 5 Nivells",
-              color: "bg-blue-100 text-blue-900 border-blue-300",
-              summary: "Taxonomia Cognitiva en 5 Tipologies i Feedback Desglossat.",
-              highlights: [
-                "Guia de 5 tipologies cognitives (Literals, Inferencials, Sentit Figurat, Opinió i Creatives).",
-                "Desplegable de nivell cognitiu a tots els tipus de pregunta i modal final de feedback desglossat."
               ]
             }
           ]
@@ -2070,7 +2070,7 @@
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
-            { version: "v0.21 – v0.25", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Reordenació i Punts Dinàmics.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼, carpetes SA i indicador 🏆 X PTS."] },
+            { version: "v0.21 – v0.26", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Taxonomies i Punts Dinàmics.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼, carpetes SA i indicador 🏆 X PTS."] },
             { version: "v0.11 – v0.20", date: "2025 - 2026", badge: "Ecosistema Docent", color: "bg-indigo-100 text-indigo-900 border-indigo-300", summary: "Ecosistema de rols d'aula, drets d'autor i ranking.", highlights: ["Panell 'Els meus Alumnes', filtres de durada, 4 rols d'usuari i atribucions fixes."] },
             { version: "v0.1 – v0.10", date: "2025", badge: "Infraestructura Base", color: "bg-slate-100 text-slate-800 border-slate-300", summary: "Creació de la infraestructura i integració.", highlights: ["Suport per a lectures curtes a pantalla i qüestionaris de llibres en paper."] }
           ]
@@ -2090,7 +2090,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.26.2
+              ⚡ Versió Actual: v0.26.3
             </span>
           </div>
 
@@ -2110,13 +2110,10 @@
                         </div>
                         <p class="text-xs text-slate-600 font-semibold mb-3">${item.summary}</p>
                         <div class="space-y-2 text-[11px] text-slate-700">
-                          ${item.highlights.map(h => `<p class="leading-tight flex items-start gap-1.5"><i class="fa-solid ${item.isPlaceholder ? 'fa-hourglass-half' : 'fa-check'} text-[10px] ${item.isPlaceholder ? 'text-amber-500' : 'fa-check text-emerald-500'} mt-0.5"></i> <span>${h}</span></p>`).join('')}
+                          ${item.highlights.map(h => `<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>${h}</span></p>`).join('')}
                         </div>
                       </div>
-                      <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-[10px] text-slate-400">
-                        <span>${item.date}</span>
-                        <i class="fa-solid fa-cubes"></i>
-                      </div>
+                      <span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">${item.date}</span>
                     </div>
                   `).join('')}
                 </div>
