@@ -726,7 +726,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.27.0 AMB SUPORT PER A ORDENACIÓ)
+       EDITOR DE LECTURES I PREGUNTES (v0.27.0 - RECUPERACIÓ TOTAL DE PREGUNTES)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -766,12 +766,20 @@
           const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
           if (docSnap.exists) {
             initialData = docSnap.data();
+            
+            // MECANISME DE FALLBACK: Intentem per orderIndex i si falten preguntes les carreguem totes
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
             } catch (orderErr) {
               qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
             }
+
+            const totalAllSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+            if (qSnap.size < totalAllSnap.size) {
+              qSnap = totalAllSnap; // Recuperem el 100% de les preguntes antigues
+            }
+
             qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
           }
         } catch (err) {
@@ -1358,6 +1366,11 @@
             console.warn("No s'han pogut carregar les preguntes de Firestore:", e);
           }
         }
+
+        const totalAllSnapReader = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+        if (questionsSnap.size < totalAllSnapReader.size) {
+          questionsSnap = totalAllSnapReader;
+        }
         
         const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
@@ -1516,6 +1529,11 @@
         questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
       } catch (e) {
         questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      }
+
+      const totalAllSnapSubmit = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      if (questionsSnap.size < totalAllSnapSubmit.size) {
+        questionsSnap = totalAllSnapSubmit;
       }
 
       let score = 0;
