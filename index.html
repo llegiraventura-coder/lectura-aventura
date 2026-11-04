@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.26.1</title>
+  <title>Lectura Aventura - v0.26.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.26.1</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.26.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.26.1 — Historial de versions</span>
+        <span>v0.26.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -107,7 +107,7 @@
        ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
        ========================================================================== */
     const QuestionEngine = {
-      render(qDocId, qData, qIndex) {
+      render(qDocId, qData, qIndex, totalQuestions = 0) {
         const type = qData.questionType || 'single';
         const taxonomy = qData.taxonomyType || 'literal';
         const taxConfig = TAXONOMY_CONFIG[taxonomy] || TAXONOMY_CONFIG.literal;
@@ -155,11 +155,16 @@
           }
         });
 
+        const progressIndicator = totalQuestions > 0 ? `<span class="text-xs text-indigo-600 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Pregunta ${qIndex + 1} de ${totalQuestions}</span>` : '';
+
         return `
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-              <p class="font-bold text-slate-800 text-sm md:text-base">${qIndex + 1}. ${text}</p>
-              <div class="flex items-center gap-1.5 flex-wrap">${taxBadge} ${badgeHTML}</div>
+              <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">${qIndex + 1}</span>
+                <p class="font-bold text-slate-800 text-sm md:text-base">${text}</p>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap justify-end">${progressIndicator} ${taxBadge} ${badgeHTML}</div>
             </div>
             <div class="space-y-2">${optionsHTML}</div>
           </div>
@@ -655,7 +660,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.26.1)
+       EDITOR DE LECTURES I PREGUNTES AMB PERSISTÈNCIA D'ORDRE (v0.26.2)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -695,7 +700,14 @@
           const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
           if (docSnap.exists) {
             initialData = docSnap.data();
-            const qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+            // CÀRREGA AMB ORDRE ESTRICTE
+            let qSnap;
+            try {
+              qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
+            } catch (orderErr) {
+              // Fallback si no tenen orderIndex encara
+              qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+            }
             qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
           }
         } catch (err) {
@@ -706,7 +718,7 @@
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          <!-- BANNER 1: QUALITAT DE REDACCIÓ I TARGET D'EXTENSIÓ (RECUPERAT v0.26.1) -->
+          <!-- BANNER 1: QUALITAT DE REDACCIÓ I TARGET D'EXTENSIÓ -->
           <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
             <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
               <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
@@ -723,7 +735,7 @@
             </div>
           </div>
 
-          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES (v0.26.1) -->
+          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES -->
           <div class="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 p-4 rounded-2xl mb-6 shadow-sm">
             <h3 class="text-xs font-black text-indigo-900 mb-2 flex items-center gap-2 uppercase tracking-wide">
               <i class="fa-solid fa-lightbulb text-indigo-500"></i> Guia de Tipologies Cognitives
@@ -910,7 +922,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS AMB REQUADRE DE LLETRES A, B, C, D (v0.26.1)
+       CAMP D'OPCIONS AMB NUMERACIÓ DINÀMICA A L'EDITOR (v0.26.2)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -939,8 +951,10 @@
       
       qDiv.innerHTML = `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200/60 pb-2">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="q-number-label text-xs font-bold text-slate-500">Pregunta</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <!-- NUMERACIÓ DINÀMICA AMB CHAPETA (v0.26.2) -->
+            <span class="q-number-badge w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">1</span>
+            <span class="q-number-label text-xs font-bold text-slate-700">Pregunta 1</span>
             
             <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
               <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
@@ -972,7 +986,7 @@
 
         <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <!-- MATRIU D'OPCIONS AMB ETICHETES FIXES A, B, C, D (v0.26.1) -->
+        <!-- MATRIU D'OPCIONS AMB ETIQUETES FIXES A, B, C, D -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
             <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">A</span>
@@ -1067,7 +1081,9 @@
     function updateQuestionIndexes() {
       const blocks = document.querySelectorAll('#questions-container .q-block');
       blocks.forEach((block, idx) => {
+        const badge = block.querySelector('.q-number-badge');
         const label = block.querySelector('.q-number-label');
+        if (badge) badge.innerText = idx + 1;
         if (label) label.innerText = `Pregunta ${idx + 1}`;
       });
 
@@ -1164,6 +1180,8 @@
         }
 
         const qBlocks = document.querySelectorAll('.q-block');
+        let orderIndex = 0;
+
         for (const block of qBlocks) {
           const qText = block.querySelector('.q-text').value;
           const opt0 = block.querySelector('.q-opt-0').value;
@@ -1178,22 +1196,22 @@
           if (opt3) options.push(opt3);
 
           if (qText && options.length >= 2) {
+            const baseQData = {
+              questionText: qText,
+              options: options,
+              questionType: qType,
+              taxonomyType: taxonomyType,
+              orderIndex: orderIndex // PERSISTÈNCIA D'ORDRE A FIRESTORE (v0.26.2)
+            };
+
             if (qType === 'opinion') {
-              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                questionText: qText,
-                options: options,
-                questionType: 'opinion',
-                taxonomyType: taxonomyType
-              });
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
             } else if (qType === 'multiple') {
               const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
               const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
 
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                questionText: qText,
-                options: options,
-                questionType: 'multiple',
-                taxonomyType: taxonomyType,
+                ...baseQData,
                 correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
               });
             } else {
@@ -1201,13 +1219,12 @@
               const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
 
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                questionText: qText,
-                options: options,
-                questionType: 'single',
-                taxonomyType: taxonomyType,
+                ...baseQData,
                 correctAnswer: correctIdx
               });
             }
+
+            orderIndex++;
           }
         }
 
@@ -1221,7 +1238,7 @@
     }
 
     /* ==========================================================================
-       LECTOR I QÜESTIONARI
+       LECTOR I QÜESTIONARI AMB ORDRE ESTRICTE (v0.26.2)
        ========================================================================== */
     async function renderReader(docId) {
       const app = document.getElementById('app');
@@ -1246,9 +1263,15 @@
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
-          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+          // CARREGAR AMB ORDRE PERSTISTENT
+          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
         } catch (qErr) {
-          console.warn("No s'han pogut carregar les preguntes de Firestore:", qErr);
+          // Fallback
+          try {
+            questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+          } catch (e) {
+            console.warn("No s'han pogut carregar les preguntes de Firestore:", e);
+          }
         }
         
         const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
@@ -1280,7 +1303,7 @@
           let qIndex = 0;
           questionsSnap.forEach(qDoc => {
             const q = qDoc.data() || {};
-            questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex);
+            questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex, totalQuestions);
             qIndex++;
           });
 
@@ -1403,7 +1426,13 @@
       const form = e.target;
       const formData = new FormData(form);
 
-      const questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      let questionsSnap;
+      try {
+        questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
+      } catch (e) {
+        questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+      }
+
       let score = 0;
       let total = questionsSnap.size;
 
@@ -1982,7 +2011,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.1)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.2)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -1998,10 +2027,21 @@
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS (AMB v0.26.1 AL CAPDAVANT)
+        // FILA 2: DARRERES VERSIONS (AMB v0.26.2 AL CAPDAVANT)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.26.2",
+              date: "Novembre 2026",
+              badge: "Ordre Estricte",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
+              summary: "Persistència de l'ordre (`orderIndex`) i numeració dinàmica.",
+              highlights: [
+                "Persistència de l'ordre de les preguntes a Firestore (`orderIndex`).",
+                "Chapeta amb número de pregunta dinàmic que es reordena automàticament a l'editor i lector."
+              ]
+            },
             {
               version: "v0.26.1",
               date: "Novembre 2026",
@@ -2023,17 +2063,6 @@
                 "Guia de 5 tipologies cognitives (Literals, Inferencials, Sentit Figurat, Opinió i Creatives).",
                 "Desplegable de nivell cognitiu a tots els tipus de pregunta i modal final de feedback desglossat."
               ]
-            },
-            {
-              version: "v0.25.0",
-              date: "Novembre 2026",
-              badge: "Punts Dinàmics",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-              summary: "Indicador Netejat de Punts Totals (`🏆 X PTS`).",
-              highlights: [
-                "Càlcul dinàmic del recompte total de punts en joc per lectura.",
-                "Disseny compacte que millora la maquetació i motivació de l'alumne."
-              ]
             }
           ]
         },
@@ -2041,7 +2070,7 @@
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
-            { version: "v0.21 – v0.24", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Reordenació i Reflexió.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼ i carpetes SA."] },
+            { version: "v0.21 – v0.25", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Reordenació i Punts Dinàmics.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼, carpetes SA i indicador 🏆 X PTS."] },
             { version: "v0.11 – v0.20", date: "2025 - 2026", badge: "Ecosistema Docent", color: "bg-indigo-100 text-indigo-900 border-indigo-300", summary: "Ecosistema de rols d'aula, drets d'autor i ranking.", highlights: ["Panell 'Els meus Alumnes', filtres de durada, 4 rols d'usuari i atribucions fixes."] },
             { version: "v0.1 – v0.10", date: "2025", badge: "Infraestructura Base", color: "bg-slate-100 text-slate-800 border-slate-300", summary: "Creació de la infraestructura i integració.", highlights: ["Suport per a lectures curtes a pantalla i qüestionaris de llibres en paper."] }
           ]
@@ -2061,7 +2090,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.26.1
+              ⚡ Versió Actual: v0.26.2
             </span>
           </div>
 
