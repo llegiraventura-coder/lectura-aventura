@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.25.0</title>
+  <title>Lectura Aventura - v0.26.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.25.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.26.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.25.0 — Historial de versions</span>
+        <span>v0.26.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -47,6 +47,7 @@
   <div id="profile-modal-container"></div>
   <div id="auth-modal-container"></div>
   <div id="folder-modal-container"></div>
+  <div id="feedback-modal-container"></div>
 
   <script>
     // CONFIGURACIÓ DE FIREBASE
@@ -93,25 +94,40 @@
     let filterStatus = "all";
     let filterDuration = "all";
 
+    // DICCIONARI DE TAXONOMIA COGNITIVA (v0.26.0)
+    const TAXONOMY_CONFIG = {
+      literal: { label: "Literal", desc: "Buscar informació explícita en el text", color: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "fa-magnifying-glass" },
+      inferential: { label: "Inferencial", desc: "Deduir informació implícita a partir de pistes", color: "bg-blue-100 text-blue-800 border-blue-300", icon: "fa-lightbulb" },
+      figurative: { label: "Sentit Figurat", desc: "Desxifrar frases fetes, dites i llenguatge no literal", color: "bg-purple-100 text-purple-800 border-purple-300", icon: "fa-comments" },
+      opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
+      creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
+    };
+
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine v0.26.0)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex) {
         const type = qData.questionType || 'single';
+        const taxonomy = qData.taxonomyType || 'literal';
+        const taxConfig = TAXONOMY_CONFIG[taxonomy] || TAXONOMY_CONFIG.literal;
         const text = qData.questionText || qData.pregunta || `Pregunta ${qIndex + 1}`;
         const options = qData.options || qData.opcions || [];
 
         let badgeHTML = '';
         if (type === 'multiple') {
           badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">
-            ☑️ Opció Múltiple (Atenció: Selecciona totes les respostes correctes)
+            ☑️ Opció Múltiple
           </span>`;
         } else if (type === 'opinion') {
           badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">
-            💬 Pregunta de Reflexió / Opinió (Qualsevol opció triada comptarà com a bona)
+            💬 Reflexió / Opinió (Vàlides totes)
           </span>`;
         }
+
+        const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
+          <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
+        </span>`;
 
         let optionsHTML = '';
         options.forEach((opt, oIdx) => {
@@ -139,7 +155,7 @@
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <p class="font-bold text-slate-800 text-sm md:text-base">${qIndex + 1}. ${text}</p>
-              ${badgeHTML}
+              <div class="flex items-center gap-1.5 flex-wrap">${taxBadge} ${badgeHTML}</div>
             </div>
             <div class="space-y-2">${optionsHTML}</div>
           </div>
@@ -366,7 +382,7 @@
       renderBanner();
     }
 
-    // CATÀLEG GENERAL (v0.25.0 — Amb Càlcul de Punts Totals Dinàmics `🏆 X PTS`)
+    // CATÀLEG GENERAL
     async function renderCatalog() {
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
@@ -461,7 +477,6 @@
         let cardCount = 0;
 
         if (!snapshot.empty) {
-          // Processament asíncron per a carregar el nombre de preguntes i calcular punts totals per lectura
           const docsArray = snapshot.docs;
           for (const doc of docsArray) {
             const data = doc.data() || {};
@@ -483,13 +498,12 @@
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
             const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
 
-            // CÀLCUL DINÀMIC DE PUNTS TOTALS EN JOC (v0.25.0)
-            let qCount = 10; // Valor per defecte si no n'hi ha
+            let qCount = 10;
             try {
               const qSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
               if (!qSnap.empty) qCount = qSnap.size;
             } catch (err) {
-              console.warn("No s'han pogut comptar les preguntes de la lectura:", docId);
+              console.warn("Error en comptar preguntes:", docId);
             }
             const totalPointsInGame = qCount * ptsPerQuestion;
 
@@ -539,7 +553,6 @@
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
                       ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
                       
-                      <!-- NOVA INSIGNIA COMPACTA v0.25.0: 🏆 X PTS -->
                       <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2.5 py-0.5 rounded-md shadow-xs">
                         🏆 ${totalPointsInGame} PTS
                       </span>
@@ -638,7 +651,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES
+       EDITOR DE LECTURES I PREGUNTES (v0.26.0 - 5 Tipologies Cognitives)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -689,23 +702,31 @@
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          <!-- BANNER: GUIA PEDAGÒGICA PER A CREADORS -->
+          <!-- BANNER GUIA PEDAGÒGICA (v0.26.0 - 5 TIPOLOGIES) -->
           <div class="bg-gradient-to-r from-amber-50 via-indigo-50 to-amber-50 border border-amber-200/80 p-4 rounded-2xl mb-6 shadow-sm">
             <h3 class="text-sm font-black text-amber-900 mb-2 flex items-center gap-2">
-              <i class="fa-solid fa-lightbulb text-amber-500 text-base"></i> Recomanacions de Qualitat per a Col·laboradors i Docents
+              <i class="fa-solid fa-lightbulb text-amber-500 text-base"></i> Guia de Tipologies Cognitives per a Creadors (v0.26.0)
             </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-700">
-              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                <span class="font-bold text-amber-800 block mb-0.5">✍️ Ortografia i Cura:</span>
-                Assegura't de revisar l'ortografia i la sintaxi abans de publicar.
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700">
+              <div class="bg-white/80 p-2 rounded-xl border border-emerald-200">
+                <span class="font-bold text-emerald-800 block mb-0.5">🟢 1. Literals:</span>
+                Buscar informació explícita en el text.
               </div>
-              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                <span class="font-bold text-indigo-800 block mb-0.5">🔢 Target d'extensió:</span>
-                Recomanem afegir unes <strong>10 preguntes</strong> per qüestionari.
+              <div class="bg-white/80 p-2 rounded-xl border border-blue-200">
+                <span class="font-bold text-blue-800 block mb-0.5">🔵 2. Inferencials:</span>
+                Deduir informació implícita a partir de pistes.
               </div>
-              <div class="bg-white/80 p-2.5 rounded-xl border border-amber-200/50">
-                <span class="font-bold text-purple-800 block mb-0.5">🎯 Diversitat cognitiva:</span>
-                Combina preguntes <strong>Literals, Inferencials, d'Opinió i Creatives</strong>.
+              <div class="bg-white/80 p-2 rounded-xl border border-purple-200">
+                <span class="font-bold text-purple-800 block mb-0.5">🟣 3. Sentit Figurat:</span>
+                Desxifrar frases fetes, dites i llenguatge no literal.
+              </div>
+              <div class="bg-white/80 p-2 rounded-xl border border-amber-200">
+                <span class="font-bold text-amber-800 block mb-0.5">💬 4. D'Opinió:</span>
+                Valorar, jutjar o donar el punt de vista crític.
+              </div>
+              <div class="bg-white/80 p-2 rounded-xl border border-rose-200 sm:col-span-2 md:col-span-2">
+                <span class="font-bold text-rose-800 block mb-0.5">🎨 5. Creatives:</span>
+                Proposar alternatives, inventar continuacions o connectar amb l'expressió artística.
               </div>
             </div>
           </div>
@@ -868,7 +889,7 @@
     }
 
     /* ==========================================================================
-       REORDENACIÓ DE PREGUNTES A L'EDITOR
+       REORDENACIÓ I DESPLEGABLES DE TAXONOMIA A L'EDITOR (v0.26.0)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -877,6 +898,7 @@
       const qText = data ? (data.questionText || data.pregunta || '') : '';
       const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
       const qType = data ? (data.questionType || 'single') : 'single';
+      const qTaxonomy = data ? (data.taxonomyType || 'literal') : 'literal';
 
       let correctSingleIdx = 0;
       let correctMultipleArr = [0];
@@ -895,17 +917,28 @@
       qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
       
       qDiv.innerHTML = `
-        <div class="flex justify-between items-center gap-2 border-b border-slate-200/60 pb-2">
-          <div class="flex items-center gap-2">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200/60 pb-2">
+          <div class="flex items-center gap-1.5 flex-wrap">
             <span class="q-number-label text-xs font-bold text-slate-500">Pregunta</span>
+            
+            <!-- DESPLEGABLE 1: FORMAT DE LA RESPOSTA -->
             <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
               <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
               <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
             </select>
+
+            <!-- DESPLEGABLE 2 (v0.26.0): NIVELL COGNITIU UNIVERSAL A TOTS ELS FORMATS -->
+            <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
+              <option value="literal" ${qTaxonomy === 'literal' ? 'selected' : ''}>🟢 Literal (Explícita)</option>
+              <option value="inferential" ${qTaxonomy === 'inferential' ? 'selected' : ''}>🔵 Inferencial (Implícita)</option>
+              <option value="figurative" ${qTaxonomy === 'figurative' ? 'selected' : ''}>🟣 Sentit Figurat (Dites/Dobles)</option>
+              <option value="opinion" ${qTaxonomy === 'opinion' ? 'selected' : ''}>💬 D'Opinió (Crítica)</option>
+              <option value="creative" ${qTaxonomy === 'creative' ? 'selected' : ''}>🎨 Creativa (Alternatives)</option>
+            </select>
           </div>
           
-          <div class="flex items-center space-x-1">
+          <div class="flex items-center space-x-1 self-end sm:self-auto">
             <button type="button" onclick="moveQuestionUp(this)" title="Pujar pregunta" class="p-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg">
               <i class="fa-solid fa-arrow-up"></i>
             </button>
@@ -1103,6 +1136,7 @@
           const opt2 = block.querySelector('.q-opt-2')?.value || '';
           const opt3 = block.querySelector('.q-opt-3')?.value || '';
           const qType = block.querySelector('.q-type-select')?.value || 'single';
+          const taxonomyType = block.querySelector('.q-taxonomy-select')?.value || 'literal';
 
           const options = [opt0, opt1];
           if (opt2) options.push(opt2);
@@ -1113,7 +1147,8 @@
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
                 questionText: qText,
                 options: options,
-                questionType: 'opinion'
+                questionType: 'opinion',
+                taxonomyType: taxonomyType
               });
             } else if (qType === 'multiple') {
               const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
@@ -1123,6 +1158,7 @@
                 questionText: qText,
                 options: options,
                 questionType: 'multiple',
+                taxonomyType: taxonomyType,
                 correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
               });
             } else {
@@ -1133,6 +1169,7 @@
                 questionText: qText,
                 options: options,
                 questionType: 'single',
+                taxonomyType: taxonomyType,
                 correctAnswer: correctIdx
               });
             }
@@ -1149,7 +1186,7 @@
     }
 
     /* ==========================================================================
-       LECTOR DE LECTURA I QÜESTIONARI
+       LECTOR I QÜESTIONARI
        ========================================================================== */
     async function renderReader(docId) {
       const app = document.getElementById('app');
@@ -1318,6 +1355,9 @@
       }
     }
 
+    /* ==========================================================================
+       AVALUACIÓ I MODAL DE FEEDBACK DESGLOSSAT (v0.26.0)
+       ========================================================================== */
     async function submitQuiz(e, docId, pointsPerQuestion = 1) {
       e.preventDefault();
       if (!currentUser) {
@@ -1332,10 +1372,24 @@
       let score = 0;
       let total = questionsSnap.size;
 
+      // CÀLCUL DE COMPREPSIÓ DESGLOSSADA PER TIPOLOGIA COGNITIVA
+      const stats = {
+        literal: { correct: 0, total: 0 },
+        inferential: { correct: 0, total: 0 },
+        figurative: { correct: 0, total: 0 },
+        opinion: { correct: 0, total: 0 },
+        creative: { correct: 0, total: 0 }
+      };
+
       questionsSnap.forEach(qDoc => {
         const q = qDoc.data() || {};
+        const taxKey = q.taxonomyType || 'literal';
+        if (!stats[taxKey]) stats[taxKey] = { correct: 0, total: 0 };
+
+        stats[taxKey].total++;
         if (QuestionEngine.evaluate(q, qDoc.id, formData)) {
           score++;
+          stats[taxKey].correct++;
         }
       });
 
@@ -1374,15 +1428,66 @@
       await loadUserData();
       renderNav();
 
-      if (pointsToAdd > 0) {
-        alert(`🎉 Gran treball! Encertades ${score} de ${total} preguntes.\n\nS'han afegit +${pointsToAdd} PTS nous! (Total lectura: ${newQuizPoints}/${maxPossiblePoints} pts)`);
-      } else if (newQuizPoints === maxPossiblePoints) {
-        alert(`⭐ Fantàstic! Has tornat a aconseguir la puntuació màxima (${score}/${total}).`);
-      } else {
-        alert(`👍 Has encertat ${score} de ${total} preguntes (${newQuizPoints} pts). Com que la teva marca anterior era de ${previousQuizPoints} pts, el teu total es manté.`);
-      }
+      // MONTAGEM DEL MODAL DE FEEDBACK VISUAL DESGLOSSAT
+      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats);
+    }
 
-      resetFiltersAndRenderCatalog();
+    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats) {
+      const container = document.getElementById('feedback-modal-container');
+      if (!container) return;
+
+      let breakdownRows = '';
+      Object.keys(stats).forEach(taxKey => {
+        const item = stats[taxKey];
+        if (item.total > 0) {
+          const cfg = TAXONOMY_CONFIG[taxKey] || TAXONOMY_CONFIG.literal;
+          const pct = Math.round((item.correct / item.total) * 100);
+          
+          breakdownRows += `
+            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded-md border ${cfg.color} inline-flex items-center gap-1">
+                  <i class="fa-solid ${cfg.icon}"></i> ${cfg.label}
+                </span>
+                <span class="text-xs text-slate-500 hidden sm:inline">${cfg.desc}</span>
+              </div>
+              <div class="text-right">
+                <span class="text-sm font-black text-slate-800">${item.correct} / ${item.total}</span>
+                <span class="text-xs font-bold ml-1.5 ${pct >= 70 ? 'text-emerald-600' : (pct >= 50 ? 'text-amber-600' : 'text-slate-500')}">(${pct}%)</span>
+              </div>
+            </div>
+          `;
+        }
+      });
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-5 shadow-2xl">
+            <div class="text-center space-y-1">
+              <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner border border-amber-200">
+                <i class="fa-solid fa-trophy"></i>
+              </div>
+              <h3 class="text-xl font-black text-slate-800">Resultat de la Lectura</h3>
+              <p class="text-xs text-slate-500">Has encertat <strong>${score} de ${total}</strong> preguntes (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
+            </div>
+
+            ${pointsToAdd > 0 ? `
+              <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">
+                🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+${pointsToAdd} PTS</span> nous per al teu perfil!
+              </div>
+            ` : ''}
+
+            <div class="space-y-2">
+              <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Desglossament de la Comprensió Lectora:</h4>
+              <div class="space-y-2">${breakdownRows}</div>
+            </div>
+
+            <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">
+              Continuar al Catàleg
+            </button>
+          </div>
+        </div>
+      `;
     }
 
     /* ==========================================================================
@@ -1844,7 +1949,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.25.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -1855,20 +1960,31 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.26.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Paginació visual de preguntes i barres de progrés en temps real."] },
+            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.27.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Reserva de contingut per a les noves millores.", highlights: ["Preguntes visuals (Kahoot style) i imatges en opcions."] },
             { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals per al docent.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
-            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Noves dinàmiques gamificades i diplomes descarregables."] }
+            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS (AMB v0.25.0 AL CAPDAVANT)
+        // FILA 2: DARRERES VERSIONS (AMB v0.26.0 AL CAPDAVANT)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.26.0",
+              date: "Novembre 2026",
+              badge: "Taxonomia 5 Nivells",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
+              summary: "Taxonomia Cognitiva en 5 Tipologies i Feedback Desglossat.",
+              highlights: [
+                "Guia de 5 tipologies cognitives (Literals, Inferencials, Sentit Figurat, Opinió i Creatives).",
+                "Desplegable de nivell cognitiu a tots els tipus de pregunta i modal final de feedback desglossat."
+              ]
+            },
+            {
               version: "v0.25.0",
               date: "Novembre 2026",
               badge: "Punts Dinàmics",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
+              color: "bg-blue-100 text-blue-900 border-blue-300",
               summary: "Indicador Netejat de Punts Totals (`🏆 X PTS`).",
               highlights: [
                 "Càlcul dinàmic del recompte total de punts en joc per lectura.",
@@ -1879,22 +1995,11 @@
               version: "v0.24.0",
               date: "Novembre 2026",
               badge: "DX Docent / Creadors",
-              color: "bg-blue-100 text-blue-900 border-blue-300",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
               summary: "Qualitat i Reordenació de Preguntes a l'Editor.",
               highlights: [
                 "Guia pedagògica superior a l'editor (ortografia, ~10 preguntes, 4 tipologies).",
                 "Reordenació fluida de preguntes amb botons '▲ Pujar' / '▼ Baixar'."
-              ]
-            },
-            {
-              version: "v0.23.0",
-              date: "Novembre 2026",
-              badge: "Reflexió i Reals",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-              summary: "Nou tipus de pregunta: Reflexió / Opinió.",
-              highlights: [
-                "Avaluació automàtica 'Totes vàlides' per fomentar l'argumentació.",
-                "Restauració completa de la Classificació 3x, Carpetes SA i Seguiment."
               ]
             }
           ]
@@ -1903,7 +2008,7 @@
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
-            { version: "v0.21 – v0.22", date: "Novembre 2026", badge: "Mòduls SA i Engine", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA i Motor QuestionEngine.", highlights: ["Preguntes d'opció múltiple i carpetes compartibles per enllaç."] },
+            { version: "v0.21 – v0.23", date: "Novembre 2026", badge: "Mòduls SA i Engine", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA i Preguntes de Reflexió.", highlights: ["Preguntes d'opció múltiple, reflexió i carpetes compartibles per enllaç."] },
             { version: "v0.11 – v0.20", date: "2025 - 2026", badge: "Ecosistema Docent", color: "bg-indigo-100 text-indigo-900 border-indigo-300", summary: "Ecosistema de rols d'aula, drets d'autor i ranking.", highlights: ["Panell 'Els meus Alumnes', filtres de durada, 4 rols d'usuari i atribucions fixes."] },
             { version: "v0.1 – v0.10", date: "2025", badge: "Infraestructura Base", color: "bg-slate-100 text-slate-800 border-slate-300", summary: "Creació de la infraestructura i integració.", highlights: ["Suport per a lectures curtes a pantalla i qüestionaris de llibres en paper."] }
           ]
@@ -1923,7 +2028,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.25.0
+              ⚡ Versió Actual: v0.26.0
             </span>
           </div>
 
