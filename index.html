@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.27.0</title>
+  <title>Lectura Aventura - v0.27.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.27.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.27.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.27.0 — Historial de versions</span>
+        <span>v0.27.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -104,7 +104,7 @@
     };
 
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine v0.27.0)
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0) {
@@ -726,7 +726,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.27.0 - RECUPERACIÓ TOTAL DE PREGUNTES)
+       EDITOR DE LECTURES I PREGUNTES (v0.27.1 - BOTÓ AFEGIR AL FINAL)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -767,7 +767,6 @@
           if (docSnap.exists) {
             initialData = docSnap.data();
             
-            // MECANISME DE FALLBACK: Intentem per orderIndex i si falten preguntes les carreguem totes
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
@@ -777,7 +776,7 @@
 
             const totalAllSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
             if (qSnap.size < totalAllSnap.size) {
-              qSnap = totalAllSnap; // Recuperem el 100% de les preguntes antigues
+              qSnap = totalAllSnap;
             }
 
             qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
@@ -940,17 +939,25 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
+            <!-- SECCIÓ DE PREGUNTES (BOTÓ AFEGIR AL FINAL EN v0.27.1) -->
             <div class="pt-4 border-t border-slate-200">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
                   <span>Preguntes de Comprensió</span>
                   <span id="question-count-badge" class="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">0</span>
                 </h3>
-                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition">
-                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+              </div>
+              
+              <!-- LISTAT DE PREGUNTES -->
+              <div id="questions-container" class="space-y-4"></div>
+
+              <!-- BOTÓ AFEGIR PREGUNTA AL FINAL (v0.27.1) -->
+              <div class="mt-4 pt-2">
+                <button type="button" onclick="addQuestionField()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-3 px-4 rounded-xl transition border border-indigo-200 flex items-center justify-center gap-2 text-sm shadow-xs">
+                  <i class="fa-solid fa-plus text-base"></i>
+                  <span>Afegir una altra pregunta</span>
                 </button>
               </div>
-              <div id="questions-container" class="space-y-4"></div>
             </div>
 
             <div class="flex justify-end space-x-3 pt-4">
@@ -999,7 +1006,7 @@
     }
 
     /* ==========================================================================
-       CAMP D'OPCIONS AMB SUPORT PER A 4t TIPUS "ORDENACIÓ CRONOLÒGICA" (v0.27.0)
+       CAMP D'OPCIONS I PREGUNTES (v0.27.1)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -2114,14 +2121,14 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.27.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.27.1)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
       if (!app) return;
       
       const changelogRows = [
-        // FILA 1: FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT
+        // FILA 1: FUTURES ACTUALITZACIONS
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
@@ -2130,42 +2137,41 @@
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS RECENTMENT PUBLICADES (INCLOU v0.27.0)
+        // FILA 2: DARRERES VERSIONS RECENTMENT PUBLICADES
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.27.1",
+              date: "Novembre 2026",
+              badge: "UX Editor",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Botó 'Afegir pregunta' al final de la llista.",
+              highlights: [
+                "Reubicació del botó al peu de les preguntes existents.",
+                "Disseny ample i destacat per a afegir contingut de manera més fluïda i natural."
+              ]
+            },
+            {
               version: "v0.27.0",
               date: "Novembre 2026",
               badge: "4t Tipus Pregunta",
-              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
               summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica de fets.",
               highlights: [
                 "Afegit el 4t tipus de pregunta d'ordenació seqüencial temporal.",
-                "Interfície dinàmica amb botons ▲/▼ adaptada a mòbils i tauletes.",
-                "Motor d'avaluació de seqüència exacta (100% encert)."
+                "Interfície dinàmica amb botons ▲/▼ adaptada a mòbils i tauletes."
               ]
             },
             {
               version: "v0.26.3",
               date: "Novembre 2026",
               badge: "Redacció Guia",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
               summary: "Ajust exacte i introducció pedagògica a les guies visuals.",
               highlights: [
                 "Frase introductòria recomanant l'ús combinat de totes les tipologies.",
                 "Redacció refinada de la Guia de Taxonomies (Literals, Inferencials, etc.)."
-              ]
-            },
-            {
-              version: "v0.26.2",
-              date: "Novembre 2026",
-              badge: "Ordre Estricte",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-              summary: "Persistència de l'ordre (`orderIndex`) i numeració dinàmica.",
-              highlights: [
-                "Persistència de l'ordre de les preguntes a Firestore (`orderIndex`).",
-                "Chapeta amb número de pregunta dinàmic que es reordena a l'editor i lector."
               ]
             }
           ]
@@ -2175,25 +2181,25 @@
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
             {
-              version: "v0.26.1",
+              version: "v0.26.2",
               date: "Novembre 2026",
-              badge: "UX & Guies",
+              badge: "Ordre Estricte",
               color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-              summary: "Chapetes d'Opcions (A,B,C,D) i Doble Guia de Creadors.",
+              summary: "Persistència de l'ordre (`orderIndex`) i numeració dinàmica.",
               highlights: [
-                "Chapetes visuals A, B, C i D davant de cada camp d'opció a l'editor.",
-                "Doble requadre superior: Guia de Qualitat/Ortografia i Taxonomies."
+                "Persistència estricta de l'ordre a Firestore.",
+                "Chapeta amb número de pregunta dinàmic."
               ]
             },
             {
-              version: "v0.21 – v0.26.0",
+              version: "v0.21 – v0.26.1",
               date: "Novembre 2026",
               badge: "Engine & Reordenació",
               color: "bg-purple-100 text-purple-900 border-purple-300",
               summary: "Carpetes SA, Taxonomies en 5 Nivells i Punts Dinàmics.",
               highlights: [
                 "Opció múltiple, preguntes d'opnió, reordenació ▲/▼ i carpetes SA.",
-                "Feedback desglossat per nivell cognitiu en finalitzar."
+                "Feedback desglossat per nivell cognitiu."
               ]
             },
             {
@@ -2224,7 +2230,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.27.0
+              ⚡ Versió Actual: v0.27.1
             </span>
           </div>
 
