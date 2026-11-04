@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.26.0</title>
+  <title>Lectura Aventura - v0.26.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -19,7 +19,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.26.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.26.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -38,7 +38,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.26.0 — Historial de versions</span>
+        <span>v0.26.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -94,7 +94,7 @@
     let filterStatus = "all";
     let filterDuration = "all";
 
-    // DICCIONARI DE TAXONOMIA COGNITIVA (v0.26.0)
+    // DICCIONARI DE TAXONOMIA COGNITIVA
     const TAXONOMY_CONFIG = {
       literal: { label: "Literal", desc: "Buscar informació explícita en el text", color: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "fa-magnifying-glass" },
       inferential: { label: "Inferencial", desc: "Deduir informació implícita a partir de pistes", color: "bg-blue-100 text-blue-800 border-blue-300", icon: "fa-lightbulb" },
@@ -104,7 +104,7 @@
     };
 
     /* ==========================================================================
-       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine v0.26.0)
+       ARQUITECTURA MODULAR DEL MOTOR DE PREGUNTES (QuestionEngine)
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex) {
@@ -129,12 +129,15 @@
           <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
         </span>`;
 
+        const letterLabels = ['A', 'B', 'C', 'D'];
         let optionsHTML = '';
         options.forEach((opt, oIdx) => {
+          const letterBadge = `<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">${letterLabels[oIdx] || ''}</span>`;
           if (type === 'multiple') {
             optionsHTML += `
               <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer hover:bg-purple-50/50 transition">
                 <input type="checkbox" name="q_${qDocId}" value="${oIdx}" class="w-4 h-4 text-purple-600 rounded focus:ring-purple-500">
+                ${letterBadge}
                 <span class="text-sm text-slate-700 font-medium">${opt}</span>
               </label>
             `;
@@ -145,6 +148,7 @@
             optionsHTML += `
               <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer ${hoverColor} transition">
                 <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 ${radioColor}">
+                ${letterBadge}
                 <span class="text-sm text-slate-700 font-medium">${opt}</span>
               </label>
             `;
@@ -651,7 +655,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.26.0 - 5 Tipologies Cognitives)
+       EDITOR DE LECTURES I PREGUNTES (v0.26.1)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -702,10 +706,27 @@
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          <!-- BANNER GUIA PEDAGÒGICA (v0.26.0 - 5 TIPOLOGIES) -->
-          <div class="bg-gradient-to-r from-amber-50 via-indigo-50 to-amber-50 border border-amber-200/80 p-4 rounded-2xl mb-6 shadow-sm">
-            <h3 class="text-sm font-black text-amber-900 mb-2 flex items-center gap-2">
-              <i class="fa-solid fa-lightbulb text-amber-500 text-base"></i> Guia de Tipologies Cognitives per a Creadors (v0.26.0)
+          <!-- BANNER 1: QUALITAT DE REDACCIÓ I TARGET D'EXTENSIÓ (RECUPERAT v0.26.1) -->
+          <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
+            <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
+              <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
+            </h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-900">
+              <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-check text-emerald-600"></i>
+                <span>Cura ortogràfica i sintàctica abans de publicar.</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <i class="fa-solid fa-bullseye text-indigo-600"></i>
+                <span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BANNER 2: GUIA DE TIPOLOGIES COGNITIVES (v0.26.1) -->
+          <div class="bg-gradient-to-r from-indigo-50 via-purple-50 to-indigo-50 border border-indigo-200/80 p-4 rounded-2xl mb-6 shadow-sm">
+            <h3 class="text-xs font-black text-indigo-900 mb-2 flex items-center gap-2 uppercase tracking-wide">
+              <i class="fa-solid fa-lightbulb text-indigo-500"></i> Guia de Tipologies Cognitives
             </h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 text-[11px] text-slate-700">
               <div class="bg-white/80 p-2 rounded-xl border border-emerald-200">
@@ -889,7 +910,7 @@
     }
 
     /* ==========================================================================
-       REORDENACIÓ I DESPLEGABLES DE TAXONOMIA A L'EDITOR (v0.26.0)
+       CAMP D'OPCIONS AMB REQUADRE DE LLETRES A, B, C, D (v0.26.1)
        ========================================================================== */
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
@@ -921,14 +942,12 @@
           <div class="flex items-center gap-1.5 flex-wrap">
             <span class="q-number-label text-xs font-bold text-slate-500">Pregunta</span>
             
-            <!-- DESPLEGABLE 1: FORMAT DE LA RESPOSTA -->
             <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
               <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
               <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
             </select>
 
-            <!-- DESPLEGABLE 2 (v0.26.0): NIVELL COGNITIU UNIVERSAL A TOTS ELS FORMATS -->
             <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
               <option value="literal" ${qTaxonomy === 'literal' ? 'selected' : ''}>🟢 Literal (Explícita)</option>
               <option value="inferential" ${qTaxonomy === 'inferential' ? 'selected' : ''}>🔵 Inferencial (Implícita)</option>
@@ -953,11 +972,27 @@
 
         <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <div class="grid grid-cols-2 gap-2">
-          <input type="text" value="${opts[0] || ''}" placeholder="Opció A" required class="q-opt-0 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[1] || ''}" placeholder="Opció B" required class="q-opt-1 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 border border-slate-300 rounded-lg text-xs">
-          <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 border border-slate-300 rounded-lg text-xs">
+        <!-- MATRIU D'OPCIONS AMB ETICHETES FIXES A, B, C, D (v0.26.1) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">A</span>
+            <input type="text" value="${opts[0] || ''}" placeholder="Opció A" required class="q-opt-0 w-full p-2 text-xs outline-none">
+          </div>
+
+          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">B</span>
+            <input type="text" value="${opts[1] || ''}" placeholder="Opció B" required class="q-opt-1 w-full p-2 text-xs outline-none">
+          </div>
+
+          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">C</span>
+            <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 text-xs outline-none">
+          </div>
+
+          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+            <span class="bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">D</span>
+            <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 text-xs outline-none">
+          </div>
         </div>
 
         <div class="q-single-box ${qType === 'single' ? '' : 'hidden'} mt-3 flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
@@ -979,19 +1014,19 @@
           <div class="grid grid-cols-2 gap-2 text-xs">
             <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
               <input type="checkbox" value="0" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(0) ? 'checked' : ''}>
-              <span>Opció A</span>
+              <span class="font-bold">Opció A</span>
             </label>
             <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
               <input type="checkbox" value="1" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(1) ? 'checked' : ''}>
-              <span>Opció B</span>
+              <span class="font-bold">Opció B</span>
             </label>
             <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
               <input type="checkbox" value="2" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(2) ? 'checked' : ''}>
-              <span>Opció C</span>
+              <span class="font-bold">Opció C</span>
             </label>
             <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
               <input type="checkbox" value="3" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(3) ? 'checked' : ''}>
-              <span>Opció D</span>
+              <span class="font-bold">Opció D</span>
             </label>
           </div>
         </div>
@@ -1356,7 +1391,7 @@
     }
 
     /* ==========================================================================
-       AVALUACIÓ I MODAL DE FEEDBACK DESGLOSSAT (v0.26.0)
+       AVALUACIÓ I MODAL DE FEEDBACK DESGLOSSAT
        ========================================================================== */
     async function submitQuiz(e, docId, pointsPerQuestion = 1) {
       e.preventDefault();
@@ -1372,7 +1407,6 @@
       let score = 0;
       let total = questionsSnap.size;
 
-      // CÀLCUL DE COMPREPSIÓ DESGLOSSADA PER TIPOLOGIA COGNITIVA
       const stats = {
         literal: { correct: 0, total: 0 },
         inferential: { correct: 0, total: 0 },
@@ -1428,7 +1462,6 @@
       await loadUserData();
       renderNav();
 
-      // MONTAGEM DEL MODAL DE FEEDBACK VISUAL DESGLOSSAT
       renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats);
     }
 
@@ -1949,7 +1982,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (MATRIU 3x3 - ACTUALITZADA v0.26.1)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -1965,15 +1998,26 @@
             { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Exportador de fitxes PDF a punt per imprimir."] }
           ]
         },
-        // FILA 2: DARRERES VERSIONS (AMB v0.26.0 AL CAPDAVANT)
+        // FILA 2: DARRERES VERSIONS (AMB v0.26.1 AL CAPDAVANT)
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.26.1",
+              date: "Novembre 2026",
+              badge: "UX & Guies",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
+              summary: "Chapetes d'Opcions (A,B,C,D) i Doble Guia de Creadors.",
+              highlights: [
+                "Chapetes visuals A, B, C i D davant de cada camp d'opció a l'editor.",
+                "Doble requadre superior: Guia de Qualitat/Ortografia (~10 preguntes) i Guia de Taxonomia."
+              ]
+            },
+            {
               version: "v0.26.0",
               date: "Novembre 2026",
               badge: "Taxonomia 5 Nivells",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
+              color: "bg-blue-100 text-blue-900 border-blue-300",
               summary: "Taxonomia Cognitiva en 5 Tipologies i Feedback Desglossat.",
               highlights: [
                 "Guia de 5 tipologies cognitives (Literals, Inferencials, Sentit Figurat, Opinió i Creatives).",
@@ -1984,22 +2028,11 @@
               version: "v0.25.0",
               date: "Novembre 2026",
               badge: "Punts Dinàmics",
-              color: "bg-blue-100 text-blue-900 border-blue-300",
+              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
               summary: "Indicador Netejat de Punts Totals (`🏆 X PTS`).",
               highlights: [
                 "Càlcul dinàmic del recompte total de punts en joc per lectura.",
                 "Disseny compacte que millora la maquetació i motivació de l'alumne."
-              ]
-            },
-            {
-              version: "v0.24.0",
-              date: "Novembre 2026",
-              badge: "DX Docent / Creadors",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-              summary: "Qualitat i Reordenació de Preguntes a l'Editor.",
-              highlights: [
-                "Guia pedagògica superior a l'editor (ortografia, ~10 preguntes, 4 tipologies).",
-                "Reordenació fluida de preguntes amb botons '▲ Pujar' / '▼ Baixar'."
               ]
             }
           ]
@@ -2008,7 +2041,7 @@
         {
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
-            { version: "v0.21 – v0.23", date: "Novembre 2026", badge: "Mòduls SA i Engine", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA i Preguntes de Reflexió.", highlights: ["Preguntes d'opció múltiple, reflexió i carpetes compartibles per enllaç."] },
+            { version: "v0.21 – v0.24", date: "Novembre 2026", badge: "Engine & Reordenació", color: "bg-purple-100 text-purple-900 border-purple-300", summary: "Carpetes SA, Reordenació i Reflexió.", highlights: ["Preguntes d'opció múltiple, reordenació ▲/▼ i carpetes SA."] },
             { version: "v0.11 – v0.20", date: "2025 - 2026", badge: "Ecosistema Docent", color: "bg-indigo-100 text-indigo-900 border-indigo-300", summary: "Ecosistema de rols d'aula, drets d'autor i ranking.", highlights: ["Panell 'Els meus Alumnes', filtres de durada, 4 rols d'usuari i atribucions fixes."] },
             { version: "v0.1 – v0.10", date: "2025", badge: "Infraestructura Base", color: "bg-slate-100 text-slate-800 border-slate-300", summary: "Creació de la infraestructura i integració.", highlights: ["Suport per a lectures curtes a pantalla i qüestionaris de llibres en paper."] }
           ]
@@ -2028,7 +2061,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.26.0
+              ⚡ Versió Actual: v0.26.1
             </span>
           </div>
 
