@@ -116,17 +116,11 @@
 
         let badgeHTML = '';
         if (type === 'multiple') {
-          badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">
-            ☑️ Opció Múltiple
-          </span>`;
+          badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple</span>`;
         } else if (type === 'opinion') {
-          badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">
-            💬 Reflexió / Opinió (Vàlides totes)
-          </span>`;
+          badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió (Vàlides totes)</span>`;
         } else if (type === 'ordering') {
-          badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">
-            ↕️ Ordenació Cronològica
-          </span>`;
+          badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació Cronològica</span>`;
         }
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
@@ -136,9 +130,7 @@
         let optionsHTML = '';
 
         if (type === 'ordering') {
-          // Barreja inicial aleatòria determinista o basada en l'ordre de la pàgina
           let indexedOptions = options.map((opt, idx) => ({ text: opt, originalIdx: idx }));
-          // Shuffle simple per a la presentació de l'alumne
           indexedOptions.sort(() => Math.random() - 0.5);
 
           optionsHTML = `
@@ -222,7 +214,6 @@
           const val = formData.get(`q_${qDocId}`);
           if (!val) return false;
           const userSequence = val.split(',').map(v => parseInt(v));
-          // L'ordre correcte sempre és 0, 1, 2, 3...
           return userSequence.every((v, idx) => v === idx);
         } else if (type === 'opinion') {
           const selected = formData.get(`q_${qDocId}`);
@@ -260,7 +251,6 @@
           container.insertBefore(item, items[targetIdx].nextSibling);
         }
         
-        // Recalcular valors del camp ocult
         const updatedItems = Array.from(container.children);
         updatedItems.forEach((it, idx) => {
           it.querySelector('.pos-badge').innerText = `${idx + 1}º`;
@@ -2113,7 +2103,7 @@
       if (!app) return;
       
       const changelogRows = [
-        // FILA 1: FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT (MANTINGUDA TAL QUAL)
+        // FILA 1: FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
           blocks: [
