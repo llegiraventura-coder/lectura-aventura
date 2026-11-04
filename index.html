@@ -726,7 +726,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PREGUNTES (v0.27.1 - BOTÓ AFEGIR AL FINAL)
+       EDITOR DE LECTURES I PREGUNTES (v0.27.1 - DOBLE BOTÓ AFEGIR A DALT I A BAIX)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -939,23 +939,27 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
-            <!-- SECCIÓ DE PREGUNTES (BOTÓ AFEGIR AL FINAL EN v0.27.1) -->
+            <!-- SECCIÓ DE PREGUNTES AMB DOBLE BOTÓ (v0.27.1) -->
             <div class="pt-4 border-t border-slate-200">
+              <!-- BOTÓ 1: CAPÇALERA SUPERIOR DE PREGUNTES -->
               <div class="flex items-center justify-between mb-4">
                 <h3 class="font-bold text-slate-800 flex items-center gap-2">
                   <span>Preguntes de Comprensió</span>
                   <span id="question-count-badge" class="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">0</span>
                 </h3>
+                <button type="button" onclick="addQuestionField()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold px-3 py-1.5 rounded-lg transition border border-indigo-200">
+                  <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
+                </button>
               </div>
               
-              <!-- LISTAT DE PREGUNTES -->
+              <!-- CONTENIDOR DE PREGUNTES -->
               <div id="questions-container" class="space-y-4"></div>
 
-              <!-- BOTÓ AFEGIR PREGUNTA AL FINAL (v0.27.1) -->
+              <!-- BOTÓ 2: PEU INFERIOR DE PREGUNTES (MÉS ANMPLE I VISIBLE) -->
               <div class="mt-4 pt-2">
-                <button type="button" onclick="addQuestionField()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-3 px-4 rounded-xl transition border border-indigo-200 flex items-center justify-center gap-2 text-sm shadow-xs">
-                  <i class="fa-solid fa-plus text-base"></i>
-                  <span>Afegir una altra pregunta</span>
+                <button type="button" onclick="addQuestionField()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold py-2.5 px-4 rounded-xl transition border border-indigo-200 flex items-center justify-center gap-2 text-xs md:text-sm shadow-xs">
+                  <i class="fa-solid fa-plus text-sm"></i>
+                  <span>Afegir una altra pregunta al final</span>
                 </button>
               </div>
             </div>
@@ -2144,12 +2148,12 @@
             {
               version: "v0.27.1",
               date: "Novembre 2026",
-              badge: "UX Editor",
+              badge: "Doble Botó UX",
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
-              summary: "Botó 'Afegir pregunta' al final de la llista.",
+              summary: "Botó 'Afegir pregunta' duplicat a dalt i a baix.",
               highlights: [
-                "Reubicació del botó al peu de les preguntes existents.",
-                "Disseny ample i destacat per a afegir contingut de manera més fluïda i natural."
+                "Botó superior ràpid a la capçalera de preguntes per a inici ràpid.",
+                "Botó inferior gran al peu de la llista per afegir en acabar de repassar."
               ]
             },
             {
