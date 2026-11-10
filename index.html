@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.32.0</title>
+  <title>Lectura Aventura - v0.33.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -14,7 +14,6 @@
   <style>
     html { scroll-behavior: smooth; }
     
-    /* Estils adaptatius de Lectura Fàcil / Dislèxia */
     .font-dyslexic {
       font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
       letter-spacing: 0.05em;
@@ -44,7 +43,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.32.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.33.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -63,7 +62,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.32.0 — Historial de versions</span>
+        <span>v0.33.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -73,6 +72,7 @@
   <div id="auth-modal-container"></div>
   <div id="folder-modal-container"></div>
   <div id="feedback-modal-container"></div>
+  <div id="clone-modal-container"></div>
 
   <script>
     // CONFIGURACIÓ DE FIREBASE
@@ -108,21 +108,22 @@
     let userTeacherUid = ""; 
     let filterMyLectures = false;
     let editingDocId = null;
+    let cloningParentId = null; // v0.33.0: Guarda l'ID de la lectura mare en clonar
     let currentLeaderboardTab = 'group';
 
-    // ESTAT DE LECTURA FÀCIL / ACCESSIBILITAT (v0.31.0 & v0.32.0)
+    // ACCESSIBILITAT
     let isDyslexicMode = false;
     let readerFontSize = 18; 
     let readerTheme = 'default';
 
-    // ESTAT DEL MOTOR DE SÍNTESI DE VEU (Web Speech API - v0.32.0)
+    // SÍNTESI DE VEU
     let speechUtterance = null;
     let isSpeaking = false;
     let isSpeechPaused = false;
     let speechRate = 1.0;
     let currentTextToRead = "";
 
-    // FILTRES DEL CATÀLEG
+    // FILTRES CATÀLEG
     let filterSearch = "";
     let filterBookAuthor = "";
     let filterType = "all";
@@ -153,7 +154,7 @@
       }
     }
 
-    // FUNCIONS D'ACCESSIBILITAT I MODE LECTURA FÀCIL
+    // ACCESSIBILITAT I VEU ALTA
     function toggleDyslexicFont() {
       isDyslexicMode = !isDyslexicMode;
       const box = document.getElementById('reading-text-box');
@@ -172,52 +173,37 @@
     function changeReaderFontSize(delta) {
       readerFontSize = Math.min(Math.max(readerFontSize + delta, 14), 28);
       const box = document.getElementById('reading-text-box');
-      if (box) {
-        box.style.fontSize = `${readerFontSize}px`;
-      }
+      if (box) box.style.fontSize = `${readerFontSize}px`;
     }
 
     function setReaderTheme(theme) {
       readerTheme = theme;
       const box = document.getElementById('reading-text-box');
       if (!box) return;
-
       box.classList.remove('bg-sepia', 'bg-dark-mode', 'bg-slate-50', 'text-slate-700');
-      
-      if (theme === 'sepia') {
-        box.classList.add('bg-sepia');
-      } else if (theme === 'dark') {
-        box.classList.add('bg-dark-mode');
-      } else {
-        box.classList.add('bg-slate-50', 'text-slate-700');
-      }
+      if (theme === 'sepia') box.classList.add('bg-sepia');
+      else if (theme === 'dark') box.classList.add('bg-dark-mode');
+      else box.classList.add('bg-slate-50', 'text-slate-700');
     }
 
-    /* ==========================================================================
-       MOTOR D'ÀUDIO-LECTURA / WEB SPEECH API (v0.32.0)
-       ========================================================================== */
     function toggleSpeechSynthesis() {
       if (!('speechSynthesis' in window)) {
-        alert("El teu navegador no suporta la síntesi de veu (Web Speech API). Prova de fer servir Google Chrome, Edge o Safari.");
+        alert("El teu navegador no suporta la síntesi de veu (Web Speech API).");
         return;
       }
-
       if (isSpeaking && !isSpeechPaused) {
         window.speechSynthesis.pause();
         isSpeechPaused = true;
         updateSpeechUI();
         return;
       }
-
       if (isSpeaking && isSpeechPaused) {
         window.speechSynthesis.resume();
         isSpeechPaused = false;
         updateSpeechUI();
         return;
       }
-
       stopSpeechSynthesis();
-
       const textElem = document.getElementById('reading-text-box');
       if (!textElem) return;
 
@@ -225,34 +211,22 @@
       if (!currentTextToRead) return;
 
       speechUtterance = new SpeechSynthesisUtterance(currentTextToRead);
-      speechUtterance.lang = 'ca-ES'; // Idioma català natiu
+      speechUtterance.lang = 'ca-ES';
       speechUtterance.rate = speechRate;
 
       const voices = window.speechSynthesis.getVoices();
       const caVoice = voices.find(v => v.lang.startsWith('ca'));
       if (caVoice) speechUtterance.voice = caVoice;
 
-      speechUtterance.onstart = function() {
-        isSpeaking = true;
-        isSpeechPaused = false;
-        updateSpeechUI();
-      };
-
-      speechUtterance.onend = function() {
-        stopSpeechSynthesis();
-      };
-
-      speechUtterance.onerror = function() {
-        stopSpeechSynthesis();
-      };
+      speechUtterance.onstart = () => { isSpeaking = true; isSpeechPaused = false; updateSpeechUI(); };
+      speechUtterance.onend = () => { stopSpeechSynthesis(); };
+      speechUtterance.onerror = () => { stopSpeechSynthesis(); };
 
       window.speechSynthesis.speak(speechUtterance);
     }
 
     function stopSpeechSynthesis() {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       isSpeaking = false;
       isSpeechPaused = false;
       updateSpeechUI();
@@ -260,10 +234,7 @@
 
     function changeSpeechRate(rate) {
       speechRate = parseFloat(rate);
-      if (isSpeaking) {
-        toggleSpeechSynthesis();
-        toggleSpeechSynthesis();
-      }
+      if (isSpeaking) { toggleSpeechSynthesis(); toggleSpeechSynthesis(); }
     }
 
     function updateSpeechUI() {
@@ -282,13 +253,9 @@
           btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5";
         }
       }
-
       if (btnStop) {
-        if (isSpeaking) {
-          btnStop.classList.remove('hidden');
-        } else {
-          btnStop.classList.add('hidden');
-        }
+        if (isSpeaking) btnStop.classList.remove('hidden');
+        else btnStop.classList.add('hidden');
       }
     }
 
@@ -300,19 +267,13 @@
         
         let text = qData.questionText || qData.pregunta || `Pregunta ${qIndex + 1}`;
         text = parseContentWithGlossary(text, glossaryWords);
-
         const options = qData.options || qData.opcions || [];
 
         let badgeHTML = '';
-        if (type === 'multiple') {
-          badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple</span>`;
-        } else if (type === 'opinion') {
-          badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió (Vàlides totes)</span>`;
-        } else if (type === 'ordering') {
-          badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació Cronològica</span>`;
-        } else if (type === 'image_single') {
-          badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Selecció d'Imatge</span>`;
-        }
+        if (type === 'multiple') badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple</span>`;
+        else if (type === 'opinion') badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió</span>`;
+        else if (type === 'ordering') badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació Cronològica</span>`;
+        else if (type === 'image_single') badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Selecció d'Imatge</span>`;
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
           <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
@@ -420,7 +381,6 @@
 
       evaluate(qData, qDocId, formData) {
         const type = qData.questionType || 'single';
-
         if (type === 'ordering') {
           const val = formData.get(`q_${qDocId}`);
           if (!val) return false;
@@ -437,9 +397,7 @@
           } else if (qData.correctAnswer !== undefined) {
             correctVals = [parseInt(qData.correctAnswer)];
           }
-
-          return selectedVals.length === correctVals.length && 
-                 selectedVals.every((val, idx) => val === correctVals[idx]);
+          return selectedVals.length === correctVals.length && selectedVals.every((val, idx) => val === correctVals[idx]);
         } else {
           const selected = parseInt(formData.get(`q_${qDocId}`));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
@@ -456,11 +414,8 @@
       const targetIdx = currentIdx + dir;
 
       if (targetIdx >= 0 && targetIdx < items.length) {
-        if (dir === -1) {
-          container.insertBefore(item, items[targetIdx]);
-        } else {
-          container.insertBefore(item, items[targetIdx].nextSibling);
-        }
+        if (dir === -1) container.insertBefore(item, items[targetIdx]);
+        else container.insertBefore(item, items[targetIdx].nextSibling);
         
         const updatedItems = Array.from(container.children);
         updatedItems.forEach((it, idx) => {
@@ -775,6 +730,7 @@
             const docId = doc.id;
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
+            const isVariant = !!data.parentReadingId; // v0.33.0: Identifica si és una variant/clon
 
             const readingNum = data.readingNumber || (totalDocsInDb - i);
             const readingCode = formatReadingCode(readingNum);
@@ -840,7 +796,14 @@
             cardCount++;
 
             html += `
-              <div class="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between">
+              <div class="bg-white rounded-2xl border ${isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200'} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
+                
+                ${isVariant ? `
+                  <div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500">
+                    <i class="fa-solid fa-code-fork"></i> Adaptació de la Comunitat Docent
+                  </div>
+                ` : ''}
+
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
                     <div class="flex items-center gap-1.5">
@@ -853,12 +816,11 @@
                     </div>
 
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
-                      ${hasGlossary ? `<span class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-md border border-teal-200" title="Inclou vocabulari clau">📖 Vocabulari</span>` : ''}
+                      ${hasGlossary ? `<span class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-md border border-teal-200">📖 Vocabulari</span>` : ''}
                       ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
                       <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2.5 py-0.5 rounded-md shadow-xs">
                         🏆 ${totalPointsInGame} PTS
                       </span>
-
                       ${isCompleted ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>` : ''}
                     </div>
                   </div>
@@ -948,9 +910,9 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES
+       EDITOR DE LECTURES I CLONACIÓ DOCENT (v0.33.0)
        ========================================================================== */
-    async function renderEditor(docIdToEdit = null) {
+    async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
       if (!currentUser) {
         renderLogin();
@@ -965,6 +927,8 @@
       }
 
       editingDocId = docIdToEdit;
+      cloningParentId = cloneFromDocId; // v0.33.0: Si no és null, s'està clonant una lectura mare
+
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
 
@@ -981,61 +945,76 @@
         content: '',
         imageUrl: '',
         readingNumber: null,
-        glossary: []
+        glossary: [],
+        parentReadingId: null
       };
 
       let initialQuestions = [];
+      const targetDocId = editingDocId || cloningParentId;
 
-      if (editingDocId) {
+      if (targetDocId) {
         try {
-          const docSnap = await db.collection(DB_COLLECTION).doc(editingDocId).get();
+          const docSnap = await db.collection(DB_COLLECTION).doc(targetDocId).get();
           if (docSnap.exists) {
             initialData = docSnap.data();
             
             let qSnap;
             try {
-              qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
+              qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
             } catch (orderErr) {
-              qSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
+              qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get();
             }
 
-            const totalAllSnap = await db.collection(DB_COLLECTION).doc(editingDocId).collection(SUB_COLLECTION).get();
-            if (qSnap.size < totalAllSnap.size) {
-              qSnap = totalAllSnap;
-            }
+            const totalAllSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get();
+            if (qSnap.size < totalAllSnap.size) qSnap = totalAllSnap;
 
             qSnap.forEach(qDoc => { initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); });
           }
         } catch (err) {
-          console.error("Error carregant la lectura a editar:", err);
+          console.error("Error carregant la lectura per a l'editor:", err);
         }
       }
 
-      const assignedCode = initialData.readingNumber ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
+      // Si s'està clonant, el títol s'adapta i el parentReadingId es fixa
+      if (cloningParentId) {
+        initialData.title = `${initialData.title} (Adaptació de la comunitat)`;
+        initialData.parentReadingId = cloningParentId;
+      }
+
+      const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
 
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
-            <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
-              <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
-            </h3>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-900">
-              <div class="flex items-center gap-1.5">
-                <i class="fa-solid fa-check text-emerald-600"></i>
-                <span>Cura ortogràfica i sintàctica abans de publicar.</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <i class="fa-solid fa-bullseye text-indigo-600"></i>
-                <span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span>
+          ${cloningParentId ? `
+            <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-4 text-amber-900 text-xs font-semibold shadow-xs">
+              <h3 class="font-black text-sm mb-1 flex items-center gap-1.5 text-amber-900">
+                <i class="fa-solid fa-code-fork text-amber-600"></i> Mode Adaptació / Bateria de Preguntes
+              </h3>
+              <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté enllaçat i les preguntes originals s'han duplicat com a base per retocar-les.</p>
+            </div>
+          ` : `
+            <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
+              <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
+                <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-900">
+                <div class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-check text-emerald-600"></i>
+                  <span>Cura ortogràfica i sintàctica abans de publicar.</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <i class="fa-solid fa-bullseye text-indigo-600"></i>
+                  <span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span>
+                </div>
               </div>
             </div>
-          </div>
+          `}
 
           <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center">
-              <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
-              ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
+              <i class="fa-solid ${cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600')} mr-2"></i> 
+              ${cloningParentId ? 'Clonar i Crear Adaptació Docent' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura')}
             </h1>
             <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
               <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
@@ -1052,7 +1031,7 @@
             </div>
 
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Llibre *</label>
+              <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Adaptació *</label>
               <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
@@ -1130,8 +1109,8 @@
                   <i class="fa-solid fa-link"></i> Marcar Vocabulari
                 </button>
               </div>
-              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans">${initialData.content || ''}</textarea>
-              <p class="text-[11px] text-slate-500 mt-1">✨ <strong>Nota:</strong> Les paraules del glossari es connectaran automàticament tant al text com a les preguntes!</p>
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${cloningParentId ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              ${cloningParentId ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar.</p>` : ''}
             </div>
 
             <div id="wrapper-image" class="hidden">
@@ -1139,7 +1118,7 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
-            <!-- GLOSSARI I VOCABULARI CLAU -->
+            <!-- GLOSSARI -->
             <div class="bg-teal-50/70 p-4 rounded-xl border border-teal-200/80 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
@@ -1152,7 +1131,6 @@
                   <i class="fa-solid fa-plus mr-1"></i> Afegir mot
                 </button>
               </div>
-
               <div id="glossary-container" class="space-y-2"></div>
             </div>
 
@@ -1179,8 +1157,8 @@
 
             <div class="flex justify-end space-x-3 pt-4">
               <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
-              <button type="submit" class="px-5 py-2 ${editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold rounded-xl text-sm shadow transition">
-                ${editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'}
+              <button type="submit" class="px-5 py-2 ${cloningParentId ? 'bg-amber-600 hover:bg-amber-700' : (editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700')} text-white font-bold rounded-xl text-sm shadow transition">
+                ${cloningParentId ? 'Publicar Adaptació Docent (+1 PTS)' : (editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)')}
               </button>
             </div>
           </form>
@@ -1446,7 +1424,6 @@
         if (badge) badge.innerText = idx + 1;
         if (label) label.innerText = `Pregunta ${idx + 1}`;
       });
-
       const badge = document.getElementById('question-count-badge');
       if (badge) badge.innerText = blocks.length;
     }
@@ -1479,23 +1456,16 @@
       for (let i = 0; i < 4; i++) {
         const input = block.querySelector(`.q-opt-${i}`);
         if (input) {
-          if (isImage) {
-            input.placeholder = `URL de la imatge ${['A','B','C','D'][i]} (https://...)`;
-          } else if (isOrdering) {
-            input.placeholder = `${['Primer','Segon','Tercer','Quart'][i]} fet que passa`;
-          } else {
-            input.placeholder = `Opció ${['A','B','C','D'][i]}`;
-          }
+          if (isImage) input.placeholder = `URL de la imatge ${['A','B','C','D'][i]} (https://...)`;
+          else if (isOrdering) input.placeholder = `${['Primer','Segon','Tercer','Quart'][i]} fet que passa`;
+          else input.placeholder = `Opció ${['A','B','C','D'][i]}`;
         }
       }
 
-      if (selectElem.value === 'multiple') {
-        multiBox.classList.remove('hidden');
-      } else if (selectElem.value === 'opinion') {
-        opinionBox.classList.remove('hidden');
-      } else if (selectElem.value === 'ordering') {
-        orderingBox.classList.remove('hidden');
-      } else if (selectElem.value === 'image_single') {
+      if (selectElem.value === 'multiple') multiBox.classList.remove('hidden');
+      else if (selectElem.value === 'opinion') opinionBox.classList.remove('hidden');
+      else if (selectElem.value === 'ordering') orderingBox.classList.remove('hidden');
+      else if (selectElem.value === 'image_single') {
         singleBox.classList.remove('hidden');
         if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
         if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
@@ -1577,6 +1547,7 @@
             imageUrl: imageUrl,
             readingNumber: nextNum,
             glossary: glossary,
+            parentReadingId: cloningParentId || null, // v0.33.0: Enllaç a la lectura mare en cas de clonació
             authorUid: currentUser ? currentUser.uid : null,
             authorDisplayName: authorDisplayName,
             authorSchool: authorSchool,
@@ -1631,12 +1602,12 @@
                 correctAnswer: correctIdx
               });
             }
-
             orderIndex++;
           }
         }
 
         editingDocId = null;
+        cloningParentId = null;
         await loadUserData();
         renderNav();
         renderCatalog();
@@ -1646,16 +1617,56 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I DETECCIÓ AUTOMÀTICA DE VOCABULARI
+       MODAL DE CLONACIÓ DOCENT (v0.33.0)
+       ========================================================================== */
+    function openCloneReadingModal(parentDocId, parentTitle) {
+      if (!currentUser) { renderLogin(); return; }
+      const container = document.getElementById('clone-modal-container');
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-code-fork text-amber-500"></i> Adaptar Preguntes (Clonar)
+              </h3>
+              <button onclick="container.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-600">
+              Estàs a punt de crear una adaptació de preguntes a partir de la lectura: <strong class="text-slate-800">${parentTitle}</strong>.
+            </p>
+
+            <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+              <span class="font-bold block">💡 Per a què serveix la clonació?</span>
+              <p>El text es mantindrà exactament igual, però podràs crear un nou grup de preguntes adaptades al teu grup-classe, a la cultura de centre o a un projecte concret d'aula.</p>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2">
+              <button onclick="container.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
+              <button onclick="confirmCloneReading('${parentDocId}')" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-xl shadow transition">
+                Continuar a l'Editor
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function confirmCloneReading(parentDocId) {
+      document.getElementById('clone-modal-container').innerHTML = '';
+      renderEditor(null, parentDocId);
+    }
+
+    /* ==========================================================================
+       PARSER DE TEXT I LECTOR (v0.33.0 — AMB SELECTOR DE BATERIES I CLONACIÓ)
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
       let processed = rawText;
-
       processed = processed.replace(/\[([^\]]+)\]\(#glossari-section\)/g, function(match, word) {
         return `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar glossari">${word}</a>`;
       });
-
       if (Array.isArray(glossaryList) && glossaryList.length > 0) {
         glossaryList.forEach(g => {
           if (g.word && g.word.trim()) {
@@ -1665,7 +1676,6 @@
           }
         });
       }
-
       return processed;
     }
 
@@ -1696,6 +1706,14 @@
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
+        // v0.33.0: Comprovar si hi ha variants/adaptacions d'aquesta lectura mare
+        const parentIdToSearch = data.parentReadingId || docId;
+        const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', parentIdToSearch).get();
+        let variantsList = [];
+        variantsSnap.forEach(vDoc => {
+          if (vDoc.id !== docId) variantsList.push({ id: vDoc.id, ...vDoc.data() });
+        });
+
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
           questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
@@ -1708,9 +1726,7 @@
         }
 
         const totalAllSnapReader = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-        if (questionsSnap.size < totalAllSnapReader.size) {
-          questionsSnap = totalAllSnapReader;
-        }
+        if (questionsSnap.size < totalAllSnapReader.size) questionsSnap = totalAllSnapReader;
         
         const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
@@ -1722,6 +1738,7 @@
         const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
 
         const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
+        const isAuthor = currentUser && data.authorUid === currentUser.uid;
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -1730,11 +1747,23 @@
 
           questionsHTML = `
             <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
-              <div class="flex items-center justify-between mb-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <h2 class="text-xl font-bold text-slate-800 flex items-center">
                   <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
                 </h2>
-                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg">
+
+                ${(variantsList.length > 0 || data.parentReadingId) ? `
+                  <div class="flex items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200 text-xs">
+                    <i class="fa-solid fa-code-fork text-amber-600"></i>
+                    <span class="font-bold text-amber-900">Bateria de Preguntes:</span>
+                    <select onchange="renderReader(this.value)" class="bg-white border border-amber-300 rounded-lg p-1 text-xs font-bold text-slate-800 outline-none">
+                      <option value="${data.parentReadingId || docId}" ${!data.parentReadingId ? 'selected' : ''}>Original (${data.authorDisplayName || 'Autor/a'})</option>
+                      ${variantsList.map(v => `<option value="${v.id}" ${v.id === docId ? 'selected' : ''}>Adaptació: ${v.authorDisplayName || 'Docent'}</option>`).join('')}
+                    </select>
+                  </div>
+                ` : ''}
+
+                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg shrink-0">
                   🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
                 </span>
               </div>
@@ -1789,11 +1818,8 @@
           `;
         }
 
-        /* BARRA D'ACCESSIBILITAT I ÀUDIO-LECTURA (v0.32.0) */
         const accessibilityToolbarHTML = !isBook ? `
           <div class="bg-slate-100 p-3 rounded-2xl border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-            
-            <!-- BLOC 1: ÀUDIO-LECTURA (v0.32.0) -->
             <div class="flex items-center gap-1.5 bg-indigo-50/80 p-1.5 rounded-xl border border-indigo-200/80">
               <span class="text-xs font-black text-indigo-900 px-1.5 flex items-center gap-1">
                 <i class="fa-solid fa-headphones text-indigo-600"></i> Àudio:
@@ -1814,7 +1840,6 @@
               </select>
             </div>
 
-            <!-- BLOC 2: FONT DISLÈXIA I MIDA DE LLETRA -->
             <div class="flex items-center gap-2">
               <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition" title="Activar/Desactivar font OpenDyslexic i major espaiat">
                 📖 Font Dislèxia
@@ -1826,14 +1851,12 @@
                 <button onclick="changeReaderFontSize(2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-l border-slate-200">A+</button>
               </div>
 
-              <!-- BLOC 3: MODES VISUALS -->
               <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-300">
                 <button onclick="setReaderTheme('default')" class="w-5 h-5 rounded-full bg-slate-100 border border-slate-300" title="Mode Estàndard"></button>
                 <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="Mode Sèpia (Menys fatiga)"></button>
                 <button onclick="setReaderTheme('dark')" class="w-5 h-5 rounded-full bg-slate-800 border border-slate-600" title="Mode Contrast Fosc"></button>
               </div>
             </div>
-
           </div>
         ` : '';
 
@@ -1923,9 +1946,18 @@
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
               
-              <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
-                ${readingCode}
-              </span>
+              <div class="flex items-center gap-2">
+                ${(isDocentOrCollab && !isAuthor) ? `
+                  <button onclick="openCloneReadingModal('${docId}', '${data.title || 'Lectura'}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-code-fork"></i>
+                    <span>🌱 Adaptar Preguntes</span>
+                  </button>
+                ` : ''}
+
+                <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
+                  ${readingCode}
+                </span>
+              </div>
             </div>
 
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title || 'Lectura'}</h1>
@@ -2059,10 +2091,7 @@
 
     async function submitQuiz(e, docId, pointsPerQuestion = 1) {
       e.preventDefault();
-      if (!currentUser) {
-        renderLogin();
-        return;
-      }
+      if (!currentUser) { renderLogin(); return; }
 
       const form = e.target;
       const formData = new FormData(form);
@@ -2075,9 +2104,7 @@
       }
 
       const totalAllSnapSubmit = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-      if (questionsSnap.size < totalAllSnapSubmit.size) {
-        questionsSnap = totalAllSnapSubmit;
-      }
+      if (questionsSnap.size < totalAllSnapSubmit.size) questionsSnap = totalAllSnapSubmit;
 
       let score = 0;
       let total = questionsSnap.size;
@@ -2094,7 +2121,6 @@
         const q = qDoc.data() || {};
         const taxKey = q.taxonomyType || 'literal';
         if (!stats[taxKey]) stats[taxKey] = { correct: 0, total: 0 };
-
         stats[taxKey].total++;
         if (QuestionEngine.evaluate(q, qDoc.id, formData)) {
           score++;
@@ -2295,7 +2321,6 @@
 
       try {
         const snap = await db.collection(FOLDERS_COLLECTION).where('authorUid', '==', currentUser.uid).get();
-        
         let foldersHTML = '';
         snap.forEach(doc => {
           const f = doc.data();
@@ -2616,7 +2641,6 @@
       filterCategory = document.getElementById('category-select')?.value || 'all';
       filterStatus = document.getElementById('status-select')?.value || 'all';
       filterDuration = document.getElementById('duration-select')?.value || 'all';
-
       renderCatalog();
     }
 
@@ -2644,7 +2668,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.32.0 - FULL DE RUTA COMPLETA)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.33.0 - FULL DE RUTA COMPLETA)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -2655,14 +2679,25 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.33.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador automàtic de PDF per a lectura i examen adaptat en paper."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora de lectura per taxonomia cognitiva per al docent."] },
-            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors i col·laboració entre aules."] }
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.34.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF de fulls adaptats.", highlights: ["Generador automàtic per a impressió en paper per a l'aula."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
+            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
           ]
         },
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.33.0",
+              date: "Novembre 2026",
+              badge: "Clonació & Cooperació",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Mòdul de Clonació i Adaptació Docent de Preguntes.",
+              highlights: [
+                "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
+                "Traçabilitat mare (parentReadingId) i selector de Bateries de Preguntes al Lector."
+              ]
+            },
             {
               version: "v0.32.0",
               date: "Novembre 2026",
@@ -2684,7 +2719,12 @@
                 "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
                 "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.30)",
+          blocks: [
             {
               version: "v0.30.0",
               date: "Novembre 2026",
@@ -2693,14 +2733,9 @@
               summary: "Mòdul de Vocabulari Clau amb desplaçament suau.",
               highlights: [
                 "Creació de glossaris terme-definició des de l'editor de la lectura.",
-                "Enllaços directes al text i preguntes amb scroll suau directament al peu de pàgina."
+                "Enllaços directes al text i preguntes amb scroll suau al peu de pàgina."
               ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.29)",
-          blocks: [
+            },
             {
               version: "v0.29.0",
               date: "Novembre 2026",
@@ -2722,7 +2757,12 @@
                 "5è tipus: Selecció d'Imatges (4 URLs) i 4t tipus: Ordenació temporal (▲/▼).",
                 "Reordenació dinàmica de preguntes i doble botó UX a l'editor."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.26)",
+          blocks: [
             {
               version: "v0.20.0 - v0.26.3",
               date: "Tardor 2026",
@@ -2733,12 +2773,7 @@
                 "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
                 "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA)."
               ]
-            }
-          ]
-        },
-        {
-          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.19)",
-          blocks: [
+            },
             {
               version: "v0.16.0 - v0.19.0",
               date: "Inici 2026",
@@ -2751,19 +2786,8 @@
               ]
             },
             {
-              version: "v0.10.0 - v0.15.0",
-              date: "Finals 2025",
-              badge: "Atribució Editorial",
-              color: "bg-amber-50 text-amber-800 border-amber-200",
-              summary: "Reconeixement d'autoria i drets d'autor.",
-              highlights: [
-                "Atribució en 3 línies fixes: Autor/a original, font/editorial i docent adaptador.",
-                "Graella de Rangs Docents basats en contribucions al catàleg."
-              ]
-            },
-            {
-              version: "v0.1.0 - v0.9.0",
-              date: "Mitjans 2025",
+              version: "v0.1.0 - v0.15.0",
+              date: "2025",
               badge: "Gènesi del Projecte",
               color: "bg-slate-50 text-slate-600 border-slate-200",
               summary: "Primera versió del lector, qüestionaris bàsics i Firebase.",
@@ -2789,7 +2813,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.32.0
+              ⚡ Versió Actual: v0.33.0
             </span>
           </div>
 
