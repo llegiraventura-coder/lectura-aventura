@@ -3,14 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.30.0</title>
+  <title>Lectura Aventura - v0.31.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Font OpenDyslexic per a accessibilitat -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
   <style>
     html { scroll-behavior: smooth; }
+    
+    /* Estils adaptatius de Lectura Fàcil / Dislèxia */
+    .font-dyslexic {
+      font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+      letter-spacing: 0.05em;
+      word-spacing: 0.15em;
+      line-height: 1.8 !important;
+    }
+    
+    .bg-sepia {
+      background-color: #fbf0d9 !important;
+      color: #3b2e1e !important;
+    }
+    .bg-sepia a { color: #9c4221 !important; border-color: #d97736 !important; }
+
+    .bg-dark-mode {
+      background-color: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+    .bg-dark-mode a { color: #38bdf8 !important; border-color: #0284c7 !important; }
   </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
@@ -22,7 +44,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.30.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.31.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -41,7 +63,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.30.0 — Historial de versions</span>
+        <span>v0.31.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -58,7 +80,7 @@
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
       projectId: "lectura-aventura",
- storageBucket: "lectura-aventura.firebasestorage.app",
+      storageBucket: "lectura-aventura.firebasestorage.app",
       messagingSenderId: "525339295825",
       appId: "1:525339295825:web:3a5b3ea8791f6146d4b870",
       measurementId: "G-7132LXLDTR"
@@ -88,6 +110,11 @@
     let editingDocId = null;
     let currentLeaderboardTab = 'group';
 
+    // ESTAT DE LECTURA FÀCIL / ACCESSIBILITAT (v0.31.0)
+    let isDyslexicMode = false;
+    let readerFontSize = 18; // px inicials
+    let readerTheme = 'default'; // default, sepia, dark
+
     // FILTRES DEL CATÀLEG
     let filterSearch = "";
     let filterBookAuthor = "";
@@ -116,6 +143,46 @@
       const target = document.getElementById('glossary-section');
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // FUNCIONS D'ACCESSIBILITAT I MODE LECTURA FÀCIL (v0.31.0)
+    function toggleDyslexicFont() {
+      isDyslexicMode = !isDyslexicMode;
+      const box = document.getElementById('reading-text-box');
+      const btn = document.getElementById('btn-dyslexia-toggle');
+      if (box) {
+        if (isDyslexicMode) {
+          box.classList.add('font-dyslexic');
+          if (btn) btn.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-indigo-600 text-white shadow-xs border border-indigo-700";
+        } else {
+          box.classList.remove('font-dyslexic');
+          if (btn) btn.className = "px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300";
+        }
+      }
+    }
+
+    function changeReaderFontSize(delta) {
+      readerFontSize = Math.min(Math.max(readerFontSize + delta, 14), 28);
+      const box = document.getElementById('reading-text-box');
+      if (box) {
+        box.style.fontSize = `${readerFontSize}px`;
+      }
+    }
+
+    function setReaderTheme(theme) {
+      readerTheme = theme;
+      const box = document.getElementById('reading-text-box');
+      if (!box) return;
+
+      box.classList.remove('bg-sepia', 'bg-dark-mode', 'bg-slate-50', 'text-slate-700');
+      
+      if (theme === 'sepia') {
+        box.classList.add('bg-sepia');
+      } else if (theme === 'dark') {
+        box.classList.add('bg-dark-mode');
+      } else {
+        box.classList.add('bg-slate-50', 'text-slate-700');
       }
     }
 
@@ -774,7 +841,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES (v0.30.0 - AMB DETECCIONS I BOTONS DE VOCABULARI)
+       EDITOR DE LECTURES
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
       if (!currentUser) {
@@ -956,7 +1023,7 @@
                 </button>
               </div>
               <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans">${initialData.content || ''}</textarea>
-              <p class="text-[11px] text-slate-500 mt-1">✨ <strong>Nota de la v0.30.0:</strong> Les paraules del glossari es connectaran automàticament tant al text com a les preguntes!</p>
+              <p class="text-[11px] text-slate-500 mt-1">✨ <strong>Nota:</strong> Les paraules del glossari es connectaran automàticament tant al text com a les preguntes!</p>
             </div>
 
             <div id="wrapper-image" class="hidden">
@@ -964,7 +1031,7 @@
               <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="https://exemple.com/coberta.jpg" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
-            <!-- MÒDUL v0.30.0: GLOSSARI I VOCABULARI CLAU -->
+            <!-- GLOSSARI I VOCABULARI CLAU -->
             <div class="bg-teal-50/70 p-4 rounded-xl border border-teal-200/80 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
@@ -1014,7 +1081,6 @@
 
       toggleReadingTypeInputs();
 
-      // Carregar Glossari previ
       const glossContainer = document.getElementById('glossary-container');
       if (glossContainer && Array.isArray(initialData.glossary) && initialData.glossary.length > 0) {
         initialData.glossary.forEach(g => addGlossaryField(g));
@@ -1345,7 +1411,6 @@
       const content = document.getElementById('editor-content')?.value || '';
       const imageUrl = document.getElementById('editor-image')?.value || '';
 
-      // Recollir Glossari
       const glossary = [];
       document.querySelectorAll('#glossary-container .glossary-item').forEach(item => {
         const w = item.querySelector('.g-word')?.value.trim();
@@ -1473,18 +1538,16 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I DETECCIÓ AUTOMÀTICA DE VOCABULARI (v0.30.0)
+       PARSER DE TEXT I DETECCIÓ AUTOMÀTICA DE VOCABULARI
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
       let processed = rawText;
 
-      // 1. Reemplaça marques explicites [paraula](#glossari-section)
       processed = processed.replace(/\[([^\]]+)\]\(#glossari-section\)/g, function(match, word) {
         return `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar glossari">${word}</a>`;
       });
 
-      // 2. Detecció automàtica de paraules del glossari (sense icona de llibret)
       if (Array.isArray(glossaryList) && glossaryList.length > 0) {
         glossaryList.forEach(g => {
           if (g.word && g.word.trim()) {
@@ -1589,7 +1652,6 @@
           `;
         }
 
-        // MAQUETACIÓ DEL GLOSSARI A SOTA ABSOLUT DE TOT (DESPRÉS DE LES PREGUNTES)
         let glossaryHTML = '';
         if (glossaryList.length > 0) {
           glossaryHTML = `
@@ -1617,6 +1679,34 @@
             </div>
           `;
         }
+
+        // BARRA D'ACCESSIBILITAT I MODE LECTURA FÀCIL / DISLÈXIA (v0.31.0)
+        const accessibilityToolbarHTML = !isBook ? `
+          <div class="bg-slate-100 p-2.5 rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-600 flex items-center gap-1">
+                <i class="fa-solid fa-universal-access text-indigo-600"></i> Lectura Adaptativa:
+              </span>
+              <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition" title="Activar/Desactivar font OpenDyslexic i major espaiat">
+                📖 Font Dislèxia
+              </button>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <div class="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden">
+                <button onclick="changeReaderFontSize(-2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-r border-slate-200">A-</button>
+                <span class="px-2 text-xs font-mono font-bold text-slate-600">Mida</span>
+                <button onclick="changeReaderFontSize(2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-l border-slate-200">A+</button>
+              </div>
+
+              <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-300">
+                <button onclick="setReaderTheme('default')" class="w-5 h-5 rounded-full bg-slate-100 border border-slate-300" title="Mode Estàndard"></button>
+                <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="Mode Sèpia (Menys fatiga)"></button>
+                <button onclick="setReaderTheme('dark')" class="w-5 h-5 rounded-full bg-slate-800 border border-slate-600" title="Mode Contrast Fosc"></button>
+              </div>
+            </div>
+          </div>
+        ` : '';
 
         let headerContentHTML = '';
         if (isBook) {
@@ -1689,7 +1779,9 @@
               </div>
             </div>
 
-            <div class="prose max-w-none text-slate-700 leading-relaxed text-lg whitespace-pre-line mb-6">
+            ${accessibilityToolbarHTML}
+
+            <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-line mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
               ${parseContentWithGlossary(data.content, glossaryList)}
             </div>
           `;
@@ -2421,7 +2513,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.30.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.31.0)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -2429,16 +2521,27 @@
       
       const changelogRows = [
         {
-          title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I DEVOLUCIÓ DE LA COMUNITAT",
+          title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "🚀 Pròxima Versió", date: "En planificació", badge: "v0.31.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador de PDF per a lectura i examen en paper."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur proper", badge: "Nova Millora", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Estadístiques visuals d'aula.", highlights: ["Panells amb gràfics de millora de lectura per a l'aula."] },
-            { isPlaceholder: true, version: "💡 Suggeriments", date: "Comunitat", badge: "Espai Reservat", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Espai reservat per a idees del claustre virtual.", highlights: ["Sistema de medalles o insignies per a l'alumnat."] }
+            { isPlaceholder: true, version: "🔊 Pròxima Versió", date: "En planificació", badge: "v0.32.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Lectura en Veu Alta (Àudio-lectura).", highlights: ["Síntesi de veu per a alumnat amb dificultats visuals o de comprensió auditiva."] },
+            { isPlaceholder: true, version: "📄 Futur proper", date: "Futur", badge: "PDF Paper", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador de PDF per a lectura i examen en paper adaptat."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Comunitat", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora de lectura per taxonomia cognitiva."] }
           ]
         },
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.31.0",
+              date: "Novembre 2026",
+              badge: "Lectura Adaptativa & Dislèxia",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Mode Dislèxia, mida de font i contrastos visual.",
+              highlights: [
+                "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
+                "Ajust de mida de font (A-/A+) i modes visual Sèpia i Contrast Fosc."
+              ]
+            },
             {
               version: "v0.30.0",
               date: "Novembre 2026",
@@ -2460,17 +2563,6 @@
                 "Generació automàtica de matrícula única (#CL-XXXXX) per a cada lectura.",
                 "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
               ]
-            },
-            {
-              version: "v0.28.0",
-              date: "Novembre 2026",
-              badge: "5è Tipus: Respostes Visuals",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
-              summary: "Nou tipus de pregunta: 🖼️ Selecció d'Imatge.",
-              highlights: [
-                "Reciclatge del motor d'Opció Única per a preguntes basades en 4 URLs d'imatge.",
-                "Graella visual de targetes 2x2 per a la tria interactiva de l'alumne."
-              ]
             }
           ]
         },
@@ -2478,22 +2570,22 @@
           title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
           blocks: [
             {
-              version: "v0.27.1",
+              version: "v0.28.0",
               date: "Novembre 2026",
-              badge: "Doble Botó UX",
-              color: "bg-emerald-100 text-emerald-900 border-emerald-300",
-              summary: "Botó 'Afegir pregunta' duplicat a dalt i a baix.",
+              badge: "Respostes Visuals",
+              color: "bg-amber-100 text-amber-900 border-amber-300",
+              summary: "Nou tipus de pregunta: 🖼️ Selecció d'Imatge.",
               highlights: [
-                "Botó superior ràpid a la capçalera de preguntes per a inici ràpid.",
-                "Botó inferior gran al peu de la llista per afegir en acabar de repassar."
+                "Reciclatge del motor d'Opció Única per a preguntes basades en 4 URLs d'imatge.",
+                "Graella visual de targetes 2x2 per a la tria interactiva de l'alumne."
               ]
             },
             {
               version: "v0.27.0",
               date: "Novembre 2026",
-              badge: "4t Tipus Pregunta",
+              badge: "Ordenació Cronològica",
               color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica de fets.",
+              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica.",
               highlights: [
                 "4t tipus d'ordenació seqüencial temporal amb botons ▲/▼ adaptats.",
                 "Avaluació de seqüència exacta de primer a últim."
@@ -2527,7 +2619,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.30.0
+              ⚡ Versió Actual: v0.31.0
             </span>
           </div>
 
