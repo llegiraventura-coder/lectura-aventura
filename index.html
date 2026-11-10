@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.31.0</title>
+  <title>Lectura Aventura - v0.31.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -44,7 +44,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.31.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.31.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -63,7 +63,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.31.0 — Historial de versions</span>
+        <span>v0.31.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -112,8 +112,8 @@
 
     // ESTAT DE LECTURA FÀCIL / ACCESSIBILITAT (v0.31.0)
     let isDyslexicMode = false;
-    let readerFontSize = 18; // px inicials
-    let readerTheme = 'default'; // default, sepia, dark
+    let readerFontSize = 18; 
+    let readerTheme = 'default'; 
 
     // FILTRES DEL CATÀLEG
     let filterSearch = "";
@@ -146,7 +146,7 @@
       }
     }
 
-    // FUNCIONS D'ACCESSIBILITAT I MODE LECTURA FÀCIL (v0.31.0)
+    // FUNCIONS D'ACCESSIBILITAT I MODE LECTURA FÀCIL
     function toggleDyslexicFont() {
       isDyslexicMode = !isDyslexicMode;
       const box = document.getElementById('reading-text-box');
@@ -737,7 +737,8 @@
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
                     <div class="flex items-center gap-1.5">
-                      <span class="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-slate-900 text-amber-300 border border-slate-800 shadow-xs">
+                      <!-- MATRÍCULA HARMONITZADA AMB LA PALETA (v0.31.1) -->
+                      <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 border border-indigo-200/80">
                         ${readingCode}
                       </span>
                       <span class="text-xs font-bold px-2 py-0.5 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
@@ -929,8 +930,8 @@
               <i class="fa-solid ${editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'} mr-2"></i> 
               ${editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'}
             </h1>
-            <span class="text-xs font-mono font-black bg-slate-900 text-amber-300 px-3 py-1 rounded-xl border border-slate-800 shadow-xs">
-              <i class="fa-solid fa-barcode text-slate-400 mr-1"></i> ${assignedCode}
+            <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
+              <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
             </span>
           </div>
 
@@ -1680,7 +1681,6 @@
           `;
         }
 
-        // BARRA D'ACCESSIBILITAT I MODE LECTURA FÀCIL / DISLÈXIA (v0.31.0)
         const accessibilityToolbarHTML = !isBook ? `
           <div class="bg-slate-100 p-2.5 rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
             <div class="flex items-center gap-2">
@@ -1794,7 +1794,8 @@
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
               
-              <span class="text-xs font-mono font-black bg-slate-900 text-amber-300 px-3 py-1 rounded-xl border border-slate-800 shadow-xs">
+              <!-- MATRÍCULA HARMONITZADA AMB LA PALETA (v0.31.1) -->
+              <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
                 ${readingCode}
               </span>
             </div>
@@ -2513,7 +2514,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.31.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.31.1 - MATRIU DE 4 FILES)
        ========================================================================== */
     function renderChangelogPage() {
       const app = document.getElementById('app');
@@ -2532,14 +2533,14 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
-              version: "v0.31.0",
+              version: "v0.31.0 - v0.31.1",
               date: "Novembre 2026",
-              badge: "Lectura Adaptativa & Dislèxia",
+              badge: "Lectura Adaptativa & Matrícula",
               color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Mode Dislèxia, mida de font i contrastos visual.",
+              summary: "Mode Dislèxia, mida de font, contrast i harmonització visual.",
               highlights: [
                 "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
-                "Ajust de mida de font (A-/A+) i modes visual Sèpia i Contrast Fosc."
+                "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
               ]
             },
             {
@@ -2560,46 +2561,84 @@
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
               summary: "Identificador #CL-00001 i Bústia entre Docents.",
               highlights: [
-                "Generació automàtica de matrícula única (#CL-XXXXX) per a cada lectura.",
+                "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
                 "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
               ]
             }
           ]
         },
         {
-          title: "📚 FILA 3 — HISTORIAL CONSOLIDAT ANTERIOR",
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.28)",
           blocks: [
             {
-              version: "v0.28.0",
+              version: "v0.27.0 - v0.28.0",
               date: "Novembre 2026",
-              badge: "Respostes Visuals",
-              color: "bg-amber-100 text-amber-900 border-amber-300",
-              summary: "Nou tipus de pregunta: 🖼️ Selecció d'Imatge.",
+              badge: "Noves Preguntes",
+              color: "bg-teal-100 text-teal-900 border-teal-300",
+              summary: "Respostes visuals amb imatge i ordenació cronològica.",
               highlights: [
-                "Reciclatge del motor d'Opció Única per a preguntes basades en 4 URLs d'imatge.",
-                "Graella visual de targetes 2x2 per a la tria interactiva de l'alumne."
+                "5è tipus: Selecció d'Imatges (4 URLs) i 4t tipus: Ordenació temporal (▲/▼).",
+                "Reordenació dinàmica de preguntes i doble botó UX a l'editor."
               ]
             },
             {
-              version: "v0.27.0",
-              date: "Novembre 2026",
-              badge: "Ordenació Cronològica",
+              version: "v0.24.0 - v0.26.3",
+              date: "Tardor 2026",
+              badge: "Taxonomia & Feedback",
               color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-              summary: "Nou tipus de pregunta: ↕️ Ordenació Cronològica.",
+              summary: "Taxonomies en 5 nivells cognitius i modal desglossat.",
               highlights: [
-                "4t tipus d'ordenació seqüencial temporal amb botons ▲/▼ adaptats.",
-                "Avaluació de seqüència exacta de primer a últim."
+                "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
+                "Feedback final desglossat i ordre d'índex estricte a Firestore."
               ]
             },
             {
-              version: "v0.1 – v0.26.3",
-              date: "2025 - 2026",
-              badge: "Infraestructura Base",
-              color: "bg-slate-100 text-slate-800 border-slate-300",
-              summary: "Ecosistema complet d'aula, rols, rankings i Firestore.",
+              version: "v0.20.0 - v0.23.0",
+              date: "Tardor 2026",
+              badge: "Carpetes & Tipologia",
+              color: "bg-purple-100 text-purple-900 border-purple-300",
+              summary: "Mòdul de Carpetes SA, durada i preguntes d'opció múltiple/opinió.",
               highlights: [
-                "Panell 'Els meus Alumnes', 4 rols d'usuari, Carpetes SA i Atribució.",
-                "Taxonomies en 5 Nivells, Persistència estricta i Feedback desglossat."
+                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA).",
+                "Preguntes de reflexió/opinió i opció múltiple amb caselles quadrades."
+              ]
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.19)",
+          blocks: [
+            {
+              version: "v0.16.0 - v0.19.0",
+              date: "Inici 2026",
+              badge: "Comunitat & Rols",
+              color: "bg-slate-100 text-slate-800 border-slate-300",
+              summary: "Gestió d'Usuaris, 4 Rols i Ranking en 3 Nivells.",
+              highlights: [
+                "Inici de sessió amb selecció entre Alumne, Adult, Docent i Col·laborador.",
+                "Panell 'Els meus Alumnes' i Classificació per Grup, Centre i Global."
+              ]
+            },
+            {
+              version: "v0.10.0 - v0.15.0",
+              date: "Finals 2025",
+              badge: "Atribució Editorial",
+              color: "bg-amber-50 text-amber-800 border-amber-200",
+              summary: "Reconeixement d'autoria i drets d'autor.",
+              highlights: [
+                "Atribució en 3 línies fixes: Autor/a original, font/editorial i docent adaptador.",
+                "Graella de Rangs Docents basats en contribucions al catàleg."
+              ]
+            },
+            {
+              version: "v0.1.0 - v0.9.0",
+              date: "Mitjans 2025",
+              badge: "Gènesi del Projecte",
+              color: "bg-slate-50 text-slate-600 border-slate-200",
+              summary: "Primera versió del lector, qüestionaris bàsics i Firebase.",
+              highlights: [
+                "Motor de lectures curtes integrades i llibres amb coberta.",
+                "Connexió inicial en temps real amb Firebase Firestore."
               ]
             }
           ]
@@ -2619,7 +2658,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.31.0
+              ⚡ Versió Actual: v0.31.1
             </span>
           </div>
 
