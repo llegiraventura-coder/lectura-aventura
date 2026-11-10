@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.31.1</title>
+  <title>Lectura Aventura - v0.32.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -44,7 +44,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.31.1</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.32.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -63,7 +63,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.31.1 — Historial de versions</span>
+        <span>v0.32.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -110,10 +110,17 @@
     let editingDocId = null;
     let currentLeaderboardTab = 'group';
 
-    // ESTAT DE LECTURA FÀCIL / ACCESSIBILITAT (v0.31.0)
+    // ESTAT DE LECTURA FÀCIL / ACCESSIBILITAT (v0.31.0 & v0.32.0)
     let isDyslexicMode = false;
     let readerFontSize = 18; 
-    let readerTheme = 'default'; 
+    let readerTheme = 'default';
+
+    // ESTAT DEL MOTOR DE SÍNTESI DE VEU (Web Speech API - v0.32.0)
+    let speechUtterance = null;
+    let isSpeaking = false;
+    let isSpeechPaused = false;
+    let speechRate = 1.0;
+    let currentTextToRead = "";
 
     // FILTRES DEL CATÀLEG
     let filterSearch = "";
@@ -183,6 +190,105 @@
         box.classList.add('bg-dark-mode');
       } else {
         box.classList.add('bg-slate-50', 'text-slate-700');
+      }
+    }
+
+    /* ==========================================================================
+       MOTOR D'ÀUDIO-LECTURA / WEB SPEECH API (v0.32.0)
+       ========================================================================== */
+    function toggleSpeechSynthesis() {
+      if (!('speechSynthesis' in window)) {
+        alert("El teu navegador no suporta la síntesi de veu (Web Speech API). Prova de fer servir Google Chrome, Edge o Safari.");
+        return;
+      }
+
+      if (isSpeaking && !isSpeechPaused) {
+        window.speechSynthesis.pause();
+        isSpeechPaused = true;
+        updateSpeechUI();
+        return;
+      }
+
+      if (isSpeaking && isSpeechPaused) {
+        window.speechSynthesis.resume();
+        isSpeechPaused = false;
+        updateSpeechUI();
+        return;
+      }
+
+      stopSpeechSynthesis();
+
+      const textElem = document.getElementById('reading-text-box');
+      if (!textElem) return;
+
+      currentTextToRead = textElem.innerText.trim();
+      if (!currentTextToRead) return;
+
+      speechUtterance = new SpeechSynthesisUtterance(currentTextToRead);
+      speechUtterance.lang = 'ca-ES'; // Idioma català natiu
+      speechUtterance.rate = speechRate;
+
+      const voices = window.speechSynthesis.getVoices();
+      const caVoice = voices.find(v => v.lang.startsWith('ca'));
+      if (caVoice) speechUtterance.voice = caVoice;
+
+      speechUtterance.onstart = function() {
+        isSpeaking = true;
+        isSpeechPaused = false;
+        updateSpeechUI();
+      };
+
+      speechUtterance.onend = function() {
+        stopSpeechSynthesis();
+      };
+
+      speechUtterance.onerror = function() {
+        stopSpeechSynthesis();
+      };
+
+      window.speechSynthesis.speak(speechUtterance);
+    }
+
+    function stopSpeechSynthesis() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      isSpeaking = false;
+      isSpeechPaused = false;
+      updateSpeechUI();
+    }
+
+    function changeSpeechRate(rate) {
+      speechRate = parseFloat(rate);
+      if (isSpeaking) {
+        toggleSpeechSynthesis();
+        toggleSpeechSynthesis();
+      }
+    }
+
+    function updateSpeechUI() {
+      const btnPlay = document.getElementById('btn-speech-play');
+      const btnStop = document.getElementById('btn-speech-stop');
+
+      if (btnPlay) {
+        if (isSpeaking && !isSpeechPaused) {
+          btnPlay.innerHTML = `<i class="fa-solid fa-pause text-amber-300"></i> Pausa`;
+          btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-amber-600 text-white border border-amber-700 shadow-xs flex items-center gap-1.5";
+        } else if (isSpeaking && isSpeechPaused) {
+          btnPlay.innerHTML = `<i class="fa-solid fa-play text-white"></i> Reprendre`;
+          btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white border border-emerald-700 shadow-xs flex items-center gap-1.5";
+        } else {
+          btnPlay.innerHTML = `<i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta`;
+          btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5";
+        }
+      }
+
+      if (btnStop) {
+        if (isSpeaking) {
+          btnStop.classList.remove('hidden');
+        } else {
+          btnStop.classList.add('hidden');
+        }
       }
     }
 
@@ -569,6 +675,7 @@
 
     // CATÀLEG GENERAL
     async function renderCatalog() {
+      stopSpeechSynthesis();
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
@@ -737,7 +844,6 @@
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
                     <div class="flex items-center gap-1.5">
-                      <!-- MATRÍCULA HARMONITZADA AMB LA PALETA (v0.31.1) -->
                       <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 border border-indigo-200/80">
                         ${readingCode}
                       </span>
@@ -845,6 +951,7 @@
        EDITOR DE LECTURES
        ========================================================================== */
     async function renderEditor(docIdToEdit = null) {
+      stopSpeechSynthesis();
       if (!currentUser) {
         renderLogin();
         return;
@@ -1563,6 +1670,7 @@
     }
 
     async function renderReader(docId) {
+      stopSpeechSynthesis();
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
 
@@ -1681,30 +1789,51 @@
           `;
         }
 
+        /* BARRA D'ACCESSIBILITAT I ÀUDIO-LECTURA (v0.32.0) */
         const accessibilityToolbarHTML = !isBook ? `
-          <div class="bg-slate-100 p-2.5 rounded-xl border border-slate-200 mb-4 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
-            <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-slate-600 flex items-center gap-1">
-                <i class="fa-solid fa-universal-access text-indigo-600"></i> Lectura Adaptativa:
+          <div class="bg-slate-100 p-3 rounded-2xl border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+            
+            <!-- BLOC 1: ÀUDIO-LECTURA (v0.32.0) -->
+            <div class="flex items-center gap-1.5 bg-indigo-50/80 p-1.5 rounded-xl border border-indigo-200/80">
+              <span class="text-xs font-black text-indigo-900 px-1.5 flex items-center gap-1">
+                <i class="fa-solid fa-headphones text-indigo-600"></i> Àudio:
               </span>
+
+              <button id="btn-speech-play" onclick="toggleSpeechSynthesis()" class="px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta
+              </button>
+
+              <button id="btn-speech-stop" onclick="stopSpeechSynthesis()" class="hidden px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition">
+                <i class="fa-solid fa-stop"></i>
+              </button>
+
+              <select onchange="changeSpeechRate(this.value)" class="p-1 text-xs font-bold text-indigo-900 bg-white border border-indigo-200 rounded-lg outline-none">
+                <option value="0.8">🐢 0.8x Llent</option>
+                <option value="1.0" selected>⚡ 1.0x Normal</option>
+                <option value="1.2">🚀 1.2x Ràpid</option>
+              </select>
+            </div>
+
+            <!-- BLOC 2: FONT DISLÈXIA I MIDA DE LLETRA -->
+            <div class="flex items-center gap-2">
               <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition" title="Activar/Desactivar font OpenDyslexic i major espaiat">
                 📖 Font Dislèxia
               </button>
-            </div>
 
-            <div class="flex items-center gap-2">
               <div class="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden">
                 <button onclick="changeReaderFontSize(-2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-r border-slate-200">A-</button>
                 <span class="px-2 text-xs font-mono font-bold text-slate-600">Mida</span>
                 <button onclick="changeReaderFontSize(2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-l border-slate-200">A+</button>
               </div>
 
+              <!-- BLOC 3: MODES VISUALS -->
               <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-300">
                 <button onclick="setReaderTheme('default')" class="w-5 h-5 rounded-full bg-slate-100 border border-slate-300" title="Mode Estàndard"></button>
                 <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="Mode Sèpia (Menys fatiga)"></button>
                 <button onclick="setReaderTheme('dark')" class="w-5 h-5 rounded-full bg-slate-800 border border-slate-600" title="Mode Contrast Fosc"></button>
               </div>
             </div>
+
           </div>
         ` : '';
 
@@ -1794,7 +1923,6 @@
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
               
-              <!-- MATRÍCULA HARMONITZADA AMB LA PALETA (v0.31.1) -->
               <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
                 ${readingCode}
               </span>
@@ -2464,6 +2592,7 @@
     }
 
     function resetFiltersAndRenderCatalog() {
+      stopSpeechSynthesis();
       if (window.location.search) {
         window.history.pushState({}, document.title, window.location.pathname);
       }
@@ -2498,6 +2627,7 @@
     }
 
     function logout() {
+      stopSpeechSynthesis();
       auth.signOut().then(() => renderCatalog());
     }
 
@@ -2514,9 +2644,10 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.31.1 - MATRIU DE 4 FILES)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.32.0 - FULL DE RUTA COMPLETA)
        ========================================================================== */
     function renderChangelogPage() {
+      stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
       
@@ -2524,19 +2655,30 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "🔊 Pròxima Versió", date: "En planificació", badge: "v0.32.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Lectura en Veu Alta (Àudio-lectura).", highlights: ["Síntesi de veu per a alumnat amb dificultats visuals o de comprensió auditiva."] },
-            { isPlaceholder: true, version: "📄 Futur proper", date: "Futur", badge: "PDF Paper", color: "bg-dashed bg-indigo-50/60 text-indigo-900 border-indigo-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador de PDF per a lectura i examen en paper adaptat."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Comunitat", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora de lectura per taxonomia cognitiva."] }
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.33.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació de fulls de comprensió.", highlights: ["Generador automàtic de PDF per a lectura i examen adaptat en paper."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora de lectura per taxonomia cognitiva per al docent."] },
+            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors i col·laboració entre aules."] }
           ]
         },
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.32.0",
+              date: "Novembre 2026",
+              badge: "Àudio-Lectura Nativa",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Síntesi de veu (Web Speech API) integrada al lector.",
+              highlights: [
+                "Botó d'àudio-lectura en català natiu sense dependències externes.",
+                "Control de Pausa/Reprendre, Aturada i selector de velocitat (0.8x, 1x, 1.2x)."
+              ]
+            },
+            {
               version: "v0.31.0 - v0.31.1",
               date: "Novembre 2026",
-              badge: "Lectura Adaptativa & Matrícula",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              badge: "Lectura Adaptativa",
+              color: "bg-indigo-400 text-white font-bold border-indigo-500",
               summary: "Mode Dislèxia, mida de font, contrast i harmonització visual.",
               highlights: [
                 "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
@@ -2553,7 +2695,12 @@
                 "Creació de glossaris terme-definició des de l'editor de la lectura.",
                 "Enllaços directes al text i preguntes amb scroll suau directament al peu de pàgina."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.29)",
+          blocks: [
             {
               version: "v0.29.0",
               date: "Novembre 2026",
@@ -2564,12 +2711,7 @@
                 "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
                 "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
               ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.28)",
-          blocks: [
+            },
             {
               version: "v0.27.0 - v0.28.0",
               date: "Novembre 2026",
@@ -2582,25 +2724,14 @@
               ]
             },
             {
-              version: "v0.24.0 - v0.26.3",
+              version: "v0.20.0 - v0.26.3",
               date: "Tardor 2026",
-              badge: "Taxonomia & Feedback",
-              color: "bg-indigo-100 text-indigo-900 border-indigo-300",
-              summary: "Taxonomies en 5 nivells cognitius i modal desglossat.",
+              badge: "Taxonomia & Carpetes",
+              color: "bg-purple-100 text-purple-900 border-purple-300",
+              summary: "Taxonomies en 5 nivells cognitius i carpetes SA.",
               highlights: [
                 "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
-                "Feedback final desglossat i ordre d'índex estricte a Firestore."
-              ]
-            },
-            {
-              version: "v0.20.0 - v0.23.0",
-              date: "Tardor 2026",
-              badge: "Carpetes & Tipologia",
-              color: "bg-purple-100 text-purple-900 border-purple-300",
-              summary: "Mòdul de Carpetes SA, durada i preguntes d'opció múltiple/opinió.",
-              highlights: [
-                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA).",
-                "Preguntes de reflexió/opinió i opció múltiple amb caselles quadrades."
+                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA)."
               ]
             }
           ]
@@ -2658,7 +2789,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.31.1
+              ⚡ Versió Actual: v0.32.0
             </span>
           </div>
 
