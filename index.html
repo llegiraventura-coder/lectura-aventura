@@ -1654,6 +1654,7 @@
       if (badge) badge.innerText = blocks.length;
     }
 
+    // FUNCIÓ REVISADA I CORREGIDA PER A MOSTRAR ELS BOTONS DE PUJADA A LES PREGUNTES VISUALS
     function toggleQuestionAnswerType(selectElem) {
       const block = selectElem.closest('.q-block');
       const optionsWrapper = block.querySelector('.q-options-wrapper');
@@ -1667,6 +1668,7 @@
       const uploadContainers = block.querySelectorAll('.q-upload-btn-container');
       const badges = block.querySelectorAll('.opt-label-badge');
 
+      // 1. Amaguem per defecte tots els blocs especials
       optionsWrapper.classList.remove('hidden');
       singleBox.classList.add('hidden');
       multiBox.classList.add('hidden');
@@ -1675,6 +1677,7 @@
       if (textInputBox) textInputBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
+      // Amaguem els botons de pujada per defecte per a preguntes de text
       uploadContainers.forEach(c => c.classList.add('hidden'));
 
       const isOrdering = selectElem.value === 'ordering';
@@ -1687,6 +1690,7 @@
         return;
       }
 
+      // 2. Canviem les etiquetes i placeholders segons el tipus
       badges.forEach((b, idx) => {
         const labelsLetter = ['A', 'B', 'C', 'D', 'E', 'F'];
         const labelsOrder = ['1r', '2n', '3r', '4t', '5è', '6è'];
@@ -1696,18 +1700,23 @@
       for (let i = 0; i < 6; i++) {
         const input = block.querySelector(`.q-opt-${i}`);
         if (input) {
-          if (isImage) input.placeholder = `URL imatge ${['A','B','C','D','E','F'][i]} (https://...)`;
+          if (isImage) input.placeholder = `URL o imatge ${['A','B','C','D','E','F'][i]}...`;
           else if (isOrdering) input.placeholder = `${['1r','2n','3r','4t','5è','6è'][i]} fet que passa`;
           else input.placeholder = `Opció ${['A','B','C','D','E','F'][i]}`;
         }
       }
 
-      if (selectElem.value === 'multiple') multiBox.classList.remove('hidden');
-      else if (selectElem.value === 'opinion') opinionBox.classList.remove('hidden');
-      else if (selectElem.value === 'ordering') orderingBox.classList.remove('hidden');
-      else if (selectElem.value === 'image_single') {
+      // 3. Activem les funcions concretes del tipus de pregunta seleccionat
+      if (selectElem.value === 'multiple') {
+        multiBox.classList.remove('hidden');
+      } else if (selectElem.value === 'opinion') {
+        opinionBox.classList.remove('hidden');
+      } else if (selectElem.value === 'ordering') {
+        orderingBox.classList.remove('hidden');
+      } else if (isImage) {
         singleBox.classList.remove('hidden');
         if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
+        // MOSTRAR ELS BOTONS DE PUJADA A FIREBASE PER A LES OPCIONS VISUALS:
         uploadContainers.forEach(c => c.classList.remove('hidden'));
         if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
       } else {
