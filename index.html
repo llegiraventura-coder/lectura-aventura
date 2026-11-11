@@ -911,7 +911,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I CLONACIÓ DOCENT
+       EDITOR DE LECTURES I CLONACIÓ DOCENT (v0.33.2 COMPLET)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
@@ -959,6 +959,7 @@
           if (docSnap.exists) {
             initialData = docSnap.data();
             
+            // Carreguem directament ordenat per orderIndex
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
@@ -974,6 +975,7 @@
               initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); 
             });
 
+            // Re-ordenació estricta en memòria per si alguna vegada faltés l'índex
             initialQuestions.sort((a, b) => (a.orderIndex !== undefined ? a.orderIndex : 0) - (b.orderIndex !== undefined ? b.orderIndex : 0));
           }
         } catch (err) {
@@ -1668,7 +1670,7 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I LECTOR (v0.33.2 - NAVEGACIÓ BIDIRECCIONAL COMPLETA)
+       PARSER DE TEXT I LECTOR (Navegació Bidireccional v0.33.2)
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
@@ -1715,10 +1717,8 @@
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
-        /* ==========================================================================
-           NAVEGACIÓ BIDIRECCIONAL ENTRE ORIGINAL I ADAPTACIONS (v0.33.2)
-           ========================================================================== */
-        const rootParentId = data.parentReadingId || docId; // ID de la lectura mare original
+        // Identificació unificada de la lectura mare original
+        const rootParentId = data.parentReadingId || docId;
         
         let parentDocData = null;
         if (data.parentReadingId) {
@@ -1730,6 +1730,7 @@
           parentDocData = { id: docId, ...data };
         }
 
+        // Cerca de totes les adaptacions de la comunitat vinculades a la mare
         const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', rootParentId).get();
         let allVariants = [];
         variantsSnap.forEach(vDoc => {
@@ -2720,12 +2721,13 @@
             {
               version: "v0.33.0 - v0.33.2",
               date: "Novembre 2026",
-              badge: "Clonació & Navegació 360º",
+              badge: "Clonació & Navegació Bidireccional",
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
               summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
               highlights: [
                 "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
-                "Navegació fluida bidireccional entre la lectura mare original i qualsevol adaptació de la comunitat."
+                "Desplegable de bateries actiu a la mare i còpies per a navegar bidireccionalment.",
+                "Persistència estricta de l'ordre (`orderIndex`) i de les preguntes amb imatges/ordenació."
               ]
             },
             {
@@ -2834,4 +2836,48 @@
         <div class="max-w-6xl mx-auto space-y-8 pb-8">
           <div class="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
-              <button onclick="resetFiltersAndRenderCatalog()" class="text
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center transition">
+                <i class="fa-solid fa-arrow-left mr-1.5"></i> Tornar al Catàleg General
+              </button>
+              <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
+                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
+              </h1>
+              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
+            </div>
+            <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
+              ⚡ Versió Actual: v0.33.2
+            </span>
+          </div>
+
+          <div class="space-y-8">
+            ${changelogRows.map(row => `
+              <div class="space-y-3">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                  <i class="fa-solid fa-layer-group text-indigo-500"></i> ${row.title}
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  ${row.blocks.map(item => `
+                    <div class="${item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white'} p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
+                      <div>
+                        <div class="flex items-center justify-between mb-2">
+                          <span class="font-mono font-bold text-xs ${item.isPlaceholder ? 'text-slate-500' : 'text-slate-500'}">${item.version}</span>
+                          <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${item.color}">${item.badge}</span>
+                        </div>
+                        <p class="text-xs text-slate-600 font-semibold mb-3">${item.summary}</p>
+                        <div class="space-y-2 text-[11px] text-slate-700">
+                          ${item.highlights.map(h => `<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>${h}</span></p>`).join('')}
+                        </div>
+                      </div>
+                      <span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">${item.date}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
