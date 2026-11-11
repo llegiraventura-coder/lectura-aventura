@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.33.2</title>
+  <title>Lectura Aventura - v0.34.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -43,7 +43,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.33.2</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.34.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -62,7 +62,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.33.2 — Historial de versions</span>
+        <span>v0.34.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -152,6 +152,14 @@
       if (target) {
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    }
+
+    function normalizeText(str) {
+      return (str || '')
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
     }
 
     // ACCESSIBILITAT I VEU ALTA
@@ -259,7 +267,9 @@
       }
     }
 
-    // MOTOR DE PREGUNTES
+    /* ==========================================================================
+       MOTOR DE PREGUNTES (v0.34.0: Resposta Oberta i fins a 6 Opcions)
+       ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
         const type = qData.questionType || 'single';
@@ -268,13 +278,14 @@
         
         let text = qData.questionText || qData.pregunta || `Pregunta ${qIndex + 1}`;
         text = parseContentWithGlossary(text, glossaryWords);
-        const options = qData.options || qData.opcions || [];
+        const options = (qData.options || qData.opcions || []).filter(o => o !== null && o !== undefined && o !== '');
 
         let badgeHTML = '';
-        if (type === 'multiple') badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple</span>`;
+        if (type === 'multiple') badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple (${options.length} opcions)</span>`;
         else if (type === 'opinion') badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió</span>`;
-        else if (type === 'ordering') badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació Cronològica</span>`;
+        else if (type === 'ordering') badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació (${options.length} fets)</span>`;
         else if (type === 'image_single') badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Selecció d'Imatge</span>`;
+        else if (type === 'text_input') badgeHTML = `<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>`;
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
           <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
@@ -282,9 +293,19 @@
 
         let optionsHTML = '';
 
-        if (type === 'image_single') {
-          const letterLabels = ['A', 'B', 'C', 'D'];
-          optionsHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">`;
+        if (type === 'text_input') {
+          optionsHTML = `
+            <div class="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200/80 space-y-2">
+              <label class="block text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-fancy text-emerald-600"></i> Escriu la teva resposta a continuació:
+              </label>
+              <textarea name="q_${qDocId}" rows="3" required placeholder="Escriu aquí la teva explicació o resposta..." class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            </div>
+          `;
+        } else if (type === 'image_single') {
+          const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+          const colsClass = options.length > 4 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
+          optionsHTML = `<div class="grid ${colsClass} gap-3 mt-2">`;
           options.forEach((optImgUrl, oIdx) => {
             const letter = letterLabels[oIdx] || '';
             const imgSrc = optImgUrl.trim() || 'https://via.placeholder.com/300x200?text=Sense+Imatge';
@@ -294,7 +315,7 @@
                   <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
                   <span>Opció ${letter}</span>
                 </div>
-                <div class="w-full h-40 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
+                <div class="w-full h-36 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
                   <img src="${imgSrc}" alt="Opció ${letter}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Carregant+Imatge'">
                 </div>
               </label>
@@ -337,7 +358,7 @@
             </div>
           `;
         } else {
-          const letterLabels = ['A', 'B', 'C', 'D'];
+          const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
           options.forEach((opt, oIdx) => {
             const letterBadge = `<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">${letterLabels[oIdx] || ''}</span>`;
             const optParsed = parseContentWithGlossary(opt, glossaryWords);
@@ -382,7 +403,24 @@
 
       evaluate(qData, qDocId, formData) {
         const type = qData.questionType || 'single';
-        if (type === 'ordering') {
+
+        if (type === 'text_input') {
+          const userText = formData.get(`q_${qDocId}`) || '';
+          const normUser = normalizeText(userText);
+          if (!normUser) return false;
+
+          let keywords = [];
+          if (Array.isArray(qData.keywords)) {
+            keywords = qData.keywords;
+          } else if (typeof qData.keywords === 'string') {
+            keywords = qData.keywords.split(',').map(k => k.trim());
+          } else if (qData.correctAnswerText) {
+            keywords = [qData.correctAnswerText];
+          }
+
+          if (keywords.length === 0) return true; // Si no s'han definit claus, es valida per participar
+          return keywords.some(kw => normUser.includes(normalizeText(kw)));
+        } else if (type === 'ordering') {
           const val = formData.get(`q_${qDocId}`);
           if (!val) return false;
           const userSequence = val.split(',').map(v => parseInt(v));
@@ -911,7 +949,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I CLONACIÓ DOCENT (v0.33.2 COMPLET)
+       EDITOR DE LECTURES I CLONACIÓ DOCENT (v0.34.0: Suport 6 Opcions i Oberta)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
@@ -959,7 +997,6 @@
           if (docSnap.exists) {
             initialData = docSnap.data();
             
-            // Carreguem directament ordenat per orderIndex
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
@@ -975,7 +1012,6 @@
               initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); 
             });
 
-            // Re-ordenació estricta en memòria per si alguna vegada faltés l'índex
             initialQuestions.sort((a, b) => (a.orderIndex !== undefined ? a.orderIndex : 0) - (b.orderIndex !== undefined ? b.orderIndex : 0));
           }
         } catch (err) {
@@ -1248,6 +1284,13 @@
       const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
       const qType = data ? (data.questionType || 'single') : 'single';
       const qTaxonomy = data ? (data.taxonomyType || 'literal') : 'literal';
+      
+      let qKeywords = '';
+      if (data) {
+        if (Array.isArray(data.keywords)) qKeywords = data.keywords.join(', ');
+        else if (typeof data.keywords === 'string') qKeywords = data.keywords;
+        else if (data.correctAnswerText) qKeywords = data.correctAnswerText;
+      }
 
       let correctSingleIdx = 0;
       let correctMultipleArr = [0];
@@ -1261,6 +1304,8 @@
           correctMultipleArr = [correctSingleIdx];
         }
       }
+
+      const hasExtendedOptions = opts.length > 4 || (opts[4] && opts[4].trim()) || (opts[5] && opts[5].trim());
 
       const qDiv = document.createElement('div');
       qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
@@ -1277,6 +1322,7 @@
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
               <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
               <option value="image_single" ${qType === 'image_single' ? 'selected' : ''}>🖼️ Selecció d'Imatge (Respostes visuals)</option>
+              <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>✍️ Resposta Oberta (Text/Paraules clau)</option>
             </select>
 
             <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
@@ -1303,29 +1349,51 @@
 
         <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">A</span>
-            <input type="text" value="${opts[0] || ''}" placeholder="Opció A" required class="q-opt-0 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+        <!-- BLOC D'OPCIONS A-F -->
+        <div class="q-options-wrapper space-y-2">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">A</span>
+              <input type="text" value="${opts[0] || ''}" placeholder="Opció A" class="q-opt-0 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
+
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">B</span>
+              <input type="text" value="${opts[1] || ''}" placeholder="Opció B" class="q-opt-1 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
+
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">C</span>
+              <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
+
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">D</span>
+              <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
           </div>
 
-          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">B</span>
-            <input type="text" value="${opts[1] || ''}" placeholder="Opció B" required class="q-opt-1 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+          <div class="q-extra-opts-box ${hasExtendedOptions ? '' : 'hidden'} grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">E</span>
+              <input type="text" value="${opts[4] || ''}" placeholder="Opció E" class="q-opt-4 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
+
+            <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+              <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">F</span>
+              <input type="text" value="${opts[5] || ''}" placeholder="Opció F" class="q-opt-5 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+            </div>
           </div>
 
-          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">C</span>
-            <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
-          </div>
-
-          <div class="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
-            <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-2 border-r border-slate-200 shrink-0">D</span>
-            <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-2 text-xs outline-none" oninput="updateImagePreview(this)">
+          <div class="flex justify-end pt-1">
+            <button type="button" onclick="toggleExtraOptions(this)" class="btn-toggle-extra text-xs text-indigo-700 font-bold hover:underline flex items-center gap-1">
+              <i class="fa-solid ${hasExtendedOptions ? 'fa-minus' : 'fa-plus'}"></i>
+              <span>${hasExtendedOptions ? 'Ocultar opcions E i F' : 'Afegir opcions E i F (fins a 6)'}</span>
+            </button>
           </div>
         </div>
 
-        <div class="q-image-previews-box hidden grid grid-cols-4 gap-2 pt-1">
+        <div class="q-image-previews-box hidden grid grid-cols-6 gap-2 pt-1">
           <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
             <img class="img-preview-0 w-full h-full object-cover" src="${opts[0] || ''}" onerror="this.src='https://via.placeholder.com/100?text=A'">
           </div>
@@ -1338,6 +1406,12 @@
           <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
             <img class="img-preview-3 w-full h-full object-cover" src="${opts[3] || ''}" onerror="this.src='https://via.placeholder.com/100?text=D'">
           </div>
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-4 w-full h-full object-cover" src="${opts[4] || ''}" onerror="this.src='https://via.placeholder.com/100?text=E'">
+          </div>
+          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
+            <img class="img-preview-5 w-full h-full object-cover" src="${opts[5] || ''}" onerror="this.src='https://via.placeholder.com/100?text=F'">
+          </div>
         </div>
 
         <div class="q-single-box flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
@@ -1348,6 +1422,8 @@
             <option value="1" ${correctSingleIdx === 1 ? 'selected' : ''}>Opció B</option>
             <option value="2" ${correctSingleIdx === 2 ? 'selected' : ''}>Opció C</option>
             <option value="3" ${correctSingleIdx === 3 ? 'selected' : ''}>Opció D</option>
+            <option value="4" ${correctSingleIdx === 4 ? 'selected' : ''} class="opt-ef-choice ${hasExtendedOptions ? '' : 'hidden'}">Opció E</option>
+            <option value="5" ${correctSingleIdx === 5 ? 'selected' : ''} class="opt-ef-choice ${hasExtendedOptions ? '' : 'hidden'}">Opció F</option>
           </select>
         </div>
 
@@ -1356,7 +1432,7 @@
             <i class="fa-solid fa-square-check text-purple-600"></i>
             <span>Marca totes les respostes que són correctes:</span>
           </div>
-          <div class="grid grid-cols-2 gap-2 text-xs">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
             <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
               <input type="checkbox" value="0" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(0) ? 'checked' : ''}>
               <span class="font-bold">Opció A</span>
@@ -1373,7 +1449,24 @@
               <input type="checkbox" value="3" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(3) ? 'checked' : ''}>
               <span class="font-bold">Opció D</span>
             </label>
+            <label class="opt-ef-multi ${hasExtendedOptions ? '' : 'hidden'} flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="4" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(4) ? 'checked' : ''}>
+              <span class="font-bold">Opció E</span>
+            </label>
+            <label class="opt-ef-multi ${hasExtendedOptions ? '' : 'hidden'} flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
+              <input type="checkbox" value="5" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(5) ? 'checked' : ''}>
+              <span class="font-bold">Opció F</span>
+            </label>
           </div>
+        </div>
+
+        <div class="q-text-input-box hidden p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+            <i class="fa-solid fa-key text-emerald-600"></i>
+            <span>Paraules Clau per a l'Autocorrecció (separades per comes):</span>
+          </div>
+          <input type="text" value="${qKeywords}" placeholder="Ex: amistat, lleialtat, bosc" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
+          <p class="text-[11px] text-emerald-800">El motor d'avaluació donarà per vàlida la resposta si l'alumne escriu almenys una d'aquestes paraules clau (ignorant majúscules i accents).</p>
         </div>
 
         <div class="q-opinion-box hidden p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
@@ -1383,7 +1476,7 @@
 
         <div class="q-ordering-box hidden p-2.5 bg-amber-50 rounded-lg border border-amber-200 flex items-center space-x-2 text-xs font-bold text-amber-900">
           <i class="fa-solid fa-arrow-down-short-wide text-amber-600 text-sm"></i>
-          <span>↕️ Escriu les frases en l’ordre cronològic REAL (1r, 2n, 3r, 4t). Es mostraran barrejades a l’alumne automàticament.</span>
+          <span>↕️ Escriu les frases en l’ordre cronològic REAL (1r a 6è). Es mostraran barrejades a l’alumne automàticament.</span>
         </div>
       `;
 
@@ -1395,12 +1488,34 @@
       updateQuestionIndexes();
     }
 
+    function toggleExtraOptions(btn) {
+      const block = btn.closest('.q-block');
+      const extraBox = block.querySelector('.q-extra-opts-box');
+      const choiceEF = block.querySelectorAll('.opt-ef-choice');
+      const multiEF = block.querySelectorAll('.opt-ef-multi');
+      const isHidden = extraBox.classList.contains('hidden');
+
+      if (isHidden) {
+        extraBox.classList.remove('hidden');
+        choiceEF.forEach(el => el.classList.remove('hidden'));
+        multiEF.forEach(el => el.classList.remove('hidden'));
+        btn.innerHTML = `<i class="fa-solid fa-minus"></i> <span>Ocultar opcions E i F</span>`;
+      } else {
+        extraBox.classList.add('hidden');
+        choiceEF.forEach(el => el.classList.add('hidden'));
+        multiEF.forEach(el => el.classList.add('hidden'));
+        btn.innerHTML = `<i class="fa-solid fa-plus"></i> <span>Afegir opcions E i F (fins a 6)</span>`;
+        block.querySelector('.q-opt-4').value = '';
+        block.querySelector('.q-opt-5').value = '';
+      }
+    }
+
     function updateImagePreview(inputElem) {
       const block = inputElem.closest('.q-block');
       const optIdx = inputElem.className.match(/q-opt-(\d)/)?.[1];
       if (optIdx !== undefined) {
         const img = block.querySelector(`.img-preview-${optIdx}`);
-        if (img) img.src = inputElem.value.trim() || `https://via.placeholder.com/100?text=${['A','B','C','D'][optIdx]}`;
+        if (img) img.src = inputElem.value.trim() || `https://via.placeholder.com/100?text=${['A','B','C','D','E','F'][optIdx]}`;
       }
     }
 
@@ -1441,35 +1556,46 @@
 
     function toggleQuestionAnswerType(selectElem) {
       const block = selectElem.closest('.q-block');
+      const optionsWrapper = block.querySelector('.q-options-wrapper');
       const singleBox = block.querySelector('.q-single-box');
       const singleLabel = block.querySelector('.q-single-label');
       const multiBox = block.querySelector('.q-multiple-box');
       const opinionBox = block.querySelector('.q-opinion-box');
       const orderingBox = block.querySelector('.q-ordering-box');
+      const textInputBox = block.querySelector('.q-text-input-box');
       const imagePreviewsBox = block.querySelector('.q-image-previews-box');
       const badges = block.querySelectorAll('.opt-label-badge');
 
+      optionsWrapper.classList.remove('hidden');
       singleBox.classList.add('hidden');
       multiBox.classList.add('hidden');
       opinionBox.classList.add('hidden');
       orderingBox.classList.add('hidden');
+      if (textInputBox) textInputBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
       const isOrdering = selectElem.value === 'ordering';
       const isImage = selectElem.value === 'image_single';
+      const isTextInput = selectElem.value === 'text_input';
+
+      if (isTextInput) {
+        optionsWrapper.classList.add('hidden');
+        if (textInputBox) textInputBox.classList.remove('hidden');
+        return;
+      }
 
       badges.forEach((b, idx) => {
-        const labelsLetter = ['A', 'B', 'C', 'D'];
-        const labelsOrder = ['1r', '2n', '3r', '4t'];
+        const labelsLetter = ['A', 'B', 'C', 'D', 'E', 'F'];
+        const labelsOrder = ['1r', '2n', '3r', '4t', '5è', '6è'];
         b.innerText = isOrdering ? labelsOrder[idx] : labelsLetter[idx];
       });
 
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < 6; i++) {
         const input = block.querySelector(`.q-opt-${i}`);
         if (input) {
-          if (isImage) input.placeholder = `URL de la imatge ${['A','B','C','D'][i]} (https://...)`;
-          else if (isOrdering) input.placeholder = `${['Primer','Segon','Tercer','Quart'][i]} fet que passa`;
-          else input.placeholder = `Opció ${['A','B','C','D'][i]}`;
+          if (isImage) input.placeholder = `URL imatge ${['A','B','C','D','E','F'][i]} (https://...)`;
+          else if (isOrdering) input.placeholder = `${['1r','2n','3r','4t','5è','6è'][i]} fet que passa`;
+          else input.placeholder = `Opció ${['A','B','C','D','E','F'][i]}`;
         }
       }
 
@@ -1574,46 +1700,61 @@
 
         for (const block of qBlocks) {
           const qText = block.querySelector('.q-text').value;
-          const opt0 = block.querySelector('.q-opt-0').value;
-          const opt1 = block.querySelector('.q-opt-1').value;
-          const opt2 = block.querySelector('.q-opt-2')?.value || '';
-          const opt3 = block.querySelector('.q-opt-3')?.value || '';
           const qType = block.querySelector('.q-type-select')?.value || 'single';
           const taxonomyType = block.querySelector('.q-taxonomy-select')?.value || 'literal';
 
-          const options = [opt0, opt1];
-          if (opt2) options.push(opt2);
-          if (opt3) options.push(opt3);
+          if (qType === 'text_input') {
+            const rawKw = block.querySelector('.q-keywords-input')?.value || '';
+            const keywordsArr = rawKw.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
-          if (qText && options.length >= 2) {
-            const baseQData = {
-              questionText: qText,
-              options: options,
-              questionType: qType,
-              taxonomyType: taxonomyType,
-              orderIndex: orderIndex
-            };
-
-            if (qType === 'opinion' || qType === 'ordering') {
-              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
-            } else if (qType === 'multiple') {
-              const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
-              const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
-
+            if (qText) {
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                ...baseQData,
-                correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
+                questionText: qText,
+                options: [],
+                questionType: 'text_input',
+                taxonomyType: taxonomyType,
+                keywords: keywordsArr,
+                orderIndex: orderIndex
               });
-            } else {
-              const correctSelect = block.querySelector('.q-correct-single');
-              const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
-
-              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                ...baseQData,
-                correctAnswer: correctIdx
-              });
+              orderIndex++;
             }
-            orderIndex++;
+          } else {
+            const options = [];
+            for (let i = 0; i < 6; i++) {
+              const optVal = block.querySelector(`.q-opt-${i}`)?.value || '';
+              if (optVal.trim()) options.push(optVal.trim());
+            }
+
+            if (qText && options.length >= 2) {
+              const baseQData = {
+                questionText: qText,
+                options: options,
+                questionType: qType,
+                taxonomyType: taxonomyType,
+                orderIndex: orderIndex
+              };
+
+              if (qType === 'opinion' || qType === 'ordering') {
+                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
+              } else if (qType === 'multiple') {
+                const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
+                const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
+
+                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                  ...baseQData,
+                  correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
+                });
+              } else {
+                const correctSelect = block.querySelector('.q-correct-single');
+                const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
+
+                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                  ...baseQData,
+                  correctAnswer: correctIdx
+                });
+              }
+              orderIndex++;
+            }
           }
         }
 
@@ -1670,7 +1811,7 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I LECTOR (Navegació Bidireccional v0.33.2)
+       PARSER DE TEXT I LECTOR (Navegació Bidireccional v0.34.0)
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
@@ -1717,7 +1858,6 @@
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
-        // Identificació unificada de la lectura mare original
         const rootParentId = data.parentReadingId || docId;
         
         let parentDocData = null;
@@ -1730,7 +1870,6 @@
           parentDocData = { id: docId, ...data };
         }
 
-        // Cerca de totes les adaptacions de la comunitat vinculades a la mare
         const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', rootParentId).get();
         let allVariants = [];
         variantsSnap.forEach(vDoc => {
@@ -2699,7 +2838,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.33.2)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.34.0)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -2710,7 +2849,7 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.34.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF de fulls adaptats.", highlights: ["Generador automàtic per a impressió en paper per a l'aula."] },
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.35.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF de fulls adaptats.", highlights: ["Generador automàtic per a impressió en paper per a l'aula."] },
             { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
             { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
           ]
@@ -2719,9 +2858,21 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.34.0",
+              date: "Novembre 2026",
+              badge: "Pregunta Oberta & 6 Opcions",
+              color: "bg-emerald-600 text-white font-bold border-emerald-700",
+              summary: "Nou tipus de pregunta oberta autocorregible i fins a 6 opcions.",
+              highlights: [
+                "6è Tipus: Pregunta Oberta (`text_input`) amb avaluació automàtica per paraules clau.",
+                "Ampliació opcional d'opcions a l'editor fins a 6 (`A`–`F` / `1r`–`6è`).",
+                "Integració de caselles `E` i `F` a Opció Múltiple i Ordenació Cronològica."
+              ]
+            },
+            {
               version: "v0.33.0 - v0.33.2",
               date: "Novembre 2026",
-              badge: "Clonació & Navegació Bidireccional",
+              badge: "Clonació & Navegació",
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
               summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
               highlights: [
@@ -2740,7 +2891,12 @@
                 "Botó d'àudio-lectura en català natiu sense dependències externes.",
                 "Control de Pausa/Reprendre, Aturada i selector de velocitat (0.8x, 1x, 1.2x)."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.31)",
+          blocks: [
             {
               version: "v0.31.0 - v0.31.1",
               date: "Novembre 2026",
@@ -2751,12 +2907,7 @@
                 "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
                 "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
               ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.20 – v0.30)",
-          blocks: [
+            },
             {
               version: "v0.30.0",
               date: "Novembre 2026",
@@ -2769,25 +2920,14 @@
               ]
             },
             {
-              version: "v0.29.0",
+              version: "v0.27.0 - v0.29.0",
               date: "Novembre 2026",
-              badge: "Codi Únic + Feedback",
+              badge: "Codi Únic & Imatges",
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
-              summary: "Identificador #CL-00001 i Bústia entre Docents.",
+              summary: "Identificador #CL-00001, Selecció d'Imatges i Bústia.",
               highlights: [
                 "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
-                "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
-              ]
-            },
-            {
-              version: "v0.27.0 - v0.28.0",
-              date: "Novembre 2026",
-              badge: "Noves Preguntes",
-              color: "bg-teal-100 text-teal-900 border-teal-300",
-              summary: "Respostes visuals amb imatge i ordenació cronològica.",
-              highlights: [
-                "5è tipus: Selecció d'Imatges (4 URLs) i 4t tipus: Ordenació temporal (▲/▼).",
-                "Reordenació dinàmica de preguntes i doble botó UX a l'editor."
+                "5è tipus: Selecció d'Imatges i Bústia de suggeriments en línia entre docents."
               ]
             }
           ]
@@ -2845,7 +2985,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.33.2
+              ⚡ Versió Actual: v0.34.0
             </span>
           </div>
 
