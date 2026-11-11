@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.1</title>
+  <title>Lectura Aventura - v0.35.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -45,7 +45,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.1</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.35.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -64,7 +64,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.1 — Historial de versions</span>
+        <span>v0.35.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -166,14 +166,20 @@
     }
 
     /* ==========================================================================
-       GESTIÓ DE PUJADA D'IMATGES A FIREBASE STORAGE (CORREGIDA v0.35.1)
+       GESTIÓ DE PUJADA D'IMATGES A FIREBASE STORAGE (CORREGIDA v0.35.2)
        ========================================================================== */
     async function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
+      if (!fileInputElem) return;
       const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
       if (!file) return;
 
-      const block = fileInputElem.closest ? fileInputElem.closest('.q-block') : null;
-      const statusElem = statusSpanId ? document.getElementById(statusSpanId) : (block ? block.querySelector('.q-upload-status') : null);
+      const optionWrapper = fileInputElem.closest('.flex-col') || fileInputElem.closest('.q-block');
+      const block = fileInputElem.closest('.q-block');
+      
+      let statusElem = statusSpanId ? document.getElementById(statusSpanId) : null;
+      if (!statusElem && optionWrapper) {
+        statusElem = optionWrapper.querySelector('.q-upload-status');
+      }
       
       if (statusElem) {
         statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Pujant...`;
@@ -189,9 +195,13 @@
         const downloadURL = await snapshot.ref.getDownloadURL();
 
         let inputElem = null;
-        if (block) {
+        if (optionWrapper) {
+          inputElem = optionWrapper.querySelector('input[type="text"]');
+        }
+        if (!inputElem && block) {
           inputElem = block.querySelector('.' + targetInputClass);
-        } else {
+        }
+        if (!inputElem) {
           inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
         }
 
@@ -207,15 +217,17 @@
         if (statusElem) {
           statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Carregada!`;
           statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
-          setTimeout(() => { statusElem.innerHTML = ''; }, 3000);
+          setTimeout(() => { if (statusElem) statusElem.innerHTML = ''; }, 3000);
         }
       } catch (err) {
         console.error("Error en pujar la imatge a Firebase Storage:", err);
-        alert("S'ha produït un error en pujar la imatge: " + err.message);
         if (statusElem) {
-          statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error en la pujada`;
+          statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error`;
           statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
         }
+        alert("S'ha produït un error en pujar la imatge: " + err.message);
+      } finally {
+        fileInputElem.value = '';
       }
     }
 
@@ -1006,7 +1018,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PUJADA D'IMATGES (v0.35.1)
+       EDITOR DE LECTURES I PUJADA D'IMATGES (v0.35.2)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
@@ -1205,7 +1217,7 @@
             <div id="wrapper-content">
               <div class="flex justify-between items-center mb-1">
                 <label class="block text-sm font-bold text-slate-700">Text de la Lectura *</label>
-                <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
+                <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-808 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
                   <i class="fa-solid fa-link"></i> Marcar Vocabulari
                 </button>
               </div>
@@ -2967,7 +2979,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.35.1)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.35.2)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -2987,10 +2999,22 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.35.2",
+              date: "Novembre 2026",
+              badge: "Robust Storage Upload",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Resolució robusta de contenidors i desblocat immediat d'estat.",
+              highlights: [
+                "Targeting d'elements per `.closest('.flex-col')` per opcions de preguntes.",
+                "Neteja de l'input d'arxiu al bloc `finally` per permetre re-pujades directes.",
+                "Gestió asíncrona d'errors per prevenir estat 'Pujant...' infinit."
+              ]
+            },
+            {
               version: "v0.35.1",
               date: "Novembre 2026",
               badge: "Fix Storage & Preview",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              color: "bg-indigo-500 text-white font-bold border-indigo-600",
               summary: "Correcció de la pujada d'imatges i vista prèvia en temps real.",
               highlights: [
                 "Targeting d'elements corregit mitjançant `closest('.q-block')`.",
@@ -3002,14 +3026,19 @@
               version: "v0.35.0",
               date: "Novembre 2026",
               badge: "Firebase Storage",
-              color: "bg-indigo-500 text-white font-bold border-indigo-600",
+              color: "bg-indigo-400 text-white font-bold border-indigo-500",
               summary: "Pujada d'imatges des del dispositiu directament a Firebase Storage.",
               highlights: [
                 "Botó 'Pujar des del dispositiu' integrat a la coberta i opcions de preguntes visuals.",
                 "Emmagatzematge privat i ràpid hosted a Google Cloud Storage.",
                 "Indicadors visuals de càrrega."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.34)",
+          blocks: [
             {
               version: "v0.34.0",
               date: "Novembre 2026",
@@ -3021,12 +3050,7 @@
                 "Ampliació d'opcions a l'editor fins a 6 (`A`–`F` / `1r`–`6è`).",
                 "Integració de caselles `E` i `F` en opció múltiple i ordenació."
               ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.33)",
-          blocks: [
+            },
             {
               version: "v0.33.0 - v0.33.2",
               date: "Novembre 2026",
@@ -3049,7 +3073,12 @@
                 "Àudio-lectura en català natiu sense dependències.",
                 "Control de Pausa/Reprendre, Aturada i velocitat."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.31)",
+          blocks: [
             {
               version: "v0.31.0 - v0.31.1",
               date: "Novembre 2026",
@@ -3060,12 +3089,7 @@
                 "Font OpenDyslexic i major espaiat.",
                 "Ajust de mida A-/A+ i modes Sèpia/Fosc."
               ]
-            }
-          ]
-        },
-        {
-          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.30)",
-          blocks: [
+            },
             {
               version: "v0.30.0",
               date: "Novembre 2026",
@@ -3078,18 +3102,7 @@
               ]
             },
             {
-              version: "v0.20.0 - v0.29.0",
-              date: "Tardor 2026",
-              badge: "Taxonomia & Carpetes",
-              color: "bg-purple-100 text-purple-900 border-purple-300",
-              summary: "Taxonomies en 5 nivells cognitius i carpetes SA.",
-              highlights: [
-                "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
-                "Agrupació de lectures en Situacions d'Aprenentatge (SA)."
-              ]
-            },
-            {
-              version: "v0.1.0 - v0.19.0",
+              version: "v0.1.0 - v0.29.0",
               date: "2025 - 2026",
               badge: "Gènesi del Projecte",
               color: "bg-slate-50 text-slate-600 border-slate-200",
@@ -3116,7 +3129,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.1
+              ⚡ Versió Actual: v0.35.2
             </span>
           </div>
 
