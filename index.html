@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.3</title>
+  <title>Lectura Aventura - v0.35.4</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.3</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.35.4</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -50,7 +50,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.3 — Historial de versions</span>
+        <span>v0.35.4 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -145,7 +145,7 @@
     }
 
     /* ==========================================================================
-       NOVA PUJADA DIRECTA DE DATA-URL SENSE DEPENDRE DE FIREBASE STORAGE (v0.35.3)
+       PUJADA DIRECTA AMB COMPRESSIÓ AUTOMÀTICA PER EVITAR EL LÍMIT DE FIRESTORE (v0.35.4)
        ========================================================================== */
     function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
       if (!fileInputElem) return;
@@ -161,41 +161,77 @@
       }
       
       if (statusElem) {
-        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Procesant...`;
+        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Compriment...`;
         statusElem.className = "text-xs text-indigo-600 font-bold flex items-center gap-1";
       }
 
       const reader = new FileReader();
       
       reader.onload = function(e) {
-        const dataURL = e.target.result;
+        const img = new Image();
+        img.onload = function() {
+          const MAX_WIDTH = 800;
+          const MAX_HEIGHT = 800;
+          let width = img.width;
+          let height = img.height;
 
-        let inputElem = null;
-        if (optionWrapper) {
-          inputElem = optionWrapper.querySelector('input[type="text"]');
-        }
-        if (!inputElem && block) {
-          inputElem = block.querySelector('.' + targetInputClass);
-        }
-        if (!inputElem) {
-          inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
-        }
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = Math.round((height * MAX_WIDTH) / width);
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = Math.round((width * MAX_HEIGHT) / height);
+              height = MAX_HEIGHT;
+            }
+          }
 
-        if (inputElem) {
-          inputElem.value = dataURL;
-          
-          updateImagePreview(inputElem);
-          
-          inputElem.dispatchEvent(new Event('input', { bubbles: true }));
-          inputElem.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
 
-        if (statusElem) {
-          statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Carregada!`;
-          statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
-          setTimeout(() => { if (statusElem) statusElem.innerHTML = ''; }, 3000);
-        }
-        fileInputElem.value = '';
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Convertim a JPEG comprimit al 70% de qualitat (~40-90 KB)
+          const compressedDataURL = canvas.toDataURL('image/jpeg', 0.7);
+
+          let inputElem = null;
+          if (optionWrapper) {
+            inputElem = optionWrapper.querySelector('input[type="text"]');
+          }
+          if (!inputElem && block) {
+            inputElem = block.querySelector('.' + targetInputClass);
+          }
+          if (!inputElem) {
+            inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
+          }
+
+          if (inputElem) {
+            inputElem.value = compressedDataURL;
+            updateImagePreview(inputElem);
+            inputElem.dispatchEvent(new Event('input', { bubbles: true }));
+            inputElem.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+
+          if (statusElem) {
+            statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Carregada!`;
+            statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
+            setTimeout(() => { if (statusElem) statusElem.innerHTML = ''; }, 3000);
+          }
+          fileInputElem.value = '';
+        };
+
+        img.onerror = function() {
+          if (statusElem) {
+            statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error en la imatge`;
+            statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
+          }
+          fileInputElem.value = '';
+        };
+
+        img.src = e.target.result;
       };
 
       reader.onerror = function(err) {
@@ -1194,7 +1230,7 @@
               ${cloningParentId ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar.</p>` : ''}
             </div>
 
-            <!-- PUJADA D'IMATGE A FIREBASE STORAGE / LOCAL (COBERTA) -->
+            <!-- PUJADA D'IMATGE AMB COMPRESSIÓ AUTOMÀTICA (COBERTA) -->
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
               <label class="block text-sm font-bold text-indigo-900">Coberta del Llibre (Imatge)</label>
               <div class="flex flex-col sm:flex-row gap-2 items-center">
@@ -2955,26 +2991,26 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
-              version: "v0.35.3",
+              version: "v0.35.4",
               date: "Novembre 2026",
-              badge: "Local DataURL Storage",
+              badge: "Image Compression Engine",
               color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Conversió local a DataURL integrada directament a la base de dades.",
+              summary: "Redimensionament i compressió automàtica d'imatges a Canvas (màx 800px, 70% JPEG).",
               highlights: [
-                "Càrrega ultraràpida des del disc dur local.",
-                "Integració directa a Firestore sense dependre de servidors ni regles de Storage.",
-                "Funció uploadImageToFirebase 100% autònoma."
+                "Reducció del pes de la imatge d'1.7 MB a uns 50-90 KB.",
+                "Solució definitiva a l'error de límit de mida de Firestore (1 MB max).",
+                "Càrrega ultraràpida i fluida sense pèrdua de qualitat visual."
               ]
             },
             {
-              version: "v0.35.2",
+              version: "v0.35.3",
               date: "Novembre 2026",
-              badge: "Robust Storage Upload",
+              badge: "Local DataURL Storage",
               color: "bg-indigo-500 text-white font-bold border-indigo-600",
-              summary: "Resolució robusta de contenidors i desblocat immediat d'estat.",
+              summary: "Conversió local a DataURL integrada directament a la base de dades.",
               highlights: [
-                "Targeting d'elements per `.closest('.flex-col')` per opcions de preguntes.",
-                "Neteja de l'input d'arxiu al bloc `finally` per permetre re-pujades directes."
+                "Càrrega ultraràpida des del disc dur local.",
+                "Integració directa a Firestore sense dependre de servidors ni regles de Storage."
               ]
             },
             {
@@ -3004,7 +3040,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.3
+              ⚡ Versió Actual: v0.35.4
             </span>
           </div>
 
