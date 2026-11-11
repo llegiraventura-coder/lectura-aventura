@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.2</title>
+  <title>Lectura Aventura - v0.35.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Font OpenDyslexic per a accessibilitat -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
   <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -15,24 +14,15 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
   <style>
     html { scroll-behavior: smooth; }
-    
     .font-dyslexic {
       font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
       letter-spacing: 0.05em;
       word-spacing: 0.15em;
       line-height: 1.8 !important;
     }
-    
-    .bg-sepia {
-      background-color: #fbf0d9 !important;
-      color: #3b2e1e !important;
-    }
+    .bg-sepia { background-color: #fbf0d9 !important; color: #3b2e1e !important; }
     .bg-sepia a { color: #9c4221 !important; border-color: #d97736 !important; }
-
-    .bg-dark-mode {
-      background-color: #1e293b !important;
-      color: #f1f5f9 !important;
-    }
+    .bg-dark-mode { background-color: #1e293b !important; color: #f1f5f9 !important; }
     .bg-dark-mode a { color: #38bdf8 !important; border-color: #0284c7 !important; }
   </style>
 </head>
@@ -45,31 +35,26 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.2</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.35.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
     </div>
   </header>
 
-  <!-- BANNER DE MOTIVACIÓ / PERFIL -->
   <div id="motivation-banner"></div>
-
-  <!-- CONTINGUT PRINCIPAL DINÀMIC -->
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6"></main>
 
-  <!-- PEU DE PÀGINA -->
   <footer class="bg-slate-800 text-slate-400 py-4 text-sm mt-auto border-t border-slate-700">
     <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.2 — Historial de versions</span>
+        <span>v0.35.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
 
-  <!-- MODALS CONTENIDORS -->
   <div id="profile-modal-container"></div>
   <div id="auth-modal-container"></div>
   <div id="folder-modal-container"></div>
@@ -77,7 +62,6 @@
   <div id="clone-modal-container"></div>
 
   <script>
-    // CONFIGURACIÓ DE FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
@@ -101,7 +85,6 @@
     const FEEDBACK_COLLECTION = "teacher_feedback";
     const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
 
-    // ESTAT GLOBAL
     let currentUser = null;
     let userPoints = 0;
     let userRole = 'alumne'; 
@@ -114,19 +97,16 @@
     let cloningParentId = null;
     let currentLeaderboardTab = 'group';
 
-    // ACCESSIBILITAT
     let isDyslexicMode = false;
     let readerFontSize = 18; 
     let readerTheme = 'default';
 
-    // SÍNTESI DE VEU
     let speechUtterance = null;
     let isSpeaking = false;
     let isSpeechPaused = false;
     let speechRate = 1.0;
     let currentTextToRead = "";
 
-    // FILTRES CATÀLEG
     let filterSearch = "";
     let filterBookAuthor = "";
     let filterType = "all";
@@ -135,7 +115,6 @@
     let filterStatus = "all";
     let filterDuration = "all";
 
-    // DICCIONARI DE TAXONOMIA COGNITIVA
     const TAXONOMY_CONFIG = {
       literal: { label: "Literal", desc: "Buscar informació explícita en el text", color: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "fa-magnifying-glass" },
       inferential: { label: "Inferencial", desc: "Deduir informació implícita a partir de pistes", color: "bg-blue-100 text-blue-800 border-blue-300", icon: "fa-lightbulb" },
@@ -166,9 +145,9 @@
     }
 
     /* ==========================================================================
-       GESTIÓ DE PUJADA D'IMATGES A FIREBASE STORAGE (CORREGIDA v0.35.2)
+       NOVA PUJADA DIRECTA DE DATA-URL SENSE DEPENDRE DE FIREBASE STORAGE (v0.35.3)
        ========================================================================== */
-    async function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
+    function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
       if (!fileInputElem) return;
       const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
       if (!file) return;
@@ -182,17 +161,14 @@
       }
       
       if (statusElem) {
-        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Pujant...`;
+        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Procesant...`;
         statusElem.className = "text-xs text-indigo-600 font-bold flex items-center gap-1";
       }
 
-      try {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `uploads/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
-        const storageRef = storage.ref(fileName);
-
-        const snapshot = await storageRef.put(file);
-        const downloadURL = await snapshot.ref.getDownloadURL();
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        const dataURL = e.target.result;
 
         let inputElem = null;
         if (optionWrapper) {
@@ -206,7 +182,7 @@
         }
 
         if (inputElem) {
-          inputElem.value = downloadURL;
+          inputElem.value = dataURL;
           
           updateImagePreview(inputElem);
           
@@ -219,19 +195,20 @@
           statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
           setTimeout(() => { if (statusElem) statusElem.innerHTML = ''; }, 3000);
         }
-      } catch (err) {
-        console.error("Error en pujar la imatge a Firebase Storage:", err);
+        fileInputElem.value = '';
+      };
+
+      reader.onerror = function(err) {
         if (statusElem) {
           statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error`;
           statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
         }
-        alert("S'ha produït un error en pujar la imatge: " + err.message);
-      } finally {
         fileInputElem.value = '';
-      }
+      };
+
+      reader.readAsDataURL(file);
     }
 
-    // ACCESSIBILITAT I VEU ALTA
     function toggleDyslexicFont() {
       isDyslexicMode = !isDyslexicMode;
       const box = document.getElementById('reading-text-box');
@@ -336,9 +313,6 @@
       }
     }
 
-    /* ==========================================================================
-       MOTOR DE PREGUNTES
-       ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
         const type = qData.questionType || 'single';
@@ -536,7 +510,6 @@
       }
     }
 
-    // OBSERVADOR D'AUTENTICACIÓ
     auth.onAuthStateChanged(async user => {
       currentUser = user;
       if (user) {
@@ -736,7 +709,6 @@
       renderBanner();
     }
 
-    // CATÀLEG GENERAL
     async function renderCatalog() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -1017,9 +989,6 @@
       }
     }
 
-    /* ==========================================================================
-       EDITOR DE LECTURES I PUJADA D'IMATGES (v0.35.2)
-       ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
       if (!currentUser) {
@@ -1225,7 +1194,7 @@
               ${cloningParentId ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar.</p>` : ''}
             </div>
 
-            <!-- PUJADA D'IMATGE A FIREBASE STORAGE (COBERTA) -->
+            <!-- PUJADA D'IMATGE A FIREBASE STORAGE / LOCAL (COBERTA) -->
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
               <label class="block text-sm font-bold text-indigo-900">Coberta del Llibre (Imatge)</label>
               <div class="flex flex-col sm:flex-row gap-2 items-center">
@@ -1426,7 +1395,6 @@
 
         <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
-        <!-- BLOC D'OPCIONS A-F -->
         <div class="q-options-wrapper space-y-2">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
             
@@ -1909,9 +1877,6 @@
       }
     }
 
-    /* ==========================================================================
-       MODAL DE CLONACIÓ DOCENT
-       ========================================================================== */
     function openCloneReadingModal(parentDocId, parentTitle) {
       if (!currentUser) { renderLogin(); return; }
       const container = document.getElementById('clone-modal-container');
@@ -1951,9 +1916,6 @@
       renderEditor(null, parentDocId);
     }
 
-    /* ==========================================================================
-       PARSER DE TEXT I LECTOR
-       ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
       let processed = rawText;
@@ -2295,9 +2257,6 @@
       }
     }
 
-    /* ==========================================================================
-       BÚSTIA DE SUGGERIMENTS I FEEDBACK
-       ========================================================================== */
     function openTeacherFeedbackModal(readingId, readingTitle, authorUid) {
       if (!currentUser) return;
       const modal = document.getElementById('feedback-modal-container');
@@ -2978,9 +2937,6 @@
       }
     }
 
-    /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.35.2)
-       ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -2999,27 +2955,26 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
-              version: "v0.35.2",
+              version: "v0.35.3",
               date: "Novembre 2026",
-              badge: "Robust Storage Upload",
+              badge: "Local DataURL Storage",
               color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Resolució robusta de contenidors i desblocat immediat d'estat.",
+              summary: "Conversió local a DataURL integrada directament a la base de dades.",
               highlights: [
-                "Targeting d'elements per `.closest('.flex-col')` per opcions de preguntes.",
-                "Neteja de l'input d'arxiu al bloc `finally` per permetre re-pujades directes.",
-                "Gestió asíncrona d'errors per prevenir estat 'Pujant...' infinit."
+                "Càrrega ultraràpida des del disc dur local.",
+                "Integració directa a Firestore sense dependre de servidors ni regles de Storage.",
+                "Funció uploadImageToFirebase 100% autònoma."
               ]
             },
             {
-              version: "v0.35.1",
+              version: "v0.35.2",
               date: "Novembre 2026",
-              badge: "Fix Storage & Preview",
+              badge: "Robust Storage Upload",
               color: "bg-indigo-500 text-white font-bold border-indigo-600",
-              summary: "Correcció de la pujada d'imatges i vista prèvia en temps real.",
+              summary: "Resolució robusta de contenidors i desblocat immediat d'estat.",
               highlights: [
-                "Targeting d'elements corregit mitjançant `closest('.q-block')`.",
-                "Actualització immediata de les miniatures i notificació d'esdeveniments `input`/`change`.",
-                "Desblocat del formulari per a poder desar preguntes visuals immediatament."
+                "Targeting d'elements per `.closest('.flex-col')` per opcions de preguntes.",
+                "Neteja de l'input d'arxiu al bloc `finally` per permetre re-pujades directes."
               ]
             },
             {
@@ -3027,89 +2982,9 @@
               date: "Novembre 2026",
               badge: "Firebase Storage",
               color: "bg-indigo-400 text-white font-bold border-indigo-500",
-              summary: "Pujada d'imatges des del dispositiu directament a Firebase Storage.",
+              summary: "Pujada d'imatges des del dispositiu.",
               highlights: [
-                "Botó 'Pujar des del dispositiu' integrat a la coberta i opcions de preguntes visuals.",
-                "Emmagatzematge privat i ràpid hosted a Google Cloud Storage.",
-                "Indicadors visuals de càrrega."
-              ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.34)",
-          blocks: [
-            {
-              version: "v0.34.0",
-              date: "Novembre 2026",
-              badge: "Pregunta Oberta & 6 Opcions",
-              color: "bg-emerald-600 text-white font-bold border-emerald-700",
-              summary: "Nou tipus de pregunta oberta autocorregible i fins a 6 opcions.",
-              highlights: [
-                "6è Tipus: Pregunta Oberta (`text_input`) amb paraules clau.",
-                "Ampliació d'opcions a l'editor fins a 6 (`A`–`F` / `1r`–`6è`).",
-                "Integració de caselles `E` i `F` en opció múltiple i ordenació."
-              ]
-            },
-            {
-              version: "v0.33.0 - v0.33.2",
-              date: "Novembre 2026",
-              badge: "Clonació & Navegació",
-              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
-              summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
-              highlights: [
-                "Botó '🌱 Adaptar Preguntes' des del Lector per duplicar qüestionaris.",
-                "Desplegable de bateries actiu a la mare i còpies.",
-                "Persistència estricta de l'ordre (`orderIndex`)."
-              ]
-            },
-            {
-              version: "v0.32.0",
-              date: "Novembre 2026",
-              badge: "Àudio-Lectura Nativa",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Síntesi de veu (Web Speech API) integrada al lector.",
-              highlights: [
-                "Àudio-lectura en català natiu sense dependències.",
-                "Control de Pausa/Reprendre, Aturada i velocitat."
-              ]
-            }
-          ]
-        },
-        {
-          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.31)",
-          blocks: [
-            {
-              version: "v0.31.0 - v0.31.1",
-              date: "Novembre 2026",
-              badge: "Lectura Adaptativa",
-              color: "bg-indigo-400 text-white font-bold border-indigo-500",
-              summary: "Mode Dislèxia, mida de font i contrast visual.",
-              highlights: [
-                "Font OpenDyslexic i major espaiat.",
-                "Ajust de mida A-/A+ i modes Sèpia/Fosc."
-              ]
-            },
-            {
-              version: "v0.30.0",
-              date: "Novembre 2026",
-              badge: "Glossari & Vocabulari",
-              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
-              summary: "Mòdul de Vocabulari Clau amb desplaçament suau.",
-              highlights: [
-                "Creació de glossaris a l'editor de la lectura.",
-                "Enllaços directes al text i desplaçament al peu de pàgina."
-              ]
-            },
-            {
-              version: "v0.1.0 - v0.29.0",
-              date: "2025 - 2026",
-              badge: "Gènesi del Projecte",
-              color: "bg-slate-50 text-slate-600 border-slate-200",
-              summary: "Primera versió del lector i Firebase.",
-              highlights: [
-                "Motor de lectures curtes i llibres amb coberta.",
-                "Connexió en temps real amb Firebase Firestore."
+                "Botó 'Pujar des del dispositiu' integrat a la coberta i opcions de preguntes visuals."
               ]
             }
           ]
@@ -3126,10 +3001,10 @@
               <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
                 <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
               </h1>
-              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
+              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.2
+              ⚡ Versió Actual: v0.35.3
             </span>
           </div>
 
