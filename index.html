@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.0</title>
+  <title>Lectura Aventura - v0.35.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -45,7 +45,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.0</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.35.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -64,7 +64,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.0 — Historial de versions</span>
+        <span>v0.35.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -93,7 +93,7 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const storage = firebase.storage(); // Inicialització de Firebase Storage
+    const storage = firebase.storage(); 
 
     const DB_COLLECTION = "lectures";
     const FOLDERS_COLLECTION = "folders";
@@ -165,13 +165,18 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
-    // GESTIÓ DE PUJADA D'IMATGES A FIREBASE STORAGE
-    async function uploadImageToFirebase(file, targetInputId, statusSpanId = null) {
+    /* ==========================================================================
+       GESTIÓ DE PUJADA D'IMATGES A FIREBASE STORAGE (CORREGIDA v0.35.1)
+       ========================================================================== */
+    async function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
+      const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
       if (!file) return;
+
+      const block = fileInputElem.closest ? fileInputElem.closest('.q-block') : null;
+      const statusElem = statusSpanId ? document.getElementById(statusSpanId) : (block ? block.querySelector('.q-upload-status') : null);
       
-      const statusElem = statusSpanId ? document.getElementById(statusSpanId) : null;
       if (statusElem) {
-        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Pujant imatge...`;
+        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Pujant...`;
         statusElem.className = "text-xs text-indigo-600 font-bold flex items-center gap-1";
       }
 
@@ -183,15 +188,24 @@
         const snapshot = await storageRef.put(file);
         const downloadURL = await snapshot.ref.getDownloadURL();
 
-        const inputElem = document.getElementById(targetInputId) || document.querySelector(`.${targetInputId}`);
+        let inputElem = null;
+        if (block) {
+          inputElem = block.querySelector('.' + targetInputClass);
+        } else {
+          inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
+        }
+
         if (inputElem) {
           inputElem.value = downloadURL;
-          // Triguem l'esdeveniment oninput si existeix per actualitzar la vista prèvia en temps real
+          
+          updateImagePreview(inputElem);
+          
           inputElem.dispatchEvent(new Event('input', { bubbles: true }));
+          inputElem.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         if (statusElem) {
-          statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Imatge pujada!`;
+          statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Carregada!`;
           statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
           setTimeout(() => { statusElem.innerHTML = ''; }, 3000);
         }
@@ -311,7 +325,7 @@
     }
 
     /* ==========================================================================
-       MOTOR DE PREGUNTES (v0.35.0: Resposta Oberta, 6 Opcions i Pujada d'Imatges)
+       MOTOR DE PREGUNTES
        ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
@@ -992,7 +1006,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I PUJADA D'IMATGES (v0.35.0: Firebase Storage Integrat)
+       EDITOR DE LECTURES I PUJADA D'IMATGES (v0.35.1)
        ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
@@ -1206,7 +1220,7 @@
                 <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="Enganxa URL o puja una imatge..." class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                 <label class="cursor-pointer shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar des del dispositiu
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'editor-image', 'upload-cover-status')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'editor-image', 'upload-cover-status')">
                 </label>
               </div>
               <span id="upload-cover-status"></span>
@@ -1412,8 +1426,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge A
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-0')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-0')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
 
@@ -1425,8 +1440,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge B
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-1')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-1')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
 
@@ -1438,8 +1454,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge C
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-2')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-2')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
 
@@ -1451,8 +1468,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge D
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-3')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-3')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
           </div>
@@ -1466,8 +1484,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge E
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-4')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-4')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
 
@@ -1479,8 +1498,9 @@
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge F
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this.files[0], 'q-opt-5')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-5')">
                 </label>
+                <span class="q-upload-status text-[10px]"></span>
               </div>
             </div>
           </div>
@@ -1612,8 +1632,10 @@
 
     function updateImagePreview(inputElem) {
       const block = inputElem.closest('.q-block');
-      const optIdx = inputElem.className.match(/q-opt-(\d)/)?.[1];
-      if (optIdx !== undefined) {
+      if (!block) return;
+      const optMatch = inputElem.className.match(/q-opt-(\d)/);
+      if (optMatch && optMatch[1] !== undefined) {
+        const optIdx = optMatch[1];
         const img = block.querySelector(`.img-preview-${optIdx}`);
         if (img) img.src = inputElem.value.trim() || `https://via.placeholder.com/100?text=${['A','B','C','D','E','F'][optIdx]}`;
       }
@@ -1654,7 +1676,6 @@
       if (badge) badge.innerText = blocks.length;
     }
 
-    // FUNCIÓ REVISADA I CORREGIDA PER A MOSTRAR ELS BOTONS DE PUJADA A LES PREGUNTES VISUALS
     function toggleQuestionAnswerType(selectElem) {
       const block = selectElem.closest('.q-block');
       const optionsWrapper = block.querySelector('.q-options-wrapper');
@@ -1668,7 +1689,6 @@
       const uploadContainers = block.querySelectorAll('.q-upload-btn-container');
       const badges = block.querySelectorAll('.opt-label-badge');
 
-      // 1. Amaguem per defecte tots els blocs especials
       optionsWrapper.classList.remove('hidden');
       singleBox.classList.add('hidden');
       multiBox.classList.add('hidden');
@@ -1677,7 +1697,6 @@
       if (textInputBox) textInputBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
-      // Amaguem els botons de pujada per defecte per a preguntes de text
       uploadContainers.forEach(c => c.classList.add('hidden'));
 
       const isOrdering = selectElem.value === 'ordering';
@@ -1690,7 +1709,6 @@
         return;
       }
 
-      // 2. Canviem les etiquetes i placeholders segons el tipus
       badges.forEach((b, idx) => {
         const labelsLetter = ['A', 'B', 'C', 'D', 'E', 'F'];
         const labelsOrder = ['1r', '2n', '3r', '4t', '5è', '6è'];
@@ -1706,7 +1724,6 @@
         }
       }
 
-      // 3. Activem les funcions concretes del tipus de pregunta seleccionat
       if (selectElem.value === 'multiple') {
         multiBox.classList.remove('hidden');
       } else if (selectElem.value === 'opinion') {
@@ -1716,7 +1733,6 @@
       } else if (isImage) {
         singleBox.classList.remove('hidden');
         if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
-        // MOSTRAR ELS BOTONS DE PUJADA A FIREBASE PER A LES OPCIONS VISUALS:
         uploadContainers.forEach(c => c.classList.remove('hidden'));
         if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
       } else {
@@ -1924,7 +1940,7 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I LECTOR (Navegació Bidireccional v0.35.0)
+       PARSER DE TEXT I LECTOR
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
@@ -2951,7 +2967,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.35.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.35.1)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -2971,15 +2987,27 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.35.1",
+              date: "Novembre 2026",
+              badge: "Fix Storage & Preview",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Correcció de la pujada d'imatges i vista prèvia en temps real.",
+              highlights: [
+                "Targeting d'elements corregit mitjançant `closest('.q-block')`.",
+                "Actualització immediata de les miniatures i notificació d'esdeveniments `input`/`change`.",
+                "Desblocat del formulari per a poder desar preguntes visuals immediatament."
+              ]
+            },
+            {
               version: "v0.35.0",
               date: "Novembre 2026",
               badge: "Firebase Storage",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              color: "bg-indigo-500 text-white font-bold border-indigo-600",
               summary: "Pujada d'imatges des del dispositiu directament a Firebase Storage.",
               highlights: [
-                "Botó 'Pujar des del dispositiu' integrat a la coberta i a les opcions de preguntes visuals.",
-                "Emmagatzematge d'imatges privat, ràpid i hosted al mateix projecte de Google.",
-                "Indicadors visuals de càrrega i actualització de vista prèvia en temps real."
+                "Botó 'Pujar des del dispositiu' integrat a la coberta i opcions de preguntes visuals.",
+                "Emmagatzematge privat i ràpid hosted a Google Cloud Storage.",
+                "Indicadors visuals de càrrega."
               ]
             },
             {
@@ -2989,11 +3017,16 @@
               color: "bg-emerald-600 text-white font-bold border-emerald-700",
               summary: "Nou tipus de pregunta oberta autocorregible i fins a 6 opcions.",
               highlights: [
-                "6è Tipus: Pregunta Oberta (`text_input`) amb avaluació automàtica per paraules clau.",
-                "Ampliació opcional d'opcions a l'editor fins a 6 (`A`–`F` / `1r`–`6è`).",
-                "Integració de caselles `E` i `F` a Opció Múltiple i Ordenació Cronològica."
+                "6è Tipus: Pregunta Oberta (`text_input`) amb paraules clau.",
+                "Ampliació d'opcions a l'editor fins a 6 (`A`–`F` / `1r`–`6è`).",
+                "Integració de caselles `E` i `F` en opció múltiple i ordenació."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.33)",
+          blocks: [
             {
               version: "v0.33.0 - v0.33.2",
               date: "Novembre 2026",
@@ -3001,16 +3034,11 @@
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
               summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
               highlights: [
-                "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
-                "Desplegable de bateries actiu a la mare i còpies per a navegar bidireccionalment.",
-                "Persistència estricta de l'ordre (`orderIndex`) i de les preguntes amb imatges/ordenació."
+                "Botó '🌱 Adaptar Preguntes' des del Lector per duplicar qüestionaris.",
+                "Desplegable de bateries actiu a la mare i còpies.",
+                "Persistència estricta de l'ordre (`orderIndex`)."
               ]
-            }
-          ]
-        },
-        {
-          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.32)",
-          blocks: [
+            },
             {
               version: "v0.32.0",
               date: "Novembre 2026",
@@ -3018,8 +3046,8 @@
               color: "bg-indigo-600 text-white font-bold border-indigo-700",
               summary: "Síntesi de veu (Web Speech API) integrada al lector.",
               highlights: [
-                "Botó d'àudio-lectura en català natiu sense dependències externes.",
-                "Control de Pausa/Reprendre, Aturada i selector de velocitat (0.8x, 1x, 1.2x)."
+                "Àudio-lectura en català natiu sense dependències.",
+                "Control de Pausa/Reprendre, Aturada i velocitat."
               ]
             },
             {
@@ -3027,12 +3055,17 @@
               date: "Novembre 2026",
               badge: "Lectura Adaptativa",
               color: "bg-indigo-400 text-white font-bold border-indigo-500",
-              summary: "Mode Dislèxia, mida de font, contrast i harmonització visual.",
+              summary: "Mode Dislèxia, mida de font i contrast visual.",
               highlights: [
-                "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
-                "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
+                "Font OpenDyslexic i major espaiat.",
+                "Ajust de mida A-/A+ i modes Sèpia/Fosc."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.30)",
+          blocks: [
             {
               version: "v0.30.0",
               date: "Novembre 2026",
@@ -3040,35 +3073,19 @@
               color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
               summary: "Mòdul de Vocabulari Clau amb desplaçament suau.",
               highlights: [
-                "Creació de glossaris terme-definició des de l'editor de la lectura.",
-                "Enllaços directes al text i preguntes amb scroll suau al peu de pàgina."
-              ]
-            }
-          ]
-        },
-        {
-          title: "🏛️ FILA 4 — ORIGENS I INFRANSTRUCTURA BASE (v0.1 – v0.29)",
-          blocks: [
-            {
-              version: "v0.27.0 - v0.29.0",
-              date: "Novembre 2026",
-              badge: "Codi Únic & Imatges",
-              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
-              summary: "Identificador #CL-00001, Selecció d'Imatges i Bústia.",
-              highlights: [
-                "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
-                "5è tipus: Selecció d'Imatges i Bústia de suggeriments en línia entre docents."
+                "Creació de glossaris a l'editor de la lectura.",
+                "Enllaços directes al text i desplaçament al peu de pàgina."
               ]
             },
             {
-              version: "v0.20.0 - v0.26.3",
+              version: "v0.20.0 - v0.29.0",
               date: "Tardor 2026",
               badge: "Taxonomia & Carpetes",
               color: "bg-purple-100 text-purple-900 border-purple-300",
               summary: "Taxonomies en 5 nivells cognitius i carpetes SA.",
               highlights: [
                 "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
-                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA)."
+                "Agrupació de lectures en Situacions d'Aprenentatge (SA)."
               ]
             },
             {
@@ -3076,10 +3093,10 @@
               date: "2025 - 2026",
               badge: "Gènesi del Projecte",
               color: "bg-slate-50 text-slate-600 border-slate-200",
-              summary: "Primera versió del lector, qüestionaris bàsics i Firebase.",
+              summary: "Primera versió del lector i Firebase.",
               highlights: [
-                "Motor de lectures curtes integrades i llibres amb coberta.",
-                "Connexió inicial en temps real amb Firebase Firestore."
+                "Motor de lectures curtes i llibres amb coberta.",
+                "Connexió en temps real amb Firebase Firestore."
               ]
             }
           ]
@@ -3099,7 +3116,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.0
+              ⚡ Versió Actual: v0.35.1
             </span>
           </div>
 
