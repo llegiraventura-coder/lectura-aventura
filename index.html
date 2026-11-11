@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.33.1</title>
+  <title>Lectura Aventura - v0.33.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Font OpenDyslexic per a accessibilitat -->
@@ -43,7 +43,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.33.1</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.33.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -62,7 +62,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.33.1 — Historial de versions</span>
+        <span>v0.33.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -911,7 +911,7 @@
     }
 
     /* ==========================================================================
-       EDITOR DE LECTURES I CLONACIÓ DOCENT (v0.33.1 COMPLET)
+       EDITOR DE LECTURES I CLONACIÓ DOCENT
        ========================================================================== */
     async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
       stopSpeechSynthesis();
@@ -959,7 +959,6 @@
           if (docSnap.exists) {
             initialData = docSnap.data();
             
-            // CORRECCIÓ: Carreguem directament ordenat per orderIndex
             let qSnap;
             try {
               qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
@@ -975,7 +974,6 @@
               initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); 
             });
 
-            // Re-ordenació estricta en memòria per si alguna vegada faltés l'índex
             initialQuestions.sort((a, b) => (a.orderIndex !== undefined ? a.orderIndex : 0) - (b.orderIndex !== undefined ? b.orderIndex : 0));
           }
         } catch (err) {
@@ -1240,7 +1238,6 @@
       }
     }
 
-    // CORRECCIÓ CLAU 2 I 3: Carregador dinàmic de preguntes a l'editor que preserva tipus, taxonomies i previsualitzacions
     function addQuestionField(data = null) {
       const container = document.getElementById('questions-container');
       if (!container) return;
@@ -1390,7 +1387,6 @@
 
       container.appendChild(qDiv);
       
-      // Forcem la re-execució per adaptar immediatament els elements visuals de la pregunta
       const selectElem = qDiv.querySelector('.q-type-select');
       if (selectElem) toggleQuestionAnswerType(selectElem);
 
@@ -1672,7 +1668,7 @@
     }
 
     /* ==========================================================================
-       PARSER DE TEXT I LECTOR
+       PARSER DE TEXT I LECTOR (v0.33.2 - NAVEGACIÓ BIDIRECCIONAL COMPLETA)
        ========================================================================== */
     function parseContentWithGlossary(rawText, glossaryList = []) {
       if (!rawText) return '';
@@ -1719,13 +1715,28 @@
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
-        // Comprovar si hi ha variants/adaptacions d'aquesta lectura mare
-        const parentIdToSearch = data.parentReadingId || docId;
-        const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', parentIdToSearch).get();
-        let variantsList = [];
+        /* ==========================================================================
+           NAVEGACIÓ BIDIRECCIONAL ENTRE ORIGINAL I ADAPTACIONS (v0.33.2)
+           ========================================================================== */
+        const rootParentId = data.parentReadingId || docId; // ID de la lectura mare original
+        
+        let parentDocData = null;
+        if (data.parentReadingId) {
+          const parentSnap = await db.collection(DB_COLLECTION).doc(data.parentReadingId).get();
+          if (parentSnap.exists) {
+            parentDocData = { id: parentSnap.id, ...parentSnap.data() };
+          }
+        } else {
+          parentDocData = { id: docId, ...data };
+        }
+
+        const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', rootParentId).get();
+        let allVariants = [];
         variantsSnap.forEach(vDoc => {
-          if (vDoc.id !== docId) variantsList.push({ id: vDoc.id, ...vDoc.data() });
+          allVariants.push({ id: vDoc.id, ...vDoc.data() });
         });
+
+        const hasBatteryOptions = parentDocData && (allVariants.length > 0);
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
@@ -1765,13 +1776,19 @@
                   <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
                 </h2>
 
-                ${(variantsList.length > 0 || data.parentReadingId) ? `
-                  <div class="flex items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200 text-xs">
-                    <i class="fa-solid fa-code-fork text-amber-600"></i>
+                ${hasBatteryOptions ? `
+                  <div class="flex items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-300 text-xs shadow-2xs">
+                    <i class="fa-solid fa-code-fork text-amber-600 text-sm"></i>
                     <span class="font-bold text-amber-900">Bateria de Preguntes:</span>
-                    <select onchange="renderReader(this.value)" class="bg-white border border-amber-300 rounded-lg p-1 text-xs font-bold text-slate-800 outline-none">
-                      <option value="${data.parentReadingId || docId}" ${!data.parentReadingId ? 'selected' : ''}>Original (${data.authorDisplayName || 'Autor/a'})</option>
-                      ${variantsList.map(v => `<option value="${v.id}" ${v.id === docId ? 'selected' : ''}>Adaptació: ${v.authorDisplayName || 'Docent'}</option>`).join('')}
+                    <select onchange="renderReader(this.value)" class="bg-white border border-amber-300 rounded-lg p-1 text-xs font-bold text-slate-800 outline-none cursor-pointer">
+                      <option value="${parentDocData.id}" ${docId === parentDocData.id ? 'selected' : ''}>
+                        📌 Original (${parentDocData.authorDisplayName || 'Autor/a'})
+                      </option>
+                      ${allVariants.map(v => `
+                        <option value="${v.id}" ${v.id === docId ? 'selected' : ''}>
+                          🌱 Adaptació: ${v.authorDisplayName || 'Docent'}${v.authorSchool ? ' (' + v.authorSchool + ')' : ''}
+                        </option>
+                      `).join('')}
                     </select>
                   </div>
                 ` : ''}
@@ -2681,7 +2698,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.33.1)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.33.2)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -2701,14 +2718,14 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
-              version: "v0.33.0 - v0.33.1",
+              version: "v0.33.0 - v0.33.2",
               date: "Novembre 2026",
-              badge: "Clonació & Cooperació",
+              badge: "Clonació & Navegació 360º",
               color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
-              summary: "Mòdul de Clonació i Adaptació Docent de Preguntes.",
+              summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
               highlights: [
                 "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
-                "Traçabilitat mare (parentReadingId), conservació de tipologies (imatges/ordenació) i ordre de preguntes."
+                "Navegació fluida bidireccional entre la lectura mare original i qualsevol adaptació de la comunitat."
               ]
             },
             {
@@ -2817,48 +2834,4 @@
         <div class="max-w-6xl mx-auto space-y-8 pb-8">
           <div class="flex items-center justify-between border-b border-slate-200 pb-4">
             <div>
-              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center transition">
-                <i class="fa-solid fa-arrow-left mr-1.5"></i> Tornar al Catàleg General
-              </button>
-              <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
-                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
-              </h1>
-              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura organitzada en matrius fixes de 3 blocs per fila</p>
-            </div>
-            <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.33.1
-            </span>
-          </div>
-
-          <div class="space-y-8">
-            ${changelogRows.map(row => `
-              <div class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-layer-group text-indigo-500"></i> ${row.title}
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  ${row.blocks.map(item => `
-                    <div class="${item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white'} p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
-                      <div>
-                        <div class="flex items-center justify-between mb-2">
-                          <span class="font-mono font-bold text-xs ${item.isPlaceholder ? 'text-slate-500' : 'text-slate-500'}">${item.version}</span>
-                          <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${item.color}">${item.badge}</span>
-                        </div>
-                        <p class="text-xs text-slate-600 font-semibold mb-3">${item.summary}</p>
-                        <div class="space-y-2 text-[11px] text-slate-700">
-                          ${item.highlights.map(h => `<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>${h}</span></p>`).join('')}
-                        </div>
-                      </div>
-                      <span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">${item.date}</span>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `;
-    }
-  </script>
-</body>
-</html>
+              <button onclick="resetFiltersAndRenderCatalog()" class="text
