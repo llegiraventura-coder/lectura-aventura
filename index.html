@@ -180,7 +180,7 @@
 
     function scrollToGlossary(e) {
       if (e) e.preventDefault();
-      const target = document.getElementById('glossary-section');
+      const target = document.getElementById('glossary-section') || document.getElementById('glossari-section');
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
@@ -651,8 +651,10 @@
         filterMyLectures = false;
       }
       renderNav();
-      isInitialRouteDone = true;
-      routeInitialView();
+      if (!isInitialRouteDone || user) {
+        isInitialRouteDone = true;
+        routeInitialView();
+      }
     });
 
     setTimeout(function() {
@@ -2953,113 +2955,3 @@
               <div><label class="block text-xs font-bold text-slate-700 mb-1">Correu electrònic *</label><input type="email" id="auth-email" required placeholder="nom@exemple.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
               <div><label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label><input type="password" id="auth-password" required minlength="6" placeholder="Mínim 6 caràcters" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
               <div id="register-extra-fields" class="hidden space-y-3 pt-2 border-t border-slate-100">
-                <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom o Pseudònim *</label><input type="text" id="auth-name" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Tria el teu Rol *</label>
-                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/40 rounded-xl text-xs font-bold text-indigo-950">
-                    <option value="alumne">🎒 Alumne/a</option>
-                    <option value="adult">🧑‍💼 Lector/a Adult/a</option>
-                    <option value="docent">👨‍🏫 Docent</option>
-                    <option value="colaborador">✍️ Col·laborador/a</option>
-                  </select>
-                </div>
-                <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre (Opcional)</label><input type="text" id="auth-school" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
-              </div>
-              <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">Entrar</button>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    function switchAuthTab(mode) {
-      document.getElementById('auth-mode').value = mode;
-      const extra = document.getElementById('register-extra-fields');
-      const btnLogin = document.getElementById('tab-login-btn');
-      const btnReg = document.getElementById('tab-register-btn');
-      const submitBtn = document.getElementById('auth-submit-btn');
-
-      if (mode === 'register') {
-        extra.classList.remove('hidden');
-        btnReg.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
-        btnLogin.className = "w-1/2 py-2 rounded-lg text-slate-600";
-        submitBtn.innerText = "Registrar-me i Començar";
-      } else {
-        extra.classList.add('hidden');
-        btnLogin.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
-        btnReg.className = "w-1/2 py-2 rounded-lg text-slate-600";
-        submitBtn.innerText = "Entrar";
-      }
-    }
-
-    async function handleAuthSubmit(e) {
-      e.preventDefault();
-      const mode = document.getElementById('auth-mode').value;
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-
-      try {
-        if (mode === 'register') {
-          const name = document.getElementById('auth-name').value || email.split('@')[0];
-          const role = document.getElementById('auth-role').value || 'alumne';
-          const school = document.getElementById('auth-school').value || '';
-
-          const cred = await auth.createUserWithEmailAndPassword(email, password);
-          await db.collection("users").doc(cred.user.uid).set({
-            email: email,
-            displayName: name,
-            role: role,
-            school: school,
-            points: 0,
-            completedReadings: [],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-        } else {
-          await auth.signInWithEmailAndPassword(email, password);
-        }
-        document.getElementById('auth-modal-container').innerHTML = '';
-      } catch (err) {
-        alert("Error d'autenticació: " + err.message);
-      }
-    }
-
-    function renderUserProfileModal() {
-      if (!currentUser) return;
-      const container = document.getElementById('profile-modal-container');
-      container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
-            <div class="flex justify-between items-center">
-              <h3 class="text-lg font-bold text-slate-800">El meu Perfil de Lectura</h3>
-              <button onclick="document.getElementById('profile-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <form onsubmit="saveUserProfile(event)" class="space-y-3">
-              <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label><input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
-              <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label><input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
-              ${userRole === 'alumne' ? '<div><label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label><input type="text" id="profile-teacher-uid" value="' + escapeHtmlAttr(userTeacherUid) + '" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"></div>' : ''}
-              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-sm">Desar dades de perfil</button>
-            </form>
-          </div>
-        </div>
-      `;
-    }
-
-    async function saveUserProfile(e) {
-      e.preventDefault();
-      const name = document.getElementById('profile-display-name').value;
-      const school = document.getElementById('profile-school').value;
-      const teacherEl = document.getElementById('profile-teacher-uid');
-      const teacherUid = teacherEl ? teacherEl.value : '';
-
-      try {
-        await db.collection("users").doc(currentUser.uid).set({
-          displayName: name,
-          school: school,
-          teacherUid: teacherUid
-        }, { merge: true });
-
-        document.getElementById('profile-modal-container').innerHTML = '';
-        await loadUserData();
-        renderNav();
-        renderCatalog();
-      } catch (err
