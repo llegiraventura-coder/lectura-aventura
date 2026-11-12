@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.36.2</title>
+  <title>Lectura Aventura - v0.36.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.2</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.36.2...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.36.3...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.36.2 — Historial de versions</span>
+        <span>v0.36.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -67,7 +67,7 @@
   <div id="feedback-modal-container"></div>
   <div id="clone-modal-container"></div>
 
-  <!-- SCRIPT 1: Captura d'errors aïllada perquè sempre s'executi encara que falli el script principal -->
+  <!-- SCRIPT 1: Captura d'errors aïllada -->
   <script>
     window.addEventListener('error', function(event) {
       var box = document.getElementById('global-error-box');
@@ -608,7 +608,6 @@
       routeInitialView();
     });
 
-    // Fallback de seguretat si Firebase Auth triga més de 2.5s a respondre
     setTimeout(function() {
       if (!isInitialRouteDone) {
         isInitialRouteDone = true;
@@ -1174,17 +1173,65 @@
       const isReadOnlyText = cloningParentId && cloningMode === 'questions';
       const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
 
+      const taxonomyGuideHTML = `
+        <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
+          <div class="flex items-center justify-between flex-wrap gap-1">
+            <h3 class="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase tracking-wide">
+              <i class="fa-solid fa-brain text-indigo-600"></i> Guia de Taxonomies i Varietat de Preguntes
+            </h3>
+            <span class="text-[11px] font-bold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded-md border border-indigo-200">
+              💡 Recomanat combinar diferents nivells i formats
+            </span>
+          </div>
+          <p class="text-xs text-indigo-900 leading-relaxed">
+            Per estimular una comprensió lectora profunda i variada, et recomanem combinar <strong>diferents tipologies cognitives</strong> (i formats com opció única, múltiple, ordenació, visual o resposta oberta) al llarg del qüestionari:
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-1">
+            <div class="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-2xs space-y-1">
+              <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <i class="fa-solid fa-magnifying-glass"></i> Literal
+              </span>
+              <p class="text-[11px] text-slate-600 leading-snug">Buscar dades i informació explícita que surt escrita al text.</p>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-blue-200 shadow-2xs space-y-1">
+              <span class="text-[10px] font-black text-blue-800 bg-blue-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <i class="fa-solid fa-lightbulb"></i> Inferencial
+              </span>
+              <p class="text-[11px] text-slate-600 leading-snug">Deduir informació implícita, causes o intencions a partir de pistes.</p>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-purple-200 shadow-2xs space-y-1">
+              <span class="text-[10px] font-black text-purple-800 bg-purple-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <i class="fa-solid fa-comments"></i> Sentit Figurat
+              </span>
+              <p class="text-[11px] text-slate-600 leading-snug">Interpretar frases fetes, metàfores, ironies i dobles sentits.</p>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-amber-200 shadow-2xs space-y-1">
+              <span class="text-[10px] font-black text-amber-900 bg-amber-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <i class="fa-solid fa-scale-balanced"></i> D'Opinió
+              </span>
+              <p class="text-[11px] text-slate-600 leading-snug">Valorar críticament els fets, els personatges o prendre postura.</p>
+            </div>
+            <div class="bg-white p-2.5 rounded-xl border border-rose-200 shadow-2xs space-y-1">
+              <span class="text-[10px] font-black text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> Creativa
+              </span>
+              <p class="text-[11px] text-slate-600 leading-snug">Imaginar finals alternatius, solucions noves o connexions personals.</p>
+            </div>
+          </div>
+        </div>
+      `;
+
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           ${isAdaptedMode ? `
-            <div class="bg-emerald-50 border border-emerald-300 p-4 rounded-2xl mb-4 text-emerald-950 text-xs font-semibold shadow-xs space-y-1">
+            <div class="bg-emerald-50 border border-emerald-300 p-4 rounded-2xl mb-3 text-emerald-950 text-xs font-semibold shadow-xs space-y-1">
               <h3 class="font-black text-sm flex items-center gap-1.5 text-emerald-900">
                 <i class="fa-solid fa-seedling text-emerald-600"></i> Mode Versió Adaptada / Simplificada (DUA)
               </h3>
               <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> i dissenyar <strong>preguntes més breus i accessibles</strong>.</p>
             </div>
           ` : (cloningParentId ? `
-            <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-4 text-amber-900 text-xs font-semibold shadow-xs">
+            <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-3 text-amber-900 text-xs font-semibold shadow-xs">
               <h3 class="font-black text-sm mb-1 flex items-center gap-1.5 text-amber-900">
                 <i class="fa-solid fa-code-fork text-amber-600"></i> Mode Bateria de Preguntes (Clonació)
               </h3>
@@ -1201,6 +1248,8 @@
               </div>
             </div>
           `)}
+
+          ${taxonomyGuideHTML}
 
           <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center">
@@ -2871,6 +2920,17 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.36.3",
+              date: "Novembre 2026",
+              badge: "Guia Taxonomies Editor",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Restauració del doble requadre superior de guia pedagògica a l'editor.",
+              highlights: [
+                "Recuperació del segon requadre superior amb l'explicació dels 5 nivells cognitius (Literal, Inferencial, Sentit Figurat, Opinió i Creativa).",
+                "Recomanació de combinar tipologies i formats per a una comprensió lectora profunda."
+              ]
+            },
+            {
               version: "v0.36.2",
               date: "Novembre 2026",
               badge: "Clean Boot & Error Shield",
@@ -2891,7 +2951,12 @@
                 "Permet al propi autor o a altres docents escurçar/simplificar el text i adaptar preguntes.",
                 "Pestanyes directes al lector (Estàndard vs Adaptada) i filtre DUA al catàleg."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
+          blocks: [
             {
               version: "v0.35.5",
               date: "Novembre 2026",
@@ -2902,12 +2967,7 @@
                 "Mode '1 imatge correcta', 'Vàries imatges correctes' (checkboxes) i 'Opinió (Totes vàlides)'.",
                 "Retrocompatibilitat completa amb totes les preguntes visuals creades prèviament."
               ]
-            }
-          ]
-        },
-        {
-          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
-          blocks: [
+            },
             {
               version: "v0.35.4",
               date: "Novembre 2026",
@@ -2929,17 +2989,6 @@
                 "Avaluació tolerant a majúscules i accents per a respostes redactades.",
                 "Botó desplegable per ampliar de 4 a 6 opcions a qualsevol tipus de pregunta."
               ]
-            },
-            {
-              version: "v0.33.2",
-              date: "Octubre 2026",
-              badge: "Clonació i Bateries",
-              color: "bg-amber-500 text-slate-900 font-bold border-amber-600",
-              summary: "Clonació de lectures i navegació bidireccional entre bateries de preguntes.",
-              highlights: [
-                "Permet adaptar les preguntes d'una lectura existent al nivell d'un grup-classe.",
-                "Selector ràpid al lector per alternar entre la bateria original i les adaptacions."
-              ]
             }
           ]
         }
@@ -2958,7 +3007,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.36.2
+              ⚡ Versió Actual: v0.36.3
             </span>
           </div>
 
