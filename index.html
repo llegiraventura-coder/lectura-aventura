@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.36.3</title>
+  <title>Lectura Aventura - v0.37.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.3</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.36.3...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.36.3 — Historial de versions</span>
+        <span>v0.37.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -66,6 +66,7 @@
   <div id="folder-modal-container"></div>
   <div id="feedback-modal-container"></div>
   <div id="clone-modal-container"></div>
+  <div id="zoom-modal-container"></div>
 
   <!-- SCRIPT 1: Captura d'errors aïllada -->
   <script>
@@ -185,7 +186,7 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
-    function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId) {
+    function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId, maxDim) {
       if (!fileInputElem) return;
       const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
       if (!file) return;
@@ -207,8 +208,8 @@
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-          const MAX_WIDTH = 800;
-          const MAX_HEIGHT = 800;
+          const MAX_WIDTH = maxDim || 900;
+          const MAX_HEIGHT = maxDim || 900;
           let width = img.width;
           let height = img.height;
 
@@ -230,10 +231,10 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          const compressedDataURL = canvas.toDataURL('image/jpeg', 0.7);
+          const compressedDataURL = canvas.toDataURL('image/jpeg', 0.78);
 
           let inputElem = null;
-          if (optionWrapper) inputElem = optionWrapper.querySelector('input[type="text"]');
+          if (optionWrapper) inputElem = optionWrapper.querySelector('input[type="text"], input[type="url"]');
           if (!inputElem && block) inputElem = block.querySelector('.' + targetInputClass);
           if (!inputElem) inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
 
@@ -264,6 +265,46 @@
       };
 
       reader.readAsDataURL(file);
+    }
+
+    function updateRefImagePreview(url) {
+      const box = document.getElementById('ref-image-preview-box');
+      const img = document.getElementById('ref-image-preview-img');
+      if (!box || !img) return;
+      const cleanUrl = (url || '').trim();
+      if (cleanUrl) {
+        img.src = cleanUrl;
+        box.classList.remove('hidden');
+      } else {
+        img.src = '';
+        box.classList.add('hidden');
+      }
+    }
+
+    function openZoomImageModal(imgSrc, title) {
+      const container = document.getElementById('zoom-modal-container');
+      if (!container || !imgSrc) return;
+      container.innerHTML = `
+        <div onclick="closeZoomImageModal()" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 cursor-zoom-out">
+          <div onclick="event.stopPropagation()" class="max-w-5xl w-full flex items-center justify-between text-white mb-3 px-2 cursor-default">
+            <span class="font-bold text-sm sm:text-base flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass-plus text-amber-400"></i>
+              <span>${escapeHtmlAttr(title || 'Imatge de referència')}</span>
+            </span>
+            <button onclick="closeZoomImageModal()" class="bg-white/15 hover:bg-white/25 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-xmark"></i> Tancar Zoom
+            </button>
+          </div>
+          <div onclick="event.stopPropagation()" class="max-w-5xl max-h-[82vh] overflow-auto bg-white p-2 rounded-2xl shadow-2xl cursor-default">
+            <img src="${imgSrc}" alt="${escapeHtmlAttr(title)}" class="max-w-full h-auto mx-auto rounded-xl">
+          </div>
+        </div>
+      `;
+    }
+
+    function closeZoomImageModal() {
+      const container = document.getElementById('zoom-modal-container');
+      if (container) container.innerHTML = '';
     }
 
     function toggleDyslexicFont() {
@@ -315,7 +356,7 @@
         return;
       }
       stopSpeechSynthesis();
-      const textElem = document.getElementById('reading-text-box');
+      const textElem = document.getElementById('reading-text-box') || document.getElementById('visual-reading-transcript');
       if (!textElem) return;
 
       currentTextToRead = textElem.innerText.trim();
@@ -841,7 +882,8 @@
                 <div>
                   <select id="type-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="all" ${filterType === 'all' ? 'selected' : ''}>📑 Tots els tipus</option>
-                    <option value="text" ${filterType === 'text' ? 'selected' : ''}>📄 Text integrat (Lectura curta)</option>
+                    <option value="text" ${filterType === 'text' ? 'selected' : ''}>📄 Text escrit (Lectura curta)</option>
+                    <option value="visual_text" ${filterType === 'visual_text' ? 'selected' : ''}>🖼️ Lectura Visual (Imatge de referència)</option>
                     <option value="book" ${filterType === 'book' ? 'selected' : ''}>📖 Llibre de lectura</option>
                   </select>
                 </div>
@@ -905,6 +947,7 @@
             const data = doc.data() || {};
             const docId = doc.id;
             const isBook = data.type === 'book';
+            const isVisualText = !isBook && data.contentFormat === 'image';
             const isCompleted = userCompletedReadings.includes(docId);
             const isAdaptedText = !!data.isAdaptedVersion;
             const hasAnnexAdaptation = adaptedParentsSet.has(docId) || isAdaptedText;
@@ -928,7 +971,12 @@
 
             const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch) || readingCode.toLowerCase().includes(filterSearch);
             const matchesBookAuthor = !filterBookAuthor || (bookAuthorName.toLowerCase().includes(filterBookAuthor));
-            const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
+
+            let itemFilterType = 'text';
+            if (isBook) itemFilterType = 'book';
+            else if (isVisualText) itemFilterType = 'visual_text';
+
+            const matchesType = filterType === 'all' || itemFilterType === filterType;
 
             let matchesLevel = filterLevel === 'all';
             if (!matchesLevel) {
@@ -975,12 +1023,14 @@
               topBannerHTML = '<div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200"><i class="fa-solid fa-seedling text-emerald-600"></i> Amb Versió Adaptada (DUA) annexa</div>';
             }
 
-            const cardBorderClass = isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200');
-            const typeBadgeClass = isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800';
-            const typeBadgeLabel = isBook ? '📖 Llibre' : '📄 Text';
+            const cardBorderClass = isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : (isVisualText ? 'border-teal-300 shadow-teal-50/50' : 'border-slate-200'));
+            const typeBadgeClass = isBook ? 'bg-purple-100 text-purple-800' : (isVisualText ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-indigo-100 text-indigo-800');
+            const typeBadgeLabel = isBook ? '📖 Llibre' : (isVisualText ? '🖼️ Lectura Visual' : '📄 Text');
             const btnReadClass = isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700';
-            const btnReadLabel = isCompleted ? 'Repetir' : (isBook ? 'Qüestionari' : 'Llegir');
+            const btnReadLabel = isCompleted ? 'Repetir' : (isBook ? 'Qüestionari' : (isVisualText ? 'Observar' : 'Llegir'));
             const btnReadSpan = isDocentOrCollab ? 'col-span-4' : 'col-span-5';
+
+            const previewImgSrc = isBook ? data.imageUrl : (isVisualText ? (data.referenceImageUrl || data.imageUrl) : '');
 
             html += `
               <div class="bg-white rounded-2xl border ${cardBorderClass} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
@@ -988,7 +1038,7 @@
 
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
-                    <div class="flex items-center gap-1.5">
+                    <div class="flex items-center gap-1.5 flex-wrap">
                       <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 border border-indigo-200/80">
                         ${readingCode}
                       </span>
@@ -1007,7 +1057,7 @@
                     </div>
                   </div>
 
-                  ${(isBook && data.imageUrl) ? '<div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100"><img src="' + data.imageUrl + '" alt="' + escapeHtmlAttr(data.title) + '" class="w-full h-full object-cover"></div>' : ''}
+                  ${previewImgSrc ? '<div class="w-full h-36 mb-3 overflow-hidden rounded-xl bg-slate-100 border border-slate-200/60"><img src="' + previewImgSrc + '" alt="' + escapeHtmlAttr(data.title) + '" class="w-full h-full object-cover"></div>' : ''}
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   <p class="text-xs font-semibold text-indigo-600 mb-2">${currentLevel}</p>
@@ -1017,7 +1067,7 @@
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <span class="block text-xs text-slate-500 flex items-center gap-1">
                       <i class="fa-solid fa-chalkboard-user text-indigo-500 text-[11px]"></i>
-                      ${isBook ? 'Preguntes de comprensió lectora:' : 'Lectura adaptada:'}
+                      ${isBook ? 'Preguntes de comprensió lectora:' : (isVisualText ? 'Lectura visual creada per:' : 'Lectura adaptada:')}
                     </span>
                     <div class="text-xs text-slate-800 font-bold">
                       ${teacherText}
@@ -1034,7 +1084,7 @@
                 <div class="p-5 pt-0 mt-auto space-y-2">
                   <div class="grid grid-cols-7 gap-1.5">
                     <button onclick="renderReader('${docId}')" class="${btnReadSpan} ${btnReadClass} text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
-                      <i class="fa-solid fa-book-open"></i>
+                      <i class="fa-solid ${isVisualText ? 'fa-eye' : 'fa-book-open'}"></i>
                       <span>${btnReadLabel}</span>
                     </button>
 
@@ -1113,6 +1163,8 @@
 
       let initialData = {
         type: 'text',
+        contentFormat: 'written',
+        referenceImageUrl: '',
         title: '',
         bookAuthor: '',
         editorialOrSource: '',
@@ -1136,7 +1188,7 @@
         try {
           const docSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).get(), 7000, "lectura a editar");
           if (docSnap.exists) {
-            initialData = docSnap.data();
+            initialData = Object.assign({}, initialData, docSnap.data());
             let qSnap;
             try {
               qSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get(), 6000, "preguntes");
@@ -1172,6 +1224,8 @@
       const isAdaptedMode = (cloningParentId && cloningMode === 'adapted') || (editingDocId && initialData.isAdaptedVersion);
       const isReadOnlyText = cloningParentId && cloningMode === 'questions';
       const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
+      const currentContentFormat = initialData.contentFormat || 'written';
+      const currentRefImg = initialData.referenceImageUrl || '';
 
       const taxonomyGuideHTML = `
         <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
@@ -1191,7 +1245,7 @@
               <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
                 <i class="fa-solid fa-magnifying-glass"></i> Literal
               </span>
-              <p class="text-[11px] text-slate-600 leading-snug">Buscar dades i informació explícita que surt escrita al text.</p>
+              <p class="text-[11px] text-slate-600 leading-snug">Buscar dades i informació explícita que surt escrita o dibuixada.</p>
             </div>
             <div class="bg-white p-2.5 rounded-xl border border-blue-200 shadow-2xs space-y-1">
               <span class="text-[10px] font-black text-blue-800 bg-blue-100 px-2 py-0.5 rounded-md inline-flex items-center gap-1">
@@ -1228,14 +1282,14 @@
               <h3 class="font-black text-sm flex items-center gap-1.5 text-emerald-900">
                 <i class="fa-solid fa-seedling text-emerald-600"></i> Mode Versió Adaptada / Simplificada (DUA)
               </h3>
-              <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> i dissenyar <strong>preguntes més breus i accessibles</strong>.</p>
+              <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> (o fer-la en format <strong>imatge/pictograma</strong>) i dissenyar <strong>preguntes més breus</strong>.</p>
             </div>
           ` : (cloningParentId ? `
             <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-3 text-amber-900 text-xs font-semibold shadow-xs">
               <h3 class="font-black text-sm mb-1 flex items-center gap-1.5 text-amber-900">
                 <i class="fa-solid fa-code-fork text-amber-600"></i> Mode Bateria de Preguntes (Clonació)
               </h3>
-              <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté integrat i enllaçat.</p>
+              <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El material original es manté integrat i enllaçat.</p>
             </div>
           ` : `
             <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
@@ -1254,7 +1308,7 @@
           <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center">
               <i class="fa-solid ${isAdaptedMode ? 'fa-seedling text-emerald-600' : (cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'))} mr-2"></i>
-              ${(isAdaptedMode && !editingDocId) ? 'Crear Versió Adaptada (Lectura Fàcil)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
+              ${(isAdaptedMode && !editingDocId) ? 'Crear Versió Adaptada (Lectura Fàcil / Visual)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
             </h1>
             <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
               <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
@@ -1267,9 +1321,40 @@
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
               <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
-                <option value="text" ${initialData.type === 'text' ? 'selected' : ''}>📄 Text Integrat (Lectura curta)</option>
+                <option value="text" ${initialData.type === 'text' ? 'selected' : ''}>📄 Lectura Curta Integrada (Text escrit o Imatge de referència)</option>
                 <option value="book" ${initialData.type === 'book' ? 'selected' : ''}>📖 Llibre de Lectura (Imatge / Coberta)</option>
               </select>
+            </div>
+
+            <!-- NOU SELECTOR DE FORMAT DEL CONTINGUT DINS DE LECTURES CURTES -->
+            <div id="wrapper-content-format" class="bg-teal-50/60 p-4 rounded-2xl border border-teal-200/90 space-y-2">
+              <label class="block text-xs font-black text-teal-950 uppercase tracking-wide flex items-center gap-1.5">
+                <i class="fa-solid fa-layer-group text-teal-600"></i> Format de la Lectura Curta *
+              </label>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <label class="cursor-pointer">
+                  <input type="radio" name="contentFormatRadio" value="written" ${currentContentFormat !== 'image' ? 'checked' : ''} onchange="setContentFormat('written')" class="peer sr-only">
+                  <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-indigo-600 peer-checked:bg-indigo-50/60 transition flex items-start gap-2.5">
+                    <span class="text-lg">📝</span>
+                    <div>
+                      <span class="block text-xs font-black text-slate-800">Text escrit</span>
+                      <span class="block text-[11px] text-slate-500 leading-tight mt-0.5">Conte, article o fragment en format paràgraf tradicional.</span>
+                    </div>
+                  </div>
+                </label>
+
+                <label class="cursor-pointer">
+                  <input type="radio" name="contentFormatRadio" value="image" ${currentContentFormat === 'image' ? 'checked' : ''} onchange="setContentFormat('image')" class="peer sr-only">
+                  <div class="p-3 rounded-xl border-2 border-slate-200 bg-white peer-checked:border-teal-600 peer-checked:bg-teal-50/80 transition flex items-start gap-2.5">
+                    <span class="text-lg">🖼️</span>
+                    <div>
+                      <span class="block text-xs font-black text-teal-950">Imatge de referència (Visual)</span>
+                      <span class="block text-[11px] text-teal-800 leading-tight mt-0.5">Cartell, pictogrames, lletra gran, còmic, entrada o infografia.</span>
+                    </div>
+                  </div>
+                </label>
+              </div>
+              <input type="hidden" id="editor-content-format" value="${currentContentFormat}">
             </div>
 
             <div>
@@ -1342,25 +1427,58 @@
               </div>
             </div>
 
+            <!-- BLOC D'IMATGE DE REFERÈNCIA (NOMÉS QUAN FORMAT = IMAGE) -->
+            <div id="wrapper-reference-image" class="hidden space-y-3 bg-teal-50/70 p-4 rounded-2xl border-2 border-teal-300/80 shadow-2xs">
+              <div class="flex items-center justify-between flex-wrap gap-1">
+                <label class="block text-sm font-black text-teal-950 flex items-center gap-1.5">
+                  <i class="fa-solid fa-image text-teal-600"></i> Imatge de Referència de la Lectura *
+                </label>
+                <span class="text-[11px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded-md">
+                  Ideal per a inicials, cartells, entrades, còmics o infografies
+                </span>
+              </div>
+
+              <div class="flex flex-col sm:flex-row gap-2 items-center">
+                <input type="text" id="editor-ref-image" value="${escapeHtmlAttr(currentRefImg)}" oninput="updateRefImagePreview(this.value)" placeholder="Enganxa l'enllaç (URL) o puja la imatge des del dispositiu..." class="w-full p-2.5 border border-teal-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white" ${isReadOnlyText ? 'readonly' : ''}>
+                ${!isReadOnlyText ? `
+                  <label class="cursor-pointer shrink-0 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge
+                    <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'editor-ref-image', 'upload-ref-status', 1100)">
+                  </label>
+                ` : ''}
+              </div>
+              <span id="upload-ref-status"></span>
+
+              <div id="ref-image-preview-box" class="${currentRefImg ? '' : 'hidden'} bg-white p-3 rounded-xl border border-teal-200 flex flex-col items-center space-y-2">
+                <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider self-start">Vista prèvia de la imatge de referència:</span>
+                <img id="ref-image-preview-img" src="${escapeHtmlAttr(currentRefImg)}" alt="Vista prèvia" class="max-h-72 w-auto rounded-lg shadow-xs border border-slate-200 object-contain">
+              </div>
+            </div>
+
+            <!-- BLOC DE TEXT ESCRIT (O TRANSCRIPCIÓ D'ÀUDIO OPCIONAL SI ÉS IMATGE) -->
             <div id="wrapper-content">
               <div class="flex justify-between items-center mb-1">
-                <label class="block text-sm font-bold text-slate-700">
+                <label id="label-editor-content" class="block text-sm font-bold text-slate-700">
                   ${isAdaptedMode ? 'Text Simplificat / Adaptat (Escurça i adapta el text original) *' : 'Text de la Lectura *'}
                 </label>
-                <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
+                <button type="button" id="btn-insert-glossary" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
                   <i class="fa-solid fa-link"></i> Marcar Vocabulari
                 </button>
               </div>
-              <textarea id="editor-content" rows="6" class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              <textarea id="editor-content" rows="6" placeholder="Escriu aquí el text de la lectura..." class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              <p id="hint-transcript-audio" class="hidden text-[11px] text-teal-800 mt-1 flex items-center gap-1">
+                <i class="fa-solid fa-headphones text-teal-600"></i>
+                <span>Opcional: Si escrius aquí el text que apareix a la imatge, s'activarà el botó <strong>Escolta (Veu alta)</strong> al lector per ajudar l'alumnat que s'inicia en la lectura.</span>
+              </p>
             </div>
 
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
               <label class="block text-sm font-bold text-indigo-900">Coberta del Llibre (Imatge)</label>
               <div class="flex flex-col sm:flex-row gap-2 items-center">
-                <input type="url" id="editor-image" value="${escapeHtmlAttr(initialData.imageUrl)}" placeholder="Enganxa URL o puja una imatge..." class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                <input type="text" id="editor-image" value="${escapeHtmlAttr(initialData.imageUrl)}" placeholder="Enganxa URL o puja una imatge..." class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                 <label class="cursor-pointer shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar des del dispositiu
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'editor-image', 'upload-cover-status')">
+                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'editor-image', 'upload-cover-status', 800)">
                 </label>
               </div>
               <span id="upload-cover-status"></span>
@@ -1426,6 +1544,12 @@
       }
     }
 
+    function setContentFormat(fmt) {
+      const hidden = document.getElementById('editor-content-format');
+      if (hidden) hidden.value = fmt;
+      toggleReadingTypeInputs();
+    }
+
     function insertGlossaryLink() {
       const textarea = document.getElementById('editor-content');
       if (!textarea) return;
@@ -1454,14 +1578,27 @@
 
     function toggleReadingTypeInputs() {
       const type = document.getElementById('editor-type').value;
+      const fmtHidden = document.getElementById('editor-content-format');
+      const contentFormat = fmtHidden ? fmtHidden.value : 'written';
+
+      const wrapFormat = document.getElementById('wrapper-content-format');
+      const wrapRefImg = document.getElementById('wrapper-reference-image');
       const wrapContent = document.getElementById('wrapper-content');
       const wrapImage = document.getElementById('wrapper-image');
       const wrapDurText = document.getElementById('wrapper-duration-text');
       const wrapDurBook = document.getElementById('wrapper-duration-book');
       const contentInput = document.getElementById('editor-content');
+      const refImgInput = document.getElementById('editor-ref-image');
+      const labelContent = document.getElementById('label-editor-content');
+      const hintTranscript = document.getElementById('hint-transcript-audio');
+      const btnGlossary = document.getElementById('btn-insert-glossary');
       const labelSource = document.getElementById('label-editorial-source');
+      const isAdapted = document.getElementById('editor-is-adapted') && document.getElementById('editor-is-adapted').value === 'true';
 
       if (type === 'book') {
+        if (wrapFormat) wrapFormat.classList.add('hidden');
+        if (wrapRefImg) wrapRefImg.classList.add('hidden');
+        if (refImgInput) refImgInput.removeAttribute('required');
         wrapContent.classList.add('hidden');
         if (contentInput) contentInput.removeAttribute('required');
         wrapImage.classList.remove('hidden');
@@ -1469,12 +1606,39 @@
         wrapDurBook.classList.remove('hidden');
         if (labelSource) labelSource.innerText = "Editorial / Any d'Edició";
       } else {
-        wrapContent.classList.remove('hidden');
-        if (contentInput) contentInput.setAttribute('required', 'true');
+        if (wrapFormat) wrapFormat.classList.remove('hidden');
         wrapImage.classList.add('hidden');
         wrapDurText.classList.remove('hidden');
         wrapDurBook.classList.add('hidden');
         if (labelSource) labelSource.innerText = "Font / Referència Legal o Enllaç";
+
+        if (contentFormat === 'image') {
+          if (wrapRefImg) wrapRefImg.classList.remove('hidden');
+          if (refImgInput) refImgInput.setAttribute('required', 'true');
+          wrapContent.classList.remove('hidden');
+          if (contentInput) {
+            contentInput.removeAttribute('required');
+            contentInput.rows = 3;
+            contentInput.placeholder = "Opcional: escriu aquí el text de la imatge per activar la lectura en veu alta...";
+          }
+          if (labelContent) labelContent.innerText = "Transcripció per a Síntesi de Veu / Text Alternatiu (Opcional)";
+          if (hintTranscript) hintTranscript.classList.remove('hidden');
+          if (btnGlossary) btnGlossary.classList.add('hidden');
+        } else {
+          if (wrapRefImg) wrapRefImg.classList.add('hidden');
+          if (refImgInput) refImgInput.removeAttribute('required');
+          wrapContent.classList.remove('hidden');
+          if (contentInput) {
+            contentInput.setAttribute('required', 'true');
+            contentInput.rows = 6;
+            contentInput.placeholder = "Escriu aquí el text de la lectura...";
+          }
+          if (labelContent) {
+            labelContent.innerText = isAdapted ? "Text Simplificat / Adaptat (Escurça i adapta el text original) *" : "Text de la Lectura *";
+          }
+          if (hintTranscript) hintTranscript.classList.add('hidden');
+          if (btnGlossary) btnGlossary.classList.remove('hidden');
+        }
       }
     }
 
@@ -1570,7 +1734,7 @@
                   <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                     <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                       <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge ${letter}
-                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}')">
+                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}', null, 800)">
                     </label>
                     <span class="q-upload-status text-[10px]"></span>
                   </div>
@@ -1591,7 +1755,7 @@
                   <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                     <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
                       <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge ${letter}
-                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}')">
+                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}', null, 800)">
                     </label>
                     <span class="q-upload-status text-[10px]"></span>
                   </div>
@@ -1816,6 +1980,8 @@
     async function saveReading(e) {
       e.preventDefault();
       const type = document.getElementById('editor-type').value || 'text';
+      const contentFormat = type === 'text' ? (document.getElementById('editor-content-format').value || 'written') : 'book';
+      const referenceImageUrl = (type === 'text' && contentFormat === 'image') ? (document.getElementById('editor-ref-image').value.trim() || '') : '';
       const title = document.getElementById('editor-title').value;
       const bookAuthor = document.getElementById('editor-book-author').value || '';
       const editorialOrSource = document.getElementById('editor-source').value || '';
@@ -1827,6 +1993,11 @@
       const content = document.getElementById('editor-content').value || '';
       const imageUrl = document.getElementById('editor-image').value || '';
       const isAdaptedVersion = document.getElementById('editor-is-adapted').value === 'true';
+
+      if (type === 'text' && contentFormat === 'image' && !referenceImageUrl) {
+        alert("Si us plau, puja una imatge de referència o enganxa'n l'enllaç abans de desar.");
+        return;
+      }
 
       const glossary = [];
       document.querySelectorAll('#glossary-container .glossary-item').forEach(function(item) {
@@ -1848,6 +2019,8 @@
         if (editingDocId) {
           await db.collection(DB_COLLECTION).doc(editingDocId).update({
             type: type,
+            contentFormat: contentFormat,
+            referenceImageUrl: referenceImageUrl,
             title: title,
             bookAuthor: bookAuthor,
             editorialOrSource: editorialOrSource,
@@ -1878,6 +2051,8 @@
 
           const docRef = await db.collection(DB_COLLECTION).add({
             type: type,
+            contentFormat: contentFormat,
+            referenceImageUrl: referenceImageUrl,
             title: title,
             bookAuthor: bookAuthor,
             editorialOrSource: editorialOrSource,
@@ -1999,22 +2174,22 @@
               <div onclick="confirmCloneReading('${parentDocId}', 'adapted')" class="cursor-pointer bg-emerald-50 hover:bg-emerald-100/80 p-4 rounded-xl border-2 border-emerald-300 transition space-y-1">
                 <div class="flex items-center justify-between">
                   <span class="font-black text-sm text-emerald-950 flex items-center gap-1.5">
-                    <i class="fa-solid fa-seedling text-emerald-600"></i> Versió Adaptada / Simplificada (Text + Preguntes)
+                    <i class="fa-solid fa-seedling text-emerald-600"></i> Versió Adaptada / Simplificada (Text o Visual + Preguntes)
                   </span>
                   <span class="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-md">Recomanat DUA</span>
                 </div>
                 <p class="text-xs text-emerald-900 leading-relaxed">
-                  Escurça i simplifica el <strong>text original</strong> anant més al gra i dissenya unes <strong>preguntes més curtetes</strong>. Quedarà annexada en una pestanya al lector.
+                  Escurça i simplifica el <strong>text original</strong> (o converteix-lo en una <strong>imatge de referència / pictogrames</strong>) i dissenya unes <strong>preguntes més curtetes</strong>. Quedarà annexada en una pestanya al lector.
                 </p>
               </div>
 
               ${!isAuthor ? `
                 <div onclick="confirmCloneReading('${parentDocId}', 'questions')" class="cursor-pointer bg-amber-50 hover:bg-amber-100/80 p-4 rounded-xl border border-amber-300 transition space-y-1">
                   <span class="font-black text-sm text-amber-950 flex items-center gap-1.5">
-                    <i class="fa-solid fa-code-fork text-amber-600"></i> Nova Bateria de Preguntes (Mateix Text)
+                    <i class="fa-solid fa-code-fork text-amber-600"></i> Nova Bateria de Preguntes (Mateix Material)
                   </span>
                   <p class="text-xs text-amber-900 leading-relaxed">
-                    Manté el <strong>text original intacte</strong> (bloquejat) i crea un nou conjunt de preguntes adaptat al teu grup-classe.
+                    Manté el <strong>contingut original intacte</strong> (bloquejat) i crea un nou conjunt de preguntes adaptat al teu grup-classe.
                   </p>
                 </div>
               ` : ''}
@@ -2072,6 +2247,10 @@
 
         const data = doc.data() || {};
         const isBook = data.type === 'book';
+        const isVisualText = !isBook && data.contentFormat === 'image';
+        const refImgUrl = data.referenceImageUrl || data.imageUrl || '';
+        const hasTranscript = isVisualText && (data.content || '').trim().length > 0;
+
         const readingNum = data.readingNumber || 1;
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
@@ -2216,24 +2395,28 @@
           `;
         }
 
-        const accessibilityToolbarHTML = !isBook ? `
+        const audioControlsHTML = `
+          <div class="flex items-center gap-1.5 bg-indigo-50/80 p-1.5 rounded-xl border border-indigo-200/80">
+            <span class="text-xs font-black text-indigo-900 px-1.5 flex items-center gap-1">
+              <i class="fa-solid fa-headphones text-indigo-600"></i> Àudio:
+            </span>
+            <button id="btn-speech-play" onclick="toggleSpeechSynthesis()" class="px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta
+            </button>
+            <button id="btn-speech-stop" onclick="stopSpeechSynthesis()" class="hidden px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition">
+              <i class="fa-solid fa-stop"></i>
+            </button>
+            <select onchange="changeSpeechRate(this.value)" class="p-1 text-xs font-bold text-indigo-900 bg-white border border-indigo-200 rounded-lg outline-none">
+              <option value="0.8">🐢 0.8x Llent</option>
+              <option value="1.0" selected>⚡ 1.0x Normal</option>
+              <option value="1.2">🚀 1.2x Ràpid</option>
+            </select>
+          </div>
+        `;
+
+        const accessibilityToolbarHTML = (!isBook && !isVisualText) ? `
           <div class="bg-slate-100 p-3 rounded-2xl border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-            <div class="flex items-center gap-1.5 bg-indigo-50/80 p-1.5 rounded-xl border border-indigo-200/80">
-              <span class="text-xs font-black text-indigo-900 px-1.5 flex items-center gap-1">
-                <i class="fa-solid fa-headphones text-indigo-600"></i> Àudio:
-              </span>
-              <button id="btn-speech-play" onclick="toggleSpeechSynthesis()" class="px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5 transition">
-                <i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta
-              </button>
-              <button id="btn-speech-stop" onclick="stopSpeechSynthesis()" class="hidden px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition">
-                <i class="fa-solid fa-stop"></i>
-              </button>
-              <select onchange="changeSpeechRate(this.value)" class="p-1 text-xs font-bold text-indigo-900 bg-white border border-indigo-200 rounded-lg outline-none">
-                <option value="0.8">🐢 0.8x Llent</option>
-                <option value="1.0" selected>⚡ 1.0x Normal</option>
-                <option value="1.2">🚀 1.2x Ràpid</option>
-              </select>
-            </div>
+            ${audioControlsHTML}
 
             <div class="flex items-center gap-2">
               <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition">
@@ -2269,6 +2452,38 @@
                   <div class="pt-0.5"><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}"><i class="fa-solid ${teacherRank.icon} text-[10px]"></i>${teacherRank.name}</span></div>
                 </div>
               </div>
+            </div>
+          `;
+        } else if (isVisualText) {
+          headerContentHTML = `
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-5 space-y-3">
+              ${bookAuthorName ? '<p class="text-sm text-slate-800 font-bold flex items-center gap-2"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>Autor/a de l\'obra: <span class="text-indigo-900 font-black">' + bookAuthorName + '</span></span></p>' : ''}
+              ${editorialOrSource ? '<p class="text-xs text-slate-500 font-medium flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-slate-400"></i><span>Font / Referència: <em>' + editorialOrSource + '</em></span></p>' : ''}
+              <div class="pt-2 border-t border-slate-200 space-y-1">
+                <span class="block text-xs text-slate-500">${isCurrentlyAdapted ? 'Versió visual adaptada per:' : 'Lectura visual creada per:'}</span>
+                <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
+                <div class="pt-0.5"><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}"><i class="fa-solid ${teacherRank.icon} text-[10px]"></i>${teacherRank.name}</span></div>
+              </div>
+            </div>
+
+            <div class="bg-teal-50/60 p-4 sm:p-5 rounded-2xl border-2 ${isCurrentlyAdapted ? 'border-emerald-400' : 'border-teal-200'} mb-6 space-y-3 shadow-xs">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-black text-teal-950 flex items-center gap-1.5">
+                  <i class="fa-solid fa-eye text-teal-600"></i> Observa amb atenció la imatge de referència:
+                </span>
+                <div class="flex items-center gap-2 flex-wrap">
+                  ${hasTranscript ? audioControlsHTML : ''}
+                  <button type="button" onclick="openZoomImageModal('${refImgUrl}', decodeURIComponent('${encodedDocTitle}'))" class="bg-teal-600 hover:bg-teal-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs shadow-xs flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i> Ampliar / Zoom
+                  </button>
+                </div>
+              </div>
+
+              <div onclick="openZoomImageModal('${refImgUrl}', decodeURIComponent('${encodedDocTitle}'))" class="bg-white p-2 sm:p-3 rounded-xl border border-teal-200/80 shadow-inner flex items-center justify-center cursor-zoom-in group overflow-hidden">
+                <img src="${refImgUrl}" alt="${escapeHtmlAttr(data.title)}" class="max-h-[540px] w-auto max-w-full rounded-lg object-contain group-hover:scale-[1.01] transition duration-200">
+              </div>
+
+              ${hasTranscript ? '<div id="visual-reading-transcript" class="sr-only">' + data.content + '</div>' : ''}
             </div>
           `;
         } else {
@@ -2911,7 +3126,7 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.37.0 (PDF)", color: "bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.38.0 (PDF)", color: "bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
             { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
             { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
           ]
@@ -2919,6 +3134,17 @@
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.37.0",
+              date: "Novembre 2026",
+              badge: "Lectura Visual / Referència",
+              color: "bg-teal-600 text-white font-bold border-teal-700",
+              summary: "Lectures curtes basades en imatge de referència per a inicials i textos discontinus.",
+              highlights: [
+                "Selector de format dins de lectures curtes: Text escrit vs Imatge de referència (cartells, pictogrames, lletra gran, còmic).",
+                "Vista prèvia a l'editor, Lightbox amb Zoom ampliable al lector, filtre al catàleg i transcripció opcional per àudio."
+              ]
+            },
             {
               version: "v0.36.3",
               date: "Novembre 2026",
@@ -2940,7 +3166,12 @@
                 "Separació de l'escut de diagnòstic d'errors en un script independent a la capçalera.",
                 "Eliminació de la doble crida simultània d'arrencada del catàleg i sanejament de plantilles."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
+          blocks: [
             {
               version: "v0.36.0",
               date: "Novembre 2026",
@@ -2951,12 +3182,7 @@
                 "Permet al propi autor o a altres docents escurçar/simplificar el text i adaptar preguntes.",
                 "Pestanyes directes al lector (Estàndard vs Adaptada) i filtre DUA al catàleg."
               ]
-            }
-          ]
-        },
-        {
-          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
-          blocks: [
+            },
             {
               version: "v0.35.5",
               date: "Novembre 2026",
@@ -2973,21 +3199,10 @@
               date: "Novembre 2026",
               badge: "Image Compression Engine",
               color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Redimensionament i compressió automàtica d'imatges a Canvas (màx 800px, 70% JPEG).",
+              summary: "Redimensionament i compressió automàtica d'imatges a Canvas (màx 800-1100px).",
               highlights: [
-                "Reducció del pes de la imatge d'1.7 MB a uns 50-90 KB.",
-                "Solució definitiva a l'error de límit de mida de Firestore (1 MB max)."
-              ]
-            },
-            {
-              version: "v0.34.0",
-              date: "Octubre 2026",
-              badge: "Text Input & 6 Opcions",
-              color: "bg-emerald-600 text-white font-bold border-emerald-700",
-              summary: "Preguntes obertes autocorregibles per paraules clau i ampliació fins a 6 opcions (A–F).",
-              highlights: [
-                "Avaluació tolerant a majúscules i accents per a respostes redactades.",
-                "Botó desplegable per ampliar de 4 a 6 opcions a qualsevol tipus de pregunta."
+                "Reducció del pes de la imatge per complir sempre el límit d'1 MB de Firestore.",
+                "Càrrega directa des del dispositiu sense dependre de permisos externs."
               ]
             }
           ]
@@ -3007,7 +3222,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.36.3
+              ⚡ Versió Actual: v0.37.0
             </span>
           </div>
 
