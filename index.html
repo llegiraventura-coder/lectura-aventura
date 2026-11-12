@@ -986,20 +986,24 @@
                 </div>
 
                 <div class="p-5 pt-0 mt-auto space-y-2">
-                  <div class="grid grid-cols-6 gap-1.5">
-                    <button onclick="renderReader('${docId}')" class="${isDocentOrCollab ? 'col-span-4' : 'col-span-5'} ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2">
+                  <div class="grid grid-cols-7 gap-1.5">
+                    <button onclick="renderReader('${docId}')" class="${isDocentOrCollab ? 'col-span-4' : 'col-span-5'} ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
                       <i class="fa-solid fa-book-open"></i>
-                      <span>${isCompleted ? 'Tornar a llegir' : (isBook ? 'Anar al Qüestionari' : 'Llegir i Respondre')}</span>
+                      <span>${isCompleted ? 'Repetir' : (isBook ? 'Qüestionari' : 'Llegir')}</span>
                     </button>
 
                     ${isDocentOrCollab ? `
                       <button onclick="openAddToFolderModal('${docId}')" title="Afegir a una Carpeta / SA" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200">
-                        <i class="fa-solid fa-folder-plus text-base text-amber-700"></i>
+                        <i class="fa-solid fa-folder-plus text-sm text-amber-700"></i>
                       </button>
                     ` : ''}
                     
+                    <button onclick="shareToGoogleClassroom('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" title="Enviar a Google Classroom" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
+                      <i class="fa-solid fa-chalkboard text-sm"></i>
+                    </button>
+
                     <button onclick="shareReadingLink('${docId}', '${readingCode}')" title="Copiar enllaç directe" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-indigo-200">
-                      <i class="fa-solid fa-share-nodes text-base"></i>
+                      <i class="fa-solid fa-share-nodes text-sm"></i>
                     </button>
                   </div>
 
@@ -1122,8 +1126,9 @@
               <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté enllaçat i les preguntes originals s'han duplicat amb la seva tipologia i ordre intactes.</p>
             </div>
           ` : `
+            <!-- REQUADRE GUIA 1: QUALITAT EDITORIAL -->
             <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
-              <h3 class="text-xs font-black text-amber-900 mb-1 flex items-center gap-1.5 uppercase tracking-wide">
+              <h3 class="text-xs font-black text-amber-900 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
                 <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
               </h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-900">
@@ -1134,6 +1139,38 @@
                 <div class="flex items-center gap-1.5">
                   <i class="fa-solid fa-bullseye text-indigo-600"></i>
                   <span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- REQUADRE GUIA 2: VARIETAT DE PREGUNTES I LES 5 TAXONOMIES COGNITIVES (RESTAURAT) -->
+            <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
+              <h3 class="text-xs font-black text-indigo-900 flex items-center gap-1.5 uppercase tracking-wide">
+                <i class="fa-solid fa-brain text-indigo-600"></i> Varietat de Preguntes i Nivells de Comprensió
+              </h3>
+              <p class="text-xs text-indigo-950 font-medium leading-relaxed">
+                Per oferir una experiència rica als lectors, et demanem <strong>varietat en la tipologia de preguntes</strong> combinant aquests 5 nivells cognitius:
+              </p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                <div class="bg-white/90 p-2 rounded-xl border border-emerald-200 flex items-start gap-2">
+                  <span class="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded shrink-0">🟢 Literal</span>
+                  <span class="text-slate-700">Buscar dades i informació explícita que apareix escrita al text.</span>
+                </div>
+                <div class="bg-white/90 p-2 rounded-xl border border-blue-200 flex items-start gap-2">
+                  <span class="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded shrink-0">🔵 Inferencial</span>
+                  <span class="text-slate-700">Deduir informació implícita, causes o intencions a partir de pistes.</span>
+                </div>
+                <div class="bg-white/90 p-2 rounded-xl border border-purple-200 flex items-start gap-2">
+                  <span class="bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded shrink-0">🟣 Sentit Figurat</span>
+                  <span class="text-slate-700">Desxifrar metàfores, frases fetes, ironies o llenguatge no literal.</span>
+                </div>
+                <div class="bg-white/90 p-2 rounded-xl border border-amber-200 flex items-start gap-2">
+                  <span class="bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded shrink-0">💬 D'Opinió</span>
+                  <span class="text-slate-700">Valorar fets, jutjar actituds o donar el punt de vista crític personal.</span>
+                </div>
+                <div class="bg-white/90 p-2 rounded-xl border border-rose-200 flex items-start gap-2 sm:col-span-2">
+                  <span class="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded shrink-0">🎨 Creativa</span>
+                  <span class="text-slate-700">Imaginar finals alternatius, solucions noves o connectar amb l'expressió artística.</span>
                 </div>
               </div>
             </div>
@@ -1233,7 +1270,7 @@
             <div id="wrapper-content">
               <div class="flex justify-between items-center mb-1">
                 <label class="block text-sm font-bold text-slate-700">Text de la Lectura *</label>
-                <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-808 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
+                <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
                   <i class="fa-solid fa-link"></i> Marcar Vocabulari
                 </button>
               </div>
@@ -2283,18 +2320,23 @@
 
         app.innerHTML = `
           <div id="reader-top-anchor" class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
               <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
               
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 ${(isDocentOrCollab && !isAuthor) ? `
-                  <button onclick="openCloneReadingModal('${docId}', '${data.title || 'Lectura'}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                  <button onclick="openCloneReadingModal('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
                     <i class="fa-solid fa-code-fork"></i>
                     <span>🌱 Adaptar Preguntes</span>
                   </button>
                 ` : ''}
+
+                <button onclick="shareToGoogleClassroom('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-chalkboard"></i>
+                  <span>Classroom</span>
+                </button>
 
                 <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
                   ${readingCode}
@@ -2313,7 +2355,7 @@
                   <strong class="block font-bold">💬 Bústia Docent de Millora i Col·laboració:</strong>
                   Has trobat cap errada o vols deixar un comentari o suggeriment al creador/a d'aquesta lectura?
                 </div>
-                <button onclick="openTeacherFeedbackModal('${docId}', '${data.title || 'Lectura'}', '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
+                <button onclick="openTeacherFeedbackModal('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}', '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
                   <i class="fa-solid fa-paper-plane"></i>
                   <span>Enviar suggeriment al docent</span>
                 </button>
@@ -2348,7 +2390,7 @@
 
             <div class="flex justify-end space-x-2 pt-2">
               <button onclick="modal.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
-              <button onclick="sendTeacherFeedback('${readingId}', '${readingTitle}', '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+              <button onclick="sendTeacherFeedback('${readingId}', '${readingTitle.replace(/'/g, "\\'")}', '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
                 Enviar Suggeriment
               </button>
             </div>
@@ -2895,6 +2937,128 @@
       }
     }
 
+    function renderLogin() {
+      const modal = document.getElementById('auth-modal-container');
+      modal.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div class="bg-white p-6 md:p-8 rounded-2xl max-w-lg w-full space-y-5 shadow-2xl my-8">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-book-open text-indigo-600"></i> Accés a Lectura Aventura
+              </h3>
+              <button onclick="modal.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <!-- MANIFEST COL·LABORATIU (v0.17.0) -->
+            <div class="bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200 text-xs text-indigo-950 space-y-1.5">
+              <p class="font-bold flex items-center gap-1.5 text-indigo-800">
+                <i class="fa-solid fa-handshake-angle text-indigo-600"></i> Comunitat Oberta de Comprensió Lectora
+              </p>
+              <p class="leading-relaxed text-slate-700">
+                Un espai col·laboratiu on docents i famílies comparteixen lectures adaptades i qüestionaris gamificats per fomentar el gust per llegir.
+              </p>
+            </div>
+
+            <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button type="button" id="tab-login-btn" onclick="switchAuthTab('login')" class="w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs">Ja tinc compte</button>
+              <button type="button" id="tab-register-btn" onclick="switchAuthTab('register')" class="w-1/2 py-2 rounded-lg text-slate-600">Crear compte nou</button>
+            </div>
+
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-3">
+              <input type="hidden" id="auth-mode" value="login">
+              
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Correu electrònic *</label>
+                <input type="email" id="auth-email" required placeholder="nom@exemple.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label>
+                <input type="password" id="auth-password" required minlength="6" placeholder="Mínim 6 caràcters" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+              </div>
+
+              <div id="register-extra-fields" class="hidden space-y-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Nom o Pseudònim *</label>
+                  <input type="text" id="auth-name" placeholder="Com vols que et vegem?" class="w-full p-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Tria el teu Rol a la plataforma *</label>
+                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/40 rounded-xl text-xs font-bold text-indigo-950 outline-none">
+                    <option value="alumne">🎒 Alumne/a (Llegeix, respon i guanya punts)</option>
+                    <option value="adult">🧑‍💼 Lector/a Adult/a (CFA, autoaprenentatge o oci)</option>
+                    <option value="docent">👨‍🏫 Docent (Crea lectures, carpetes SA i segueix alumnes)</option>
+                    <option value="colaborador">✍️ Col·laborador/a (Famílies o creadors de lectures)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu (Opcional)</label>
+                  <input type="text" id="auth-school" placeholder="Ex: Escola Sant Jordi" class="w-full p-2 border border-slate-300 rounded-xl text-sm">
+                </div>
+              </div>
+
+              <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">
+                Entrar
+              </button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function switchAuthTab(mode) {
+      document.getElementById('auth-mode').value = mode;
+      const extra = document.getElementById('register-extra-fields');
+      const btnLogin = document.getElementById('tab-login-btn');
+      const btnReg = document.getElementById('tab-register-btn');
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      if (mode === 'register') {
+        extra.classList.remove('hidden');
+        btnReg.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
+        btnLogin.className = "w-1/2 py-2 rounded-lg text-slate-600";
+        submitBtn.innerText = "Registrar-me i Començar";
+      } else {
+        extra.classList.add('hidden');
+        btnLogin.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
+        btnReg.className = "w-1/2 py-2 rounded-lg text-slate-600";
+        submitBtn.innerText = "Entrar";
+      }
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const mode = document.getElementById('auth-mode').value;
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      try {
+        if (mode === 'register') {
+          const name = document.getElementById('auth-name').value || email.split('@')[0];
+          const role = document.getElementById('auth-role').value || 'alumne';
+          const school = document.getElementById('auth-school').value || '';
+
+          const cred = await auth.createUserWithEmailAndPassword(email, password);
+          await db.collection("users").doc(cred.user.uid).set({
+            email: email,
+            displayName: name,
+            role: role,
+            school: school,
+            points: 0,
+            completedReadings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          await auth.signInWithEmailAndPassword(email, password);
+        }
+        document.getElementById('auth-modal-container').innerHTML = '';
+      } catch (err) {
+        alert("Error d'autenticació: " + err.message);
+      }
+    }
+
     function renderUserProfileModal() {
       if (!currentUser) return;
       const container = document.getElementById('profile-modal-container');
@@ -2955,6 +3119,14 @@
       prompt("Copia aquest enllaç directe a la carpeta:", shareUrl);
     }
 
+    function shareToGoogleClassroom(docId, title) {
+      const baseUrl = window.location.href.split('?')[0];
+      const targetUrl = encodeURIComponent(`${baseUrl}?lectura=${docId}`);
+      const encodedTitle = encodeURIComponent(`Lectura Aventura: ${title}`);
+      const classroomUrl = `https://classroom.google.com/u/0/share?url=${targetUrl}&title=${encodedTitle}`;
+      window.open(classroomUrl, '_blank', 'width=650,height=550');
+    }
+
     function resetFiltersAndRenderCatalog() {
       stopSpeechSynthesis();
       if (window.location.search) {
@@ -3006,6 +3178,9 @@
       }
     }
 
+    /* ==========================================================================
+       HISTORIAL DE VERSIONS EN MATRIU COMPLETA DE 4 FILES (12 REQUADRES INTACTES)
+       ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -3056,6 +3231,82 @@
               ]
             }
           ]
+        },
+        {
+          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
+          blocks: [
+            {
+              version: "v0.34.0",
+              date: "Octubre 2026",
+              badge: "Text Input & 6 Opcions",
+              color: "bg-emerald-600 text-white font-bold border-emerald-700",
+              summary: "Preguntes obertes autocorregibles per paraules clau i ampliació fins a 6 opcions (A–F).",
+              highlights: [
+                "Avaluació tolerant a majúscules i accents per a respostes redactades.",
+                "Botó desplegable per ampliar de 4 a 6 opcions a qualsevol tipus de pregunta."
+              ]
+            },
+            {
+              version: "v0.33.2",
+              date: "Octubre 2026",
+              badge: "Clonació i Bateries",
+              color: "bg-amber-500 text-slate-900 font-bold border-amber-600",
+              summary: "Clonació de lectures i navegació bidireccional entre bateries de preguntes.",
+              highlights: [
+                "Permet adaptar les preguntes d'una lectura existent al nivell d'un grup-classe.",
+                "Selector ràpid al lector per alternar entre la bateria original i les adaptacions."
+              ]
+            },
+            {
+              version: "v0.32.0",
+              date: "Octubre 2026",
+              badge: "Inclusió i Veu Alta",
+              color: "bg-blue-600 text-white font-bold border-blue-700",
+              summary: "Barra d'accessibilitat (OpenDyslexic, Sèpia, Contrast) i àudio-lectura en català.",
+              highlights: [
+                "Síntesi de veu nativa (Web Speech API) amb control de pausa i velocitat (0.8x–1.2x).",
+                "Glossari interactiu integrat amb desplaçament suau."
+              ]
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — FONAMENTS, TAXONOMIA I COMUNITAT DOCENT",
+          blocks: [
+            {
+              version: "v0.29.0",
+              date: "Setembre 2026",
+              badge: "Xarxa i Bústia Docent",
+              color: "bg-purple-600 text-white font-bold border-purple-700",
+              summary: "Bústia de suggeriments entre docents i preguntes visuals amb imatges.",
+              highlights: [
+                "Comunicació directa per millorar lectures compartides.",
+                "Ordenació cronològica de fets amb fletxes dinàmiques (v0.27.0)."
+              ]
+            },
+            {
+              version: "v0.26.0",
+              date: "Setembre 2026",
+              badge: "Taxonomia Cognitiva",
+              color: "bg-slate-700 text-white font-bold border-slate-800",
+              summary: "Classificació en 5 nivells cognitius i modal de feedback desglossat.",
+              highlights: [
+                "Avaluació diferenciada: Literal, Inferencial, Sentit Figurat, Opinió i Creativa.",
+                "Carpetes i Situacions d'Aprenentatge (SA) amb enllaços compartibles (v0.21.0)."
+              ]
+            },
+            {
+              version: "v0.19.0",
+              date: "Agost 2026",
+              badge: "Arquitectura Base",
+              color: "bg-slate-600 text-white font-bold border-slate-700",
+              summary: "Sistema de 4 rols, gamificació per rangs, Google Classroom i panell d'aula.",
+              highlights: [
+                "Rols diferenciats per a Alumnes, Adults, Docents i Col·laboradors.",
+                "Classificació per Grup, Centre i Global amb seguiment de progrés."
+              ]
+            }
+          ]
         }
       ];
 
@@ -3087,7 +3338,7 @@
                     <div class="${item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white'} p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
                       <div>
                         <div class="flex items-center justify-between mb-2">
-                          <span class="font-mono font-bold text-xs ${item.isPlaceholder ? 'text-slate-500' : 'text-slate-500'}">${item.version}</span>
+                          <span class="font-mono font-bold text-xs text-slate-500">${item.version}</span>
                           <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${item.color}">${item.badge}</span>
                         </div>
                         <p class="text-xs text-slate-600 font-semibold mb-3">${item.summary}</p>
