@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.4</title>
+  <title>Lectura Aventura - v0.35.5</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.4</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.35.5</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -50,7 +50,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.4 — Historial de versions</span>
+        <span>v0.35.5 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -145,7 +145,7 @@
     }
 
     /* ==========================================================================
-       PUJADA DIRECTA AMB COMPRESSIÓ AUTOMÀTICA PER EVITAR EL LÍMIT DE FIRESTORE (v0.35.4)
+       PUJADA DIRECTA AMB COMPRESSIÓ AUTOMÀTICA PER EVITAR EL LÍMIT DE FIRESTORE
        ========================================================================== */
     function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
       if (!fileInputElem) return;
@@ -349,9 +349,13 @@
       }
     }
 
+    /* ==========================================================================
+       MOTOR DE PREGUNTES (SUPORTA 1 IMATGE, MÚLTIPLE IMATGES I OPINIÓ IMATGES)
+       ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
         const type = qData.questionType || 'single';
+        const imgMode = qData.imageSelectionMode || 'single';
         const taxonomy = qData.taxonomyType || 'literal';
         const taxConfig = TAXONOMY_CONFIG[taxonomy] || TAXONOMY_CONFIG.literal;
         
@@ -363,7 +367,10 @@
         if (type === 'multiple') badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple (${options.length} opcions)</span>`;
         else if (type === 'opinion') badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió</span>`;
         else if (type === 'ordering') badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació (${options.length} fets)</span>`;
-        else if (type === 'image_single') badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Selecció d'Imatge</span>`;
+        else if (type === 'image_single') {
+          const modeLabel = imgMode === 'multiple' ? '☑️ Múltiple' : (imgMode === 'opinion' ? '💬 Opinió' : '');
+          badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Imatges ${modeLabel}</span>`;
+        }
         else if (type === 'text_input') badgeHTML = `<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>`;
 
         const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
@@ -384,6 +391,9 @@
         } else if (type === 'image_single') {
           const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
           const colsClass = options.length > 4 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2';
+          const inputType = imgMode === 'multiple' ? 'checkbox' : 'radio';
+          const reqAttr = imgMode === 'multiple' ? '' : 'required';
+
           optionsHTML = `<div class="grid ${colsClass} gap-3 mt-2">`;
           options.forEach((optImgUrl, oIdx) => {
             const letter = letterLabels[oIdx] || '';
@@ -391,7 +401,7 @@
             optionsHTML += `
               <label class="group relative flex flex-col items-center bg-white p-2.5 rounded-xl border-2 border-slate-200 cursor-pointer hover:border-indigo-500 hover:shadow-md transition">
                 <div class="absolute top-2 left-2 z-10 flex items-center gap-1.5 bg-slate-900/80 text-white text-xs font-bold px-2 py-1 rounded-lg backdrop-blur-xs">
-                  <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
+                  <input type="${inputType}" name="q_${qDocId}" value="${oIdx}" ${reqAttr} class="w-4 h-4 text-indigo-600 focus:ring-indigo-500">
                   <span>Opció ${letter}</span>
                 </div>
                 <div class="w-full h-36 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
@@ -482,6 +492,7 @@
 
       evaluate(qData, qDocId, formData) {
         const type = qData.questionType || 'single';
+        const imgMode = qData.imageSelectionMode || 'single';
 
         if (type === 'text_input') {
           const userText = formData.get(`q_${qDocId}`) || '';
@@ -504,10 +515,10 @@
           if (!val) return false;
           const userSequence = val.split(',').map(v => parseInt(v));
           return userSequence.every((v, idx) => v === idx);
-        } else if (type === 'opinion') {
+        } else if (type === 'opinion' || (type === 'image_single' && imgMode === 'opinion')) {
           const selected = formData.get(`q_${qDocId}`);
           return selected !== null && selected !== undefined;
-        } else if (type === 'multiple') {
+        } else if (type === 'multiple' || (type === 'image_single' && imgMode === 'multiple')) {
           const selectedVals = formData.getAll(`q_${qDocId}`).map(v => parseInt(v)).sort();
           let correctVals = [];
           if (Array.isArray(qData.correctAnswers)) {
@@ -1365,6 +1376,7 @@
       const qText = data ? (data.questionText || data.pregunta || '') : '';
       const opts = data ? (data.options || data.opcions || ['', '', '', '']) : ['', '', '', ''];
       const qType = data ? (data.questionType || 'single') : 'single';
+      const imgMode = data ? (data.imageSelectionMode || 'single') : 'single';
       const qTaxonomy = data ? (data.taxonomyType || 'literal') : 'literal';
       
       let qKeywords = '';
@@ -1405,6 +1417,12 @@
               <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
               <option value="image_single" ${qType === 'image_single' ? 'selected' : ''}>🖼️ Selecció d'Imatge (Respostes visuals)</option>
               <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>✍️ Resposta Oberta (Text/Paraules clau)</option>
+            </select>
+
+            <select class="q-img-mode-select hidden p-1 text-xs border border-teal-300 rounded-md font-bold text-teal-900 bg-teal-50 outline-none" onchange="toggleQuestionAnswerType(this)">
+              <option value="single" ${imgMode === 'single' ? 'selected' : ''}>🔘 1 imatge correcta</option>
+              <option value="multiple" ${imgMode === 'multiple' ? 'selected' : ''}>☑️ Vàries imatges correctes</option>
+              <option value="opinion" ${imgMode === 'opinion' ? 'selected' : ''}>💬 Opinió (Totes vàlides)</option>
             </select>
 
             <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
@@ -1692,8 +1710,12 @@
       if (badge) badge.innerText = blocks.length;
     }
 
-    function toggleQuestionAnswerType(selectElem) {
-      const block = selectElem.closest('.q-block');
+    function toggleQuestionAnswerType(elem) {
+      const block = elem.closest('.q-block');
+      const mainType = block.querySelector('.q-type-select').value;
+      const imgModeSelect = block.querySelector('.q-img-mode-select');
+      const imgMode = imgModeSelect ? imgModeSelect.value : 'single';
+
       const optionsWrapper = block.querySelector('.q-options-wrapper');
       const singleBox = block.querySelector('.q-single-box');
       const singleLabel = block.querySelector('.q-single-label');
@@ -1710,14 +1732,15 @@
       multiBox.classList.add('hidden');
       opinionBox.classList.add('hidden');
       orderingBox.classList.add('hidden');
+      if (imgModeSelect) imgModeSelect.classList.add('hidden');
       if (textInputBox) textInputBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
       uploadContainers.forEach(c => c.classList.add('hidden'));
 
-      const isOrdering = selectElem.value === 'ordering';
-      const isImage = selectElem.value === 'image_single';
-      const isTextInput = selectElem.value === 'text_input';
+      const isOrdering = mainType === 'ordering';
+      const isImage = mainType === 'image_single';
+      const isTextInput = mainType === 'text_input';
 
       if (isTextInput) {
         optionsWrapper.classList.add('hidden');
@@ -1740,17 +1763,25 @@
         }
       }
 
-      if (selectElem.value === 'multiple') {
+      if (mainType === 'multiple') {
         multiBox.classList.remove('hidden');
-      } else if (selectElem.value === 'opinion') {
+      } else if (mainType === 'opinion') {
         opinionBox.classList.remove('hidden');
-      } else if (selectElem.value === 'ordering') {
+      } else if (mainType === 'ordering') {
         orderingBox.classList.remove('hidden');
       } else if (isImage) {
-        singleBox.classList.remove('hidden');
+        if (imgModeSelect) imgModeSelect.classList.remove('hidden');
         if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
         uploadContainers.forEach(c => c.classList.remove('hidden'));
-        if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
+
+        if (imgMode === 'multiple') {
+          multiBox.classList.remove('hidden');
+        } else if (imgMode === 'opinion') {
+          opinionBox.classList.remove('hidden');
+        } else {
+          singleBox.classList.remove('hidden');
+          if (singleLabel) singleLabel.innerText = "Quina és la imatge correcta?";
+        }
       } else {
         singleBox.classList.remove('hidden');
         if (singleLabel) singleLabel.innerText = "Quina és la resposta correcta?";
@@ -1846,6 +1877,7 @@
         for (const block of qBlocks) {
           const qText = block.querySelector('.q-text').value;
           const qType = block.querySelector('.q-type-select')?.value || 'single';
+          const imgMode = block.querySelector('.q-img-mode-select')?.value || 'single';
           const taxonomyType = block.querySelector('.q-taxonomy-select')?.value || 'literal';
 
           if (qType === 'text_input') {
@@ -1875,13 +1907,14 @@
                 questionText: qText,
                 options: options,
                 questionType: qType,
+                imageSelectionMode: imgMode,
                 taxonomyType: taxonomyType,
                 orderIndex: orderIndex
               };
 
-              if (qType === 'opinion' || qType === 'ordering') {
+              if (qType === 'opinion' || qType === 'ordering' || (qType === 'image_single' && imgMode === 'opinion')) {
                 await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
-              } else if (qType === 'multiple') {
+              } else if (qType === 'multiple' || (qType === 'image_single' && imgMode === 'multiple')) {
                 const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
                 const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
 
@@ -2991,6 +3024,17 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.35.5",
+              date: "Novembre 2026",
+              badge: "Visual Multiple & Opinion",
+              color: "bg-teal-600 text-white font-bold border-teal-700",
+              summary: "Selector de mode de correcció en preguntes amb imatges.",
+              highlights: [
+                "Mode '1 imatge correcta', 'Vàries imatges correctes' (checkboxes) i 'Opinió (Totes vàlides)'.",
+                "Retrocompatibilitat completa amb totes les preguntes visuals creades prèviament."
+              ]
+            },
+            {
               version: "v0.35.4",
               date: "Novembre 2026",
               badge: "Image Compression Engine",
@@ -2998,8 +3042,7 @@
               summary: "Redimensionament i compressió automàtica d'imatges a Canvas (màx 800px, 70% JPEG).",
               highlights: [
                 "Reducció del pes de la imatge d'1.7 MB a uns 50-90 KB.",
-                "Solució definitiva a l'error de límit de mida de Firestore (1 MB max).",
-                "Càrrega ultraràpida i fluida sense pèrdua de qualitat visual."
+                "Solució definitiva a l'error de límit de mida de Firestore (1 MB max)."
               ]
             },
             {
@@ -3009,18 +3052,7 @@
               color: "bg-indigo-500 text-white font-bold border-indigo-600",
               summary: "Conversió local a DataURL integrada directament a la base de dades.",
               highlights: [
-                "Càrrega ultraràpida des del disc dur local.",
-                "Integració directa a Firestore sense dependre de servidors ni regles de Storage."
-              ]
-            },
-            {
-              version: "v0.35.0",
-              date: "Novembre 2026",
-              badge: "Firebase Storage",
-              color: "bg-indigo-400 text-white font-bold border-indigo-500",
-              summary: "Pujada d'imatges des del dispositiu.",
-              highlights: [
-                "Botó 'Pujar des del dispositiu' integrat a la coberta i opcions de preguntes visuals."
+                "Càrrega ultraràpida des del disc dur local sense dependre de regles de Storage."
               ]
             }
           ]
@@ -3040,7 +3072,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.4
+              ⚡ Versió Actual: v0.35.5
             </span>
           </div>
 
