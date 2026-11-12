@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.35.5</title>
+  <title>Lectura Aventura - v0.36.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.35.5</span>
+          <span class="text-[10px] text-indigo-200 font-mono">v0.36.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -50,7 +50,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.35.5 — Historial de versions</span>
+        <span>v0.36.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -95,6 +95,7 @@
     let filterMyLectures = false;
     let editingDocId = null;
     let cloningParentId = null;
+    let cloningMode = 'questions'; // 'questions' (text bloquejat) o 'adapted' (text simplificable DUA + preguntes)
     let currentLeaderboardTab = 'group';
 
     let isDyslexicMode = false;
@@ -764,6 +765,16 @@
       try {
         const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
         
+        // Detectem quines lectures mare tenen versions adaptades / simplificades (DUA) o bateries
+        const adaptedParentsSet = new Set();
+        const docsArray = snapshot.docs;
+        docsArray.forEach(d => {
+          const item = d.data() || {};
+          if (item.parentReadingId && item.isAdaptedVersion) {
+            adaptedParentsSet.add(item.parentReadingId);
+          }
+        });
+
         let html = `
           <div class="max-w-6xl mx-auto space-y-6">
             
@@ -836,6 +847,7 @@
                 <div>
                   <select id="status-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-indigo-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="all" ${filterStatus === 'all' ? 'selected' : ''}>📌 Totes les lectures</option>
+                    <option value="has_adapted" ${filterStatus === 'has_adapted' ? 'selected' : ''}>🌱 Amb versió adaptada (DUA)</option>
                     <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>⏳ Pendents de fer</option>
                     <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>✅ Ja fetes</option>
                   </select>
@@ -850,7 +862,6 @@
         const totalDocsInDb = snapshot.docs.length;
 
         if (!snapshot.empty) {
-          const docsArray = snapshot.docs;
           for (let i = 0; i < docsArray.length; i++) {
             const doc = docsArray[i];
             const data = doc.data() || {};
@@ -858,6 +869,8 @@
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
             const isVariant = !!data.parentReadingId;
+            const isAdaptedText = !!data.isAdaptedVersion;
+            const hasAnnexAdaptation = adaptedParentsSet.has(docId) || isAdaptedText;
 
             const readingNum = data.readingNumber || (totalDocsInDb - i);
             const readingCode = formatReadingCode(readingNum);
@@ -917,19 +930,28 @@
             let matchesStatus = true;
             if (filterStatus === 'completed') matchesStatus = isCompleted;
             if (filterStatus === 'pending') matchesStatus = !isCompleted;
+            if (filterStatus === 'has_adapted') matchesStatus = hasAnnexAdaptation;
             
             if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) continue;
 
             cardCount++;
 
             html += `
-              <div class="bg-white rounded-2xl border ${isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200'} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
+              <div class="bg-white rounded-2xl border ${isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200')} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
                 
-                ${isVariant ? `
-                  <div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500">
-                    <i class="fa-solid fa-code-fork"></i> Adaptació de la Comunitat Docent
+                ${isAdaptedText ? `
+                  <div class="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-600">
+                    <i class="fa-solid fa-seedling"></i> Versió Adaptada / Simplificada (DUA)
                   </div>
-                ` : ''}
+                ` : (isVariant ? `
+                  <div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500">
+                    <i class="fa-solid fa-code-fork"></i> Bateria de Preguntes Adaptada
+                  </div>
+                ` : (adaptedParentsSet.has(docId) ? `
+                  <div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200">
+                    <i class="fa-solid fa-seedling text-emerald-600"></i> Amb Versió Adaptada (DUA) annexa
+                  </div>
+                ` : ''))}
 
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
@@ -1040,7 +1062,7 @@
       }
     }
 
-    async function renderEditor(docIdToEdit = null, cloneFromDocId = null) {
+    async function renderEditor(docIdToEdit = null, cloneFromDocId = null, mode = 'questions') {
       stopSpeechSynthesis();
       if (!currentUser) {
         renderLogin();
@@ -1056,6 +1078,7 @@
 
       editingDocId = docIdToEdit;
       cloningParentId = cloneFromDocId;
+      cloningMode = mode;
 
       const app = document.getElementById('app');
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
@@ -1074,7 +1097,8 @@
         imageUrl: '',
         readingNumber: null,
         glossary: [],
-        parentReadingId: null
+        parentReadingId: null,
+        isAdaptedVersion: false
       };
 
       let initialQuestions = [];
@@ -1109,21 +1133,41 @@
       }
 
       if (cloningParentId) {
-        initialData.title = `${initialData.title} (Adaptació de la comunitat)`;
-        initialData.parentReadingId = cloningParentId;
+        // Si clonem des d'una lectura que ja era filla, enllacem a la mare arrel per agrupar totes les versions
+        const rootId = initialData.parentReadingId || cloningParentId;
+        cloningParentId = rootId;
+        initialData.parentReadingId = rootId;
+
+        if (cloningMode === 'adapted') {
+          initialData.title = `${initialData.title.replace(/\s*\(Versió Adaptada.*\)/i, '')} (Versió Adaptada)`;
+          initialData.isAdaptedVersion = true;
+        } else {
+          initialData.title = `${initialData.title} (Bateria de preguntes)`;
+          initialData.isAdaptedVersion = false;
+        }
       }
+
+      const isAdaptedMode = (cloningParentId && cloningMode === 'adapted') || (editingDocId && initialData.isAdaptedVersion);
+      const isReadOnlyText = cloningParentId && cloningMode === 'questions';
 
       const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
 
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
           
-          ${cloningParentId ? `
+          ${isAdaptedMode ? `
+            <div class="bg-emerald-50 border border-emerald-300 p-4 rounded-2xl mb-4 text-emerald-950 text-xs font-semibold shadow-xs space-y-1">
+              <h3 class="font-black text-sm flex items-center gap-1.5 text-emerald-900">
+                <i class="fa-solid fa-seedling text-emerald-600"></i> Mode Versió Adaptada / Simplificada (DUA)
+              </h3>
+              <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> i dissenyar <strong>preguntes més breus i accessibles</strong> perquè tot el grup-classe treballi la mateixa història al seu ritme.</p>
+            </div>
+          ` : (cloningParentId ? `
             <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-4 text-amber-900 text-xs font-semibold shadow-xs">
               <h3 class="font-black text-sm mb-1 flex items-center gap-1.5 text-amber-900">
-                <i class="fa-solid fa-code-fork text-amber-600"></i> Mode Adaptació / Bateria de Preguntes
+                <i class="fa-solid fa-code-fork text-amber-600"></i> Mode Bateria de Preguntes (Clonació)
               </h3>
-              <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté enllaçat i les preguntes originals s'han duplicat amb la seva tipologia i ordre intactes.</p>
+              <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté integrat i enllaçat.</p>
             </div>
           ` : `
             <!-- REQUADRE GUIA 1: QUALITAT EDITORIAL -->
@@ -1143,7 +1187,7 @@
               </div>
             </div>
 
-            <!-- REQUADRE GUIA 2: VARIETAT DE PREGUNTES I LES 5 TAXONOMIES COGNITIVES (RESTAURAT) -->
+            <!-- REQUADRE GUIA 2: VARIETAT DE PREGUNTES I LES 5 TAXONOMIES COGNITIVES -->
             <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
               <h3 class="text-xs font-black text-indigo-900 flex items-center gap-1.5 uppercase tracking-wide">
                 <i class="fa-solid fa-brain text-indigo-600"></i> Varietat de Preguntes i Nivells de Comprensió
@@ -1178,8 +1222,8 @@
 
           <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center">
-              <i class="fa-solid ${cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600')} mr-2"></i> 
-              ${cloningParentId ? 'Clonar i Crear Adaptació Docent' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura')}
+              <i class="fa-solid ${isAdaptedMode ? 'fa-seedling text-emerald-600' : (cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'))} mr-2"></i> 
+              ${isAdaptedMode && !editingDocId ? 'Crear Versió Adaptada (Lectura Fàcil)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
             </h1>
             <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
               <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
@@ -1187,6 +1231,8 @@
           </div>
 
           <form onsubmit="saveReading(event)" class="space-y-5">
+            <input type="hidden" id="editor-is-adapted" value="${isAdaptedMode ? 'true' : 'false'}">
+
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Tipus de Lectura *</label>
               <select id="editor-type" onchange="toggleReadingTypeInputs()" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/50 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -1269,13 +1315,16 @@
 
             <div id="wrapper-content">
               <div class="flex justify-between items-center mb-1">
-                <label class="block text-sm font-bold text-slate-700">Text de la Lectura *</label>
+                <label class="block text-sm font-bold text-slate-700">
+                  ${isAdaptedMode ? 'Text Simplificat / Adaptat (Escurça i adapta el text original) *' : 'Text de la Lectura *'}
+                </label>
                 <button type="button" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
                   <i class="fa-solid fa-link"></i> Marcar Vocabulari
                 </button>
               </div>
-              <textarea id="editor-content" rows="6" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${cloningParentId ? 'readonly' : ''}>${initialData.content || ''}</textarea>
-              ${cloningParentId ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar.</p>` : ''}
+              <textarea id="editor-content" rows="6" class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              ${isReadOnlyText ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar només la bateria de preguntes.</p>` : ''}
+              ${isAdaptedMode ? `<p class="text-[11px] text-emerald-800 font-semibold mt-1">✏️ Text desbloquejat: adapta el vocabulari i l'extensió per a la versió simplificada.</p>` : ''}
             </div>
 
             <!-- PUJADA D'IMATGE AMB COMPRESSIÓ AUTOMÀTICA (COBERTA) -->
@@ -1330,8 +1379,8 @@
 
             <div class="flex justify-end space-x-3 pt-4">
               <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
-              <button type="submit" class="px-5 py-2 ${cloningParentId ? 'bg-amber-600 hover:bg-amber-700' : (editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700')} text-white font-bold rounded-xl text-sm shadow transition">
-                ${cloningParentId ? 'Publicar Adaptació Docent (+1 PTS)' : (editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)')}
+              <button type="submit" class="px-5 py-2 ${isAdaptedMode ? 'bg-emerald-600 hover:bg-emerald-700' : (cloningParentId ? 'bg-amber-600 hover:bg-amber-700' : (editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'))} text-white font-bold rounded-xl text-sm shadow transition">
+                ${isAdaptedMode && !editingDocId ? 'Publicar Versió Adaptada (+1 PTS)' : (cloningParentId ? 'Publicar Adaptació Docent (+1 PTS)' : (editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'))}
               </button>
             </div>
           </form>
@@ -1838,6 +1887,7 @@
       const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
       const content = document.getElementById('editor-content')?.value || '';
       const imageUrl = document.getElementById('editor-image')?.value || '';
+      const isAdaptedVersion = document.getElementById('editor-is-adapted')?.value === 'true';
 
       const glossary = [];
       document.querySelectorAll('#glossary-container .glossary-item').forEach(item => {
@@ -1898,6 +1948,7 @@
             readingNumber: nextNum,
             glossary: glossary,
             parentReadingId: cloningParentId || null,
+            isAdaptedVersion: isAdaptedVersion,
             authorUid: currentUser ? currentUser.uid : null,
             authorDisplayName: authorDisplayName,
             authorSchool: authorSchool,
@@ -1975,6 +2026,7 @@
 
         editingDocId = null;
         cloningParentId = null;
+        cloningMode = 'questions';
         await loadUserData();
         renderNav();
         renderCatalog();
@@ -1983,43 +2035,62 @@
       }
     }
 
-    function openCloneReadingModal(parentDocId, parentTitle) {
+    function openCloneReadingModal(parentDocId, parentTitle, isAuthor = false) {
       if (!currentUser) { renderLogin(); return; }
       const container = document.getElementById('clone-modal-container');
 
       container.innerHTML = `
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
+          <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-xl">
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
               <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-code-fork text-amber-500"></i> Adaptar Preguntes (Clonar)
+                <i class="fa-solid fa-seedling text-emerald-600"></i> Adaptació i Inclusió DUA
               </h3>
               <button onclick="container.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <p class="text-xs text-slate-600">
-              Estàs a punt de crear una adaptació de preguntes a partir de la lectura: <strong class="text-slate-800">${parentTitle}</strong>.
+              Quin tipus d'adaptació vols crear per a <strong class="text-slate-800">${parentTitle}</strong>?
             </p>
 
-            <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
-              <span class="font-bold block">💡 Per a què serveix la clonació?</span>
-              <p>El text es mantindrà exactament igual, però podràs crear un nou grup de preguntes adaptades al teu grup-classe, a la cultura de centre o a un projecte concret d'aula.</p>
+            <div class="space-y-3">
+              <!-- OPCIÓ 1: VERSIÓ ADAPTADA (TEXT SIMPLIFICAT + PREGUNTES) -->
+              <div onclick="confirmCloneReading('${parentDocId}', 'adapted')" class="cursor-pointer bg-emerald-50 hover:bg-emerald-100/80 p-4 rounded-xl border-2 border-emerald-300 transition space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-black text-sm text-emerald-950 flex items-center gap-1.5">
+                    <i class="fa-solid fa-seedling text-emerald-600"></i> Versió Adaptada / Simplificada (Text + Preguntes)
+                  </span>
+                  <span class="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-md">Recomanat DUA</span>
+                </div>
+                <p class="text-xs text-emerald-900 leading-relaxed">
+                  Escurça i simplifica el <strong>text original</strong> anant més al gra i dissenya unes <strong>preguntes més curtetes</strong>. Quedarà annexada en una pestanya al lector perquè cada alumne llegeixi al seu nivell.
+                </p>
+              </div>
+
+              ${!isAuthor ? `
+                <!-- OPCIÓ 2: NOMÉS BATERIA DE PREGUNTES (TEXT BLOQUEJAT) -->
+                <div onclick="confirmCloneReading('${parentDocId}', 'questions')" class="cursor-pointer bg-amber-50 hover:bg-amber-100/80 p-4 rounded-xl border border-amber-300 transition space-y-1">
+                  <span class="font-black text-sm text-amber-950 flex items-center gap-1.5">
+                    <i class="fa-solid fa-code-fork text-amber-600"></i> Nova Bateria de Preguntes (Mateix Text)
+                  </span>
+                  <p class="text-xs text-amber-900 leading-relaxed">
+                    Manté el <strong>text original intacte</strong> (bloquejat) i crea un nou conjunt de preguntes adaptat al teu grup-classe.
+                  </p>
+                </div>
+              ` : ''}
             </div>
 
-            <div class="flex justify-end space-x-2 pt-2">
+            <div class="flex justify-end pt-2">
               <button onclick="container.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
-              <button onclick="confirmCloneReading('${parentDocId}')" class="px-5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold text-xs rounded-xl shadow transition">
-                Continuar a l'Editor
-              </button>
             </div>
           </div>
         </div>
       `;
     }
 
-    function confirmCloneReading(parentDocId) {
+    function confirmCloneReading(parentDocId, mode = 'adapted') {
       document.getElementById('clone-modal-container').innerHTML = '';
-      renderEditor(null, parentDocId);
+      renderEditor(null, parentDocId, mode);
     }
 
     function parseContentWithGlossary(rawText, glossaryList = []) {
@@ -2085,7 +2156,12 @@
           allVariants.push({ id: vDoc.id, ...vDoc.data() });
         });
 
-        const hasBatteryOptions = parentDocData && (allVariants.length > 0);
+        // Separem versions adaptades (text simplificat DUA) de bateries de preguntes pures
+        const adaptedTextVariants = allVariants.filter(v => !!v.isAdaptedVersion);
+        const questionBatteryVariants = allVariants.filter(v => !v.isAdaptedVersion);
+
+        const hasAdaptedTextTabs = parentDocData && adaptedTextVariants.length > 0;
+        const hasBatteryOptions = parentDocData && questionBatteryVariants.length > 0;
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
@@ -2112,6 +2188,37 @@
 
         const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
         const isAuthor = currentUser && data.authorUid === currentUser.uid;
+        const isCurrentlyAdapted = !!data.isAdaptedVersion;
+
+        // Barra de pestanyes DUA (Lectura Estàndard vs Versió Adaptada / Simplificada)
+        let dualVersionTabsHTML = '';
+        if (hasAdaptedTextTabs) {
+          const isStandardActive = docId === parentDocData.id || !isCurrentlyAdapted;
+          const activeAdaptedObj = adaptedTextVariants.find(v => v.id === docId) || adaptedTextVariants[0];
+
+          dualVersionTabsHTML = `
+            <div class="mb-5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 shadow-2xs">
+              <button onclick="renderReader('${parentDocData.id}')" class="flex-1 py-2.5 px-4 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${isStandardActive ? 'bg-white text-indigo-900 shadow-sm border border-indigo-200' : 'text-slate-600 hover:bg-slate-200/70'}">
+                <i class="fa-solid fa-file-lines ${isStandardActive ? 'text-indigo-600' : 'text-slate-400'}"></i>
+                <span>📄 Lectura Estàndard (Original)</span>
+              </button>
+
+              <div class="flex-1 flex items-center gap-1">
+                <button onclick="renderReader('${activeAdaptedObj.id}')" class="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold transition flex items-center justify-center gap-2 ${!isStandardActive ? 'bg-emerald-600 text-white shadow-sm border border-emerald-700' : 'bg-emerald-50/80 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'}">
+                  <i class="fa-solid fa-seedling ${!isStandardActive ? 'text-amber-300' : 'text-emerald-600'}"></i>
+                  <span>🌱 Versió Adaptada / Simplificada</span>
+                </button>
+                ${adaptedTextVariants.length > 1 ? `
+                  <select onchange="renderReader(this.value)" title="Tria versió adaptada" class="p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 outline-none">
+                    ${adaptedTextVariants.map((av, idx) => `
+                      <option value="${av.id}" ${av.id === docId ? 'selected' : ''}>v${idx + 1}: ${av.authorDisplayName || 'Docent'}</option>
+                    `).join('')}
+                  </select>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }
 
         let questionsHTML = '';
         if (!questionsSnap.empty) {
@@ -2133,9 +2240,9 @@
                       <option value="${parentDocData.id}" ${docId === parentDocData.id ? 'selected' : ''}>
                         📌 Original (${parentDocData.authorDisplayName || 'Autor/a'})
                       </option>
-                      ${allVariants.map(v => `
+                      ${questionBatteryVariants.map(v => `
                         <option value="${v.id}" ${v.id === docId ? 'selected' : ''}>
-                          🌱 Adaptació: ${v.authorDisplayName || 'Docent'}${v.authorSchool ? ' (' + v.authorSchool + ')' : ''}
+                          🔀 Bateria: ${v.authorDisplayName || 'Docent'}${v.authorSchool ? ' (' + v.authorSchool + ')' : ''}
                         </option>
                       `).join('')}
                     </select>
@@ -2299,7 +2406,7 @@
               ` : ''}
 
               <div class="pt-2 border-t border-slate-200 space-y-1">
-                <span class="block text-xs text-slate-500">Lectura adaptada:</span>
+                <span class="block text-xs text-slate-500">${isCurrentlyAdapted ? 'Versió adaptada i simplificada per:' : 'Lectura adaptada:'}</span>
                 <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
                 <div class="pt-0.5">
                   <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
@@ -2312,7 +2419,7 @@
 
             ${accessibilityToolbarHTML}
 
-            <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 leading-relaxed whitespace-pre-line mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
+            <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border ${isCurrentlyAdapted ? 'border-emerald-300' : 'border-slate-200'} text-slate-700 leading-relaxed whitespace-pre-line mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
               ${parseContentWithGlossary(data.content, glossaryList)}
             </div>
           `;
@@ -2326,10 +2433,10 @@
               </button>
               
               <div class="flex items-center gap-2 flex-wrap">
-                ${(isDocentOrCollab && !isAuthor) ? `
-                  <button onclick="openCloneReadingModal('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
-                    <i class="fa-solid fa-code-fork"></i>
-                    <span>🌱 Adaptar Preguntes</span>
+                ${isDocentOrCollab ? `
+                  <button onclick="openCloneReadingModal('${rootParentId}', '${(parentDocData.title || data.title || 'Lectura').replace(/'/g, "\\'")}', ${isAuthor})" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                    <i class="fa-solid fa-seedling"></i>
+                    <span>🌱 ${isAuthor ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)'}</span>
                   </button>
                 ` : ''}
 
@@ -2343,6 +2450,8 @@
                 </span>
               </div>
             </div>
+
+            ${dualVersionTabsHTML}
 
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title || 'Lectura'}</h1>
             ${headerContentHTML}
@@ -3190,7 +3299,7 @@
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.36.0", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF de fulls adaptats.", highlights: ["Generador automàtic per a impressió en paper per a l'aula."] },
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.37.0 (PDF)", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
             { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
             { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
           ]
@@ -3198,6 +3307,17 @@
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
+            {
+              version: "v0.36.0",
+              date: "Novembre 2026",
+              badge: "Versió Adaptada DUA",
+              color: "bg-emerald-600 text-white font-bold border-emerald-700",
+              summary: "Versió Adaptada / Simplificada (Text + Preguntes) annexada en pestanyes.",
+              highlights: [
+                "Permet al propi autor o a altres docents escurçar/simplificar el text i adaptar preguntes.",
+                "Pestanyes directes al lector (Estàndard vs Adaptada) i filtre DUA al catàleg."
+              ]
+            },
             {
               version: "v0.35.5",
               date: "Novembre 2026",
@@ -3218,16 +3338,6 @@
               highlights: [
                 "Reducció del pes de la imatge d'1.7 MB a uns 50-90 KB.",
                 "Solució definitiva a l'error de límit de mida de Firestore (1 MB max)."
-              ]
-            },
-            {
-              version: "v0.35.3",
-              date: "Novembre 2026",
-              badge: "Local DataURL Storage",
-              color: "bg-indigo-500 text-white font-bold border-indigo-600",
-              summary: "Conversió local a DataURL integrada directament a la base de dades.",
-              highlights: [
-                "Càrrega ultraràpida des del disc dur local sense dependre de regles de Storage."
               ]
             }
           ]
@@ -3323,7 +3433,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.35.5
+              ⚡ Versió Actual: v0.36.0
             </span>
           </div>
 
