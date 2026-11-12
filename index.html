@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.37.0</title>
+  <title>Lectura Aventura - v0.37.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.0</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.0...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.1...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.37.0 — Historial de versions</span>
+        <span>v0.37.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -157,6 +157,12 @@
       opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
       creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
     };
+
+    function isUserAdminOrCreator() {
+      if (!currentUser) return false;
+      if (currentUser.email === ADMIN_SUPREMO_EMAIL) return true;
+      return userRole === 'docent' || userRole === 'colaborador';
+    }
 
     function escapeHtmlAttr(str) {
       return String(str || '')
@@ -666,13 +672,17 @@
           userPoints = data.points !== undefined ? data.points : 0;
           let role = data.role || 'alumne';
           if (role === 'mestre') role = 'docent';
+          if (currentUser.email === ADMIN_SUPREMO_EMAIL && role === 'alumne') role = 'docent';
           userRole = role;
           userCompletedReadings = data.completedReadings || [];
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
           userTeacherUid = data.teacherUid || "";
+        } else if (currentUser.email === ADMIN_SUPREMO_EMAIL) {
+          userRole = 'docent';
         }
       } catch (err) {
+        if (currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL) userRole = 'docent';
         console.warn("Error carregant dades de l'usuari:", err);
       }
     }
@@ -701,7 +711,7 @@
       const bannerContainer = document.getElementById('motivation-banner');
       if (!bannerContainer) return;
 
-      if (currentUser && (userRole === 'alumne' || userRole === 'adult')) {
+      if (currentUser && (userRole === 'alumne' || userRole === 'adult') && currentUser.email !== ADMIN_SUPREMO_EMAIL) {
         const rank = getRankDetails(userPoints);
         const displayName = userDisplayName || currentUser.email.split('@')[0];
 
@@ -756,9 +766,9 @@
       const nav = document.getElementById('nav-actions');
       if (!nav) return;
       if (currentUser) {
-        const isCreator = userRole === 'docent' || userRole === 'colaborador';
-        const isDocent = userRole === 'docent';
-        const isLector = userRole === 'alumne' || userRole === 'adult';
+        const isCreator = isUserAdminOrCreator();
+        const isDocent = userRole === 'docent' || currentUser.email === ADMIN_SUPREMO_EMAIL;
+        const isLector = !isCreator;
         const rank = isCreator ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
         const nameToShow = userDisplayName || currentUser.email.split('@')[0];
 
@@ -861,7 +871,7 @@
               <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
                 <span class="flex items-center gap-2">
                   <i class="fa-solid fa-filter text-amber-600"></i>
-                  ${(userRole === 'docent' || userRole === 'colaborador') ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
+                  ${isUserAdminOrCreator() ? 'Mostrant només les lectures que has creat tu.' : 'Mostrant només les lectures que ja has completat.'}
                 </span>
                 <button onclick="toggleMyLectures()" class="text-amber-700 hover:text-amber-900 underline text-xs">Mostrar-ho tot</button>
               </div>
@@ -962,7 +972,7 @@
             if (currentLevel === 'Cicle Superior') currentLevel = '3r cicle de primària';
 
             if (filterMyLectures && currentUser) {
-              if (userRole === 'docent' || userRole === 'colaborador') {
+              if (isUserAdminOrCreator()) {
                 if (data.authorUid !== currentUser.uid) continue;
               } else {
                 if (!isCompleted) continue;
@@ -1001,7 +1011,7 @@
             const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
             const isAuthor = currentUser && data.authorUid === currentUser.uid;
             const canEdit = isAdmin || isAuthor;
-            const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
+            const isDocentOrCollab = isUserAdminOrCreator();
 
             const schoolSuffix = data.authorSchool ? (' (' + data.authorSchool + ')') : '';
             const teacherText = data.authorDisplayName ? (data.authorDisplayName + schoolSuffix) : 'Docent / Col·laborador/a';
@@ -1147,8 +1157,7 @@
         return;
       }
 
-      const isAdmin = currentUser.email === ADMIN_SUPREMO_EMAIL;
-      if (userRole !== 'docent' && userRole !== 'colaborador' && !isAdmin) {
+      if (!isUserAdminOrCreator()) {
         alert("Accés restringit a Docents i Col·laboradors.");
         renderCatalog();
         return;
@@ -1226,6 +1235,7 @@
       const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
       const currentContentFormat = initialData.contentFormat || 'written';
       const currentRefImg = initialData.referenceImageUrl || '';
+      const rootIdForAdaptation = initialData.parentReadingId || editingDocId;
 
       const taxonomyGuideHTML = `
         <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
@@ -1310,9 +1320,19 @@
               <i class="fa-solid ${isAdaptedMode ? 'fa-seedling text-emerald-600' : (cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'))} mr-2"></i>
               ${(isAdaptedMode && !editingDocId) ? 'Crear Versió Adaptada (Lectura Fàcil / Visual)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
             </h1>
-            <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
-              <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
-            </span>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              ${(editingDocId && !isAdaptedMode) ? `
+                <button type="button" onclick="renderEditor(null, '${rootIdForAdaptation}', 'adapted')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                  <i class="fa-solid fa-seedling"></i>
+                  <span>🌱 Crear Versió Adaptada (DUA)</span>
+                </button>
+              ` : ''}
+
+              <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
+                <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
+              </span>
+            </div>
           </div>
 
           <form onsubmit="saveReading(event)" class="space-y-5">
@@ -1326,7 +1346,7 @@
               </select>
             </div>
 
-            <!-- NOU SELECTOR DE FORMAT DEL CONTINGUT DINS DE LECTURES CURTES -->
+            <!-- SELECTOR DE FORMAT DEL CONTINGUT DINS DE LECTURES CURTES -->
             <div id="wrapper-content-format" class="bg-teal-50/60 p-4 rounded-2xl border border-teal-200/90 space-y-2">
               <label class="block text-xs font-black text-teal-950 uppercase tracking-wide flex items-center gap-1.5">
                 <i class="fa-solid fa-layer-group text-teal-600"></i> Format de la Lectura Curta *
@@ -2041,7 +2061,7 @@
             await qDoc.ref.delete();
           }
         } else {
-          if (currentUser && (userRole === 'docent' || userRole === 'colaborador')) {
+          if (isUserAdminOrCreator()) {
             userPoints += 1;
             await db.collection("users").doc(currentUser.uid).set({ points: userPoints }, { merge: true });
           }
@@ -2152,7 +2172,7 @@
       }
     }
 
-    function openCloneReadingModal(parentDocId, parentTitle, isAuthor) {
+    function openCloneReadingModal(parentDocId, parentTitle, isAuthorOrAdmin) {
       if (!currentUser) { renderLogin(); return; }
       const container = document.getElementById('clone-modal-container');
 
@@ -2183,7 +2203,7 @@
                 </p>
               </div>
 
-              ${!isAuthor ? `
+              ${!isAuthorOrAdmin ? `
                 <div onclick="confirmCloneReading('${parentDocId}', 'questions')" class="cursor-pointer bg-amber-50 hover:bg-amber-100/80 p-4 rounded-xl border border-amber-300 transition space-y-1">
                   <span class="font-black text-sm text-amber-950 flex items-center gap-1.5">
                     <i class="fa-solid fa-code-fork text-amber-600"></i> Nova Bateria de Preguntes (Mateix Material)
@@ -2297,7 +2317,8 @@
         const editorialOrSource = data.editorialOrSource || '';
         const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
 
-        const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
+        const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
+        const isDocentOrCollab = isUserAdminOrCreator();
         const isAuthor = currentUser && data.authorUid === currentUser.uid;
         const isCurrentlyAdapted = !!data.isAdaptedVersion;
 
@@ -2512,7 +2533,7 @@
               </button>
 
               <div class="flex items-center gap-2 flex-wrap">
-                ${isDocentOrCollab ? '<button onclick="openCloneReadingModal(\'' + rootParentId + '\', decodeURIComponent(\'' + encodedRootTitle + '\'), ' + isAuthor + ')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-seedling"></i><span>🌱 ' + (isAuthor ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)') + '</span></button>' : ''}
+                ${isDocentOrCollab ? '<button onclick="openCloneReadingModal(\'' + rootParentId + '\', decodeURIComponent(\'' + encodedRootTitle + '\'), ' + (isAuthor || isAdmin) + ')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-seedling"></i><span>🌱 ' + ((isAuthor || isAdmin) ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)') + '</span></button>' : ''}
 
                 <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedDocTitle}'))" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
                   <i class="fa-solid fa-chalkboard"></i>
@@ -3041,201 +3062,4 @@
         await loadUserData();
         renderNav();
         renderCatalog();
-      } catch (err) {
-        alert("Error desant el perfil: " + err.message);
-      }
-    }
-
-    function shareFolderLink(folderId) {
-      const shareUrl = window.location.href.split('?')[0] + '?carpeta=' + folderId;
-      prompt("Copia aquest enllaç directe a la carpeta:", shareUrl);
-    }
-
-    function shareToGoogleClassroom(docId, title) {
-      const baseUrl = window.location.href.split('?')[0];
-      const targetUrl = encodeURIComponent(baseUrl + '?lectura=' + docId);
-      const encodedTitle = encodeURIComponent('Lectura Aventura: ' + title);
-      window.open('https://classroom.google.com/u/0/share?url=' + targetUrl + '&title=' + encodedTitle, '_blank', 'width=650,height=550');
-    }
-
-    function resetFiltersAndRenderCatalog() {
-      stopSpeechSynthesis();
-      if (window.location.search) {
-        window.history.pushState({}, document.title, window.location.pathname);
-      }
-      filterSearch = "";
-      filterBookAuthor = "";
-      filterType = "all";
-      filterLevel = "all";
-      filterCategory = "all";
-      filterStatus = "all";
-      filterDuration = "all";
-      filterMyLectures = false;
-      renderNav();
-      renderCatalog();
-    }
-
-    function applyCatalogFilters() {
-      const s = document.getElementById('search-input');
-      const a = document.getElementById('author-search-input');
-      const t = document.getElementById('type-select');
-      const l = document.getElementById('level-select');
-      const c = document.getElementById('category-select');
-      const st = document.getElementById('status-select');
-      const d = document.getElementById('duration-select');
-
-      filterSearch = s ? s.value.toLowerCase() : '';
-      filterBookAuthor = a ? a.value.toLowerCase() : '';
-      filterType = t ? t.value : 'all';
-      filterLevel = l ? l.value : 'all';
-      filterCategory = c ? c.value : 'all';
-      filterStatus = st ? st.value : 'all';
-      filterDuration = d ? d.value : 'all';
-      renderCatalog();
-    }
-
-    function toggleMyLectures() {
-      filterMyLectures = !filterMyLectures;
-      renderNav();
-      renderCatalog();
-    }
-
-    function logout() {
-      stopSpeechSynthesis();
-      auth.signOut().then(function() { renderCatalog(); });
-    }
-
-    function shareReadingLink(docId, titleOrCode) {
-      const baseUrl = window.location.href.split('?')[0];
-      const shareUrl = baseUrl + '?lectura=' + docId;
-      if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(shareUrl).then(function() {
-          alert('🔗 Enllaç copiat al porta-retalls (' + titleOrCode + ')!\n\n' + shareUrl);
-        }).catch(function() { prompt("Copia aquest enllaç:", shareUrl); });
-      } else {
-        prompt("Copia aquest enllaç:", shareUrl);
-      }
-    }
-
-    function renderChangelogPage() {
-      stopSpeechSynthesis();
-      const app = document.getElementById('app');
-      if (!app) return;
-
-      const changelogRows = [
-        {
-          title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
-          blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.38.0 (PDF)", color: "bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
-            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
-          ]
-        },
-        {
-          title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
-          blocks: [
-            {
-              version: "v0.37.0",
-              date: "Novembre 2026",
-              badge: "Lectura Visual / Referència",
-              color: "bg-teal-600 text-white font-bold border-teal-700",
-              summary: "Lectures curtes basades en imatge de referència per a inicials i textos discontinus.",
-              highlights: [
-                "Selector de format dins de lectures curtes: Text escrit vs Imatge de referència (cartells, pictogrames, lletra gran, còmic).",
-                "Vista prèvia a l'editor, Lightbox amb Zoom ampliable al lector, filtre al catàleg i transcripció opcional per àudio."
-              ]
-            },
-            {
-              version: "v0.36.3",
-              date: "Novembre 2026",
-              badge: "Guia Taxonomies Editor",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Restauració del doble requadre superior de guia pedagògica a l'editor.",
-              highlights: [
-                "Recuperació del segon requadre superior amb l'explicació dels 5 nivells cognitius (Literal, Inferencial, Sentit Figurat, Opinió i Creativa).",
-                "Recomanació de combinar tipologies i formats per a una comprensió lectora profunda."
-              ]
-            },
-            {
-              version: "v0.36.2",
-              date: "Novembre 2026",
-              badge: "Clean Boot & Error Shield",
-              color: "bg-emerald-600 text-white font-bold border-emerald-700",
-              summary: "Sanejament de sintaxi JS, escut d'errors independent i arrencada única sense bloquejos.",
-              highlights: [
-                "Separació de l'escut de diagnòstic d'errors en un script independent a la capçalera.",
-                "Eliminació de la doble crida simultània d'arrencada del catàleg i sanejament de plantilles."
-              ]
-            }
-          ]
-        },
-        {
-          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
-          blocks: [
-            {
-              version: "v0.36.0",
-              date: "Novembre 2026",
-              badge: "Versió Adaptada DUA",
-              color: "bg-teal-600 text-white font-bold border-teal-700",
-              summary: "Versió Adaptada / Simplificada (Text + Preguntes) annexada en pestanyes.",
-              highlights: [
-                "Permet al propi autor o a altres docents escurçar/simplificar el text i adaptar preguntes.",
-                "Pestanyes directes al lector (Estàndard vs Adaptada) i filtre DUA al catàleg."
-              ]
-            },
-            {
-              version: "v0.35.5",
-              date: "Novembre 2026",
-              badge: "Visual Multiple & Opinion",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Selector de mode de correcció en preguntes amb imatges.",
-              highlights: [
-                "Mode '1 imatge correcta', 'Vàries imatges correctes' (checkboxes) i 'Opinió (Totes vàlides)'.",
-                "Retrocompatibilitat completa amb totes les preguntes visuals creades prèviament."
-              ]
-            },
-            {
-              version: "v0.35.4",
-              date: "Novembre 2026",
-              badge: "Image Compression Engine",
-              color: "bg-indigo-600 text-white font-bold border-indigo-700",
-              summary: "Redimensionament i compressió automàtica d'imatges a Canvas (màx 800-1100px).",
-              highlights: [
-                "Reducció del pes de la imatge per complir sempre el límit d'1 MB de Firestore.",
-                "Càrrega directa des del dispositiu sense dependre de permisos externs."
-              ]
-            }
-          ]
-        }
-      ];
-
-      app.innerHTML = `
-        <div class="max-w-6xl mx-auto space-y-8 pb-8">
-          <div class="flex items-center justify-between border-b border-slate-200 pb-4">
-            <div>
-              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-xs font-bold mb-2 inline-flex items-center transition">
-                <i class="fa-solid fa-arrow-left mr-1.5"></i> Tornar al Catàleg General
-              </button>
-              <h1 class="text-3xl font-black text-slate-900 flex items-center gap-3">
-                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
-              </h1>
-              <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
-            </div>
-            <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.37.0
-            </span>
-          </div>
-
-          <div class="space-y-8">
-            ${changelogRows.map(function(row) {
-              return '<div class="space-y-3"><h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-layer-group text-indigo-500"></i> ' + row.title + '</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-5">' + row.blocks.map(function(item) {
-                return '<div class="' + (item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white') + ' p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3"><div><div class="flex items-center justify-between mb-2"><span class="font-mono font-bold text-xs text-slate-500">' + item.version + '</span><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ' + item.color + '">' + item.badge + '</span></div><p class="text-xs text-slate-600 font-semibold mb-3">' + item.summary + '</p><div class="space-y-2 text-[11px] text-slate-700">' + item.highlights.map(function(h) { return '<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>' + h + '</span></p>'; }).join('') + '</div></div><span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">' + item.date + '</span></div>';
-              }).join('') + '</div></div>';
-            }).join('')}
-          </div>
-        </div>
-      `;
-    }
-  </script>
-</body>
-</html>
+      } catch (err
