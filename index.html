@@ -95,7 +95,7 @@
     let filterMyLectures = false;
     let editingDocId = null;
     let cloningParentId = null;
-    let cloningMode = 'questions'; // 'questions' (text bloquejat) o 'adapted' (text simplificable DUA + preguntes)
+    let cloningMode = 'questions';
     let currentLeaderboardTab = 'group';
 
     let isDyslexicMode = false;
@@ -123,6 +123,15 @@
       opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
       creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
     };
+
+    function escapeHtmlAttr(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
 
     function formatReadingCode(num) {
       if (!num || isNaN(num)) return "#CL-00001";
@@ -195,7 +204,6 @@
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
-          // Convertim a JPEG comprimit al 70% de qualitat (~40-90 KB)
           const compressedDataURL = canvas.toDataURL('image/jpeg', 0.7);
 
           let inputElem = null;
@@ -235,7 +243,7 @@
         img.src = e.target.result;
       };
 
-      reader.onerror = function(err) {
+      reader.onerror = function() {
         if (statusElem) {
           statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error`;
           statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
@@ -558,6 +566,26 @@
       }
     }
 
+    function routeInitialView() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const directFolderId = urlParams.get('carpeta');
+      const directReadingId = urlParams.get('lectura');
+      const viewChangelog = urlParams.get('changelog');
+      
+      if (viewChangelog) {
+        renderChangelogPage();
+      } else if (directFolderId) {
+        renderFolderView(directFolderId);
+      } else if (directReadingId) {
+        renderReader(directReadingId);
+      } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
+        renderUserProfileModal();
+        renderCatalog();
+      } else {
+        renderCatalog();
+      }
+    }
+
     auth.onAuthStateChanged(async user => {
       currentUser = user;
       if (user) {
@@ -572,23 +600,7 @@
         filterMyLectures = false;
       }
       renderNav();
-      
-      const urlParams = new URLSearchParams(window.location.search);
-      const directFolderId = urlParams.get('carpeta');
-      const directReadingId = urlParams.get('lectura');
-      const viewChangelog = urlParams.get('changelog');
-      
-      if (viewChangelog) {
-        renderChangelogPage();
-      } else if (directFolderId) {
-        renderFolderView(directFolderId);
-      } else if (directReadingId) {
-        renderReader(directReadingId);
-      } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
-        renderUserProfileModal();
-      } else {
-        renderCatalog();
-      }
+      routeInitialView();
     });
 
     async function loadUserData() {
@@ -687,6 +699,7 @@
 
     function renderNav() {
       const nav = document.getElementById('nav-actions');
+      if (!nav) return;
       if (currentUser) {
         const isCreator = userRole === 'docent' || userRole === 'colaborador';
         const isDocent = userRole === 'docent';
@@ -760,14 +773,19 @@
     async function renderCatalog() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
+      if (!app) return;
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
 
       try {
-        const snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
+        let snapshot;
+        try {
+          snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
+        } catch (orderErr) {
+          snapshot = await db.collection(DB_COLLECTION).get();
+        }
         
-        // Detectem quines lectures mare tenen versions adaptades / simplificades (DUA) o bateries
         const adaptedParentsSet = new Set();
-        const docsArray = snapshot.docs;
+        const docsArray = snapshot.docs || [];
         docsArray.forEach(d => {
           const item = d.data() || {};
           if (item.parentReadingId && item.isAdaptedVersion) {
@@ -792,12 +810,12 @@
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div class="relative">
                   <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                  <input type="text" id="search-input" value="${filterSearch}" placeholder="Cercar per títol o codi #CL..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <input type="text" id="search-input" value="${escapeHtmlAttr(filterSearch)}" placeholder="Cercar per títol o codi #CL..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
 
                 <div class="relative">
                   <i class="fa-solid fa-user-pen absolute left-3.5 top-3 text-slate-400 text-sm"></i>
-                  <input type="text" id="author-search-input" value="${filterBookAuthor}" placeholder="Cercar per autor/a de l'obra..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <input type="text" id="author-search-input" value="${escapeHtmlAttr(filterBookAuthor)}" placeholder="Cercar per autor/a de l'obra..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 
                 <div>
@@ -859,45 +877,23 @@
         `;
 
         let cardCount = 0;
-        const totalDocsInDb = snapshot.docs.length;
+        const totalDocsInDb = docsArray.length;
 
-        if (!snapshot.empty) {
+        if (totalDocsInDb > 0) {
+          const filteredItems = [];
+
           for (let i = 0; i < docsArray.length; i++) {
             const doc = docsArray[i];
             const data = doc.data() || {};
             const docId = doc.id;
             const isBook = data.type === 'book';
             const isCompleted = userCompletedReadings.includes(docId);
-            const isVariant = !!data.parentReadingId;
             const isAdaptedText = !!data.isAdaptedVersion;
             const hasAnnexAdaptation = adaptedParentsSet.has(docId) || isAdaptedText;
 
             const readingNum = data.readingNumber || (totalDocsInDb - i);
             const readingCode = formatReadingCode(readingNum);
-            const hasGlossary = Array.isArray(data.glossary) && data.glossary.length > 0;
-
-            const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
-            const isAuthor = currentUser && data.authorUid === currentUser.uid;
-            const canEdit = isAdmin || isAuthor;
-            const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
-
-            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
-            const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
-            const authorEmail = data.authorEmail || "";
-            const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
-
             const bookAuthorName = data.bookAuthor || '';
-            const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
-            const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
-
-            let qCount = 10;
-            try {
-              const qSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-              if (!qSnap.empty) qCount = qSnap.size;
-            } catch (err) {
-              console.warn("Error en comptar preguntes:", docId);
-            }
-            const totalPointsInGame = qCount * ptsPerQuestion;
 
             let currentLevel = data.level || '';
             if (currentLevel === 'Cicle Inicial') currentLevel = '1r cicle de primària';
@@ -918,10 +914,7 @@
             
             let matchesLevel = filterLevel === 'all';
             if (!matchesLevel) {
-              if (filterLevel === '1r cicle de primària') matchesLevel = currentLevel === '1r cicle de primària';
-              else if (filterLevel === '2n cicle de primària') matchesLevel = currentLevel === '2n cicle de primària';
-              else if (filterLevel === '3r cicle de primària') matchesLevel = currentLevel === '3r cicle de primària';
-              else matchesLevel = currentLevel === filterLevel;
+              matchesLevel = currentLevel === filterLevel;
             }
 
             const matchesCategory = filterCategory === 'all' || (data.category || 'General') === filterCategory;
@@ -934,7 +927,40 @@
             
             if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) continue;
 
+            filteredItems.push({ docId, data, readingCode, currentLevel, isBook, isCompleted, isAdaptedText });
+          }
+
+          const countsArray = await Promise.all(filteredItems.map(async item => {
+            try {
+              const qSnap = await db.collection(DB_COLLECTION).doc(item.docId).collection(SUB_COLLECTION).get();
+              return !qSnap.empty ? qSnap.size : 10;
+            } catch (e) {
+              return 10;
+            }
+          }));
+
+          filteredItems.forEach((item, idx) => {
             cardCount++;
+            const { docId, data, readingCode, currentLevel, isBook, isCompleted, isAdaptedText } = item;
+            const qCount = countsArray[idx];
+            const isVariant = !!data.parentReadingId;
+            const hasGlossary = Array.isArray(data.glossary) && data.glossary.length > 0;
+
+            const isAdmin = currentUser && currentUser.email === ADMIN_SUPREMO_EMAIL;
+            const isAuthor = currentUser && data.authorUid === currentUser.uid;
+            const canEdit = isAdmin || isAuthor;
+            const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
+
+            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+            const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
+            const authorEmail = data.authorEmail || "";
+            const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
+
+            const bookAuthorName = data.bookAuthor || '';
+            const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
+            const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
+            const totalPointsInGame = qCount * ptsPerQuestion;
+            const encodedTitle = encodeURIComponent(data.title || 'Lectura');
 
             html += `
               <div class="bg-white rounded-2xl border ${isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200')} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
@@ -976,7 +1002,7 @@
 
                   ${isBook && data.imageUrl ? `
                     <div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100">
-                      <img src="${data.imageUrl}" alt="${data.title}" class="w-full h-full object-cover">
+                      <img src="${data.imageUrl}" alt="${escapeHtmlAttr(data.title)}" class="w-full h-full object-cover">
                     </div>
                   ` : ''}
 
@@ -1020,7 +1046,7 @@
                       </button>
                     ` : ''}
                     
-                    <button onclick="shareToGoogleClassroom('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" title="Enviar a Google Classroom" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
+                    <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedTitle}'))" title="Enviar a Google Classroom" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
                       <i class="fa-solid fa-chalkboard text-sm"></i>
                     </button>
 
@@ -1038,10 +1064,10 @@
                 </div>
               </div>
             `;
-          }
+          });
         }
 
-        if (snapshot.empty || cardCount === 0) {
+        if (totalDocsInDb === 0 || cardCount === 0) {
           html += `
             <div class="col-span-full bg-white p-8 rounded-2xl border border-slate-200 text-center">
               <i class="fa-solid fa-filter-circle-xmark text-4xl text-slate-300 mb-3"></i>
@@ -1133,16 +1159,15 @@
       }
 
       if (cloningParentId) {
-        // Si clonem des d'una lectura que ja era filla, enllacem a la mare arrel per agrupar totes les versions
         const rootId = initialData.parentReadingId || cloningParentId;
         cloningParentId = rootId;
         initialData.parentReadingId = rootId;
 
         if (cloningMode === 'adapted') {
-          initialData.title = `${initialData.title.replace(/\s*\(Versió Adaptada.*\)/i, '')} (Versió Adaptada)`;
+          initialData.title = `${(initialData.title || '').replace(/\s*\(Versió Adaptada.*\)/i, '')} (Versió Adaptada)`;
           initialData.isAdaptedVersion = true;
         } else {
-          initialData.title = `${initialData.title} (Bateria de preguntes)`;
+          initialData.title = `${initialData.title || ''} (Bateria de preguntes)`;
           initialData.isAdaptedVersion = false;
         }
       }
@@ -1243,7 +1268,7 @@
 
             <div>
               <label class="block text-sm font-bold text-slate-700 mb-1">Títol de la Lectura / Adaptació *</label>
-              <input type="text" id="editor-title" value="${initialData.title || ''}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              <input type="text" id="editor-title" value="${escapeHtmlAttr(initialData.title)}" required class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
             </div>
 
             <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200/80 space-y-3">
@@ -1254,12 +1279,12 @@
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
-                  <input type="text" id="editor-book-author" value="${initialData.bookAuthor || ''}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                  <input type="text" id="editor-book-author" value="${escapeHtmlAttr(initialData.bookAuthor)}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
 
                 <div>
                   <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
-                  <input type="text" id="editor-source" value="${initialData.editorialOrSource || ''}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                  <input type="text" id="editor-source" value="${escapeHtmlAttr(initialData.editorialOrSource)}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
               </div>
             </div>
@@ -1301,7 +1326,7 @@
 
               <div id="wrapper-duration-book" class="hidden">
                 <label class="block text-sm font-bold text-slate-700 mb-1">Nº de Pàgines *</label>
-                <input type="number" id="editor-book-pages" value="${initialData.bookPages || ''}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+                <input type="number" id="editor-book-pages" value="${escapeHtmlAttr(initialData.bookPages)}" placeholder="Ex: 120" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
               </div>
 
               <div>
@@ -1331,7 +1356,7 @@
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
               <label class="block text-sm font-bold text-indigo-900">Coberta del Llibre (Imatge)</label>
               <div class="flex flex-col sm:flex-row gap-2 items-center">
-                <input type="url" id="editor-image" value="${initialData.imageUrl || ''}" placeholder="Enganxa URL o puja una imatge..." class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                <input type="url" id="editor-image" value="${escapeHtmlAttr(initialData.imageUrl)}" placeholder="Enganxa URL o puja una imatge..." class="w-full p-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
                 <label class="cursor-pointer shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2.5 rounded-xl shadow transition flex items-center gap-1.5">
                   <i class="fa-solid fa-cloud-arrow-up"></i> Pujar des del dispositiu
                   <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'editor-image', 'upload-cover-status')">
@@ -1422,8 +1447,8 @@
       const div = document.createElement('div');
       div.className = "glossary-item flex items-center gap-2 bg-white p-2 rounded-xl border border-teal-200 shadow-2xs";
       div.innerHTML = `
-        <input type="text" value="${gWord}" placeholder="Mot o Concepte" class="g-word w-1/3 p-1.5 border border-slate-300 rounded-lg text-xs font-bold text-teal-900 outline-none">
-        <input type="text" value="${gDef}" placeholder="Definició breu i senzilla..." class="g-def w-2/3 p-1.5 border border-slate-300 rounded-lg text-xs outline-none">
+        <input type="text" value="${escapeHtmlAttr(gWord)}" placeholder="Mot o Concepte" class="g-word w-1/3 p-1.5 border border-slate-300 rounded-lg text-xs font-bold text-teal-900 outline-none">
+        <input type="text" value="${escapeHtmlAttr(gDef)}" placeholder="Definició breu i senzilla..." class="g-def w-2/3 p-1.5 border border-slate-300 rounded-lg text-xs outline-none">
         <button type="button" onclick="this.parentNode.remove()" title="Eliminar" class="p-1.5 text-xs text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
       `;
       container.appendChild(div);
@@ -1533,7 +1558,7 @@
           </div>
         </div>
 
-        <input type="text" value="${qText}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
+        <input type="text" value="${escapeHtmlAttr(qText)}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
         
         <div class="q-options-wrapper space-y-2">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1541,7 +1566,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">A</span>
-                <input type="text" value="${opts[0] || ''}" placeholder="Opció A" class="q-opt-0 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[0])}" placeholder="Opció A" class="q-opt-0 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1555,7 +1580,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">B</span>
-                <input type="text" value="${opts[1] || ''}" placeholder="Opció B" class="q-opt-1 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[1])}" placeholder="Opció B" class="q-opt-1 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1569,7 +1594,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">C</span>
-                <input type="text" value="${opts[2] || ''}" placeholder="Opció C" class="q-opt-2 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[2])}" placeholder="Opció C" class="q-opt-2 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1583,7 +1608,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">D</span>
-                <input type="text" value="${opts[3] || ''}" placeholder="Opció D" class="q-opt-3 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[3])}" placeholder="Opció D" class="q-opt-3 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1599,7 +1624,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">E</span>
-                <input type="text" value="${opts[4] || ''}" placeholder="Opció E" class="q-opt-4 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[4])}" placeholder="Opció E" class="q-opt-4 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1613,7 +1638,7 @@
             <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
               <div class="flex items-center overflow-hidden">
                 <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">F</span>
-                <input type="text" value="${opts[5] || ''}" placeholder="Opció F" class="q-opt-5 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                <input type="text" value="${escapeHtmlAttr(opts[5])}" placeholder="Opció F" class="q-opt-5 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
               </div>
               <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
                 <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
@@ -1705,7 +1730,7 @@
             <i class="fa-solid fa-key text-emerald-600"></i>
             <span>Paraules Clau per a l'Autocorrecció (separades per comes):</span>
           </div>
-          <input type="text" value="${qKeywords}" placeholder="Ex: amistat, lleialtat, bosc" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
+          <input type="text" value="${escapeHtmlAttr(qKeywords)}" placeholder="Ex: amistat, lleialtat, bosc" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
           <p class="text-[11px] text-emerald-800">El motor d'avaluació donarà per vàlida la resposta si l'alumne escriu almenys una d'aquestes paraules clau (ignorant majúscules i accents).</p>
         </div>
 
@@ -2046,15 +2071,14 @@
               <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-seedling text-emerald-600"></i> Adaptació i Inclusió DUA
               </h3>
-              <button onclick="container.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+              <button onclick="document.getElementById('clone-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <p class="text-xs text-slate-600">
-              Quin tipus d'adaptació vols crear per a <strong class="text-slate-800">${parentTitle}</strong>?
+              Quin tipus d'adaptació vols crear per a <strong class="text-slate-800">${escapeHtmlAttr(parentTitle)}</strong>?
             </p>
 
             <div class="space-y-3">
-              <!-- OPCIÓ 1: VERSIÓ ADAPTADA (TEXT SIMPLIFICAT + PREGUNTES) -->
               <div onclick="confirmCloneReading('${parentDocId}', 'adapted')" class="cursor-pointer bg-emerald-50 hover:bg-emerald-100/80 p-4 rounded-xl border-2 border-emerald-300 transition space-y-1">
                 <div class="flex items-center justify-between">
                   <span class="font-black text-sm text-emerald-950 flex items-center gap-1.5">
@@ -2068,7 +2092,6 @@
               </div>
 
               ${!isAuthor ? `
-                <!-- OPCIÓ 2: NOMÉS BATERIA DE PREGUNTES (TEXT BLOQUEJAT) -->
                 <div onclick="confirmCloneReading('${parentDocId}', 'questions')" class="cursor-pointer bg-amber-50 hover:bg-amber-100/80 p-4 rounded-xl border border-amber-300 transition space-y-1">
                   <span class="font-black text-sm text-amber-950 flex items-center gap-1.5">
                     <i class="fa-solid fa-code-fork text-amber-600"></i> Nova Bateria de Preguntes (Mateix Text)
@@ -2081,7 +2104,7 @@
             </div>
 
             <div class="flex justify-end pt-2">
-              <button onclick="container.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
+              <button onclick="document.getElementById('clone-modal-container').innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
             </div>
           </div>
         </div>
@@ -2104,7 +2127,7 @@
           if (g.word && g.word.trim()) {
             const wordToFind = g.word.trim();
             const regex = new RegExp(`\\b(${wordToFind})\\b(?![^<]*>|[^[]*])`, 'gi');
-            processed = processed.replace(regex, `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar '${wordToFind}' al Glossari">$1</a>`);
+            processed = processed.replace(regex, `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar '${escapeHtmlAttr(wordToFind)}' al Glossari">$1</a>`);
           }
         });
       }
@@ -2114,6 +2137,7 @@
     async function renderReader(docId) {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
+      if (!app) return;
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
 
       try {
@@ -2140,14 +2164,12 @@
 
         const rootParentId = data.parentReadingId || docId;
         
-        let parentDocData = null;
+        let parentDocData = { id: docId, ...data };
         if (data.parentReadingId) {
           const parentSnap = await db.collection(DB_COLLECTION).doc(data.parentReadingId).get();
           if (parentSnap.exists) {
             parentDocData = { id: parentSnap.id, ...parentSnap.data() };
           }
-        } else {
-          parentDocData = { id: docId, ...data };
         }
 
         const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', rootParentId).get();
@@ -2156,7 +2178,6 @@
           allVariants.push({ id: vDoc.id, ...vDoc.data() });
         });
 
-        // Separem versions adaptades (text simplificat DUA) de bateries de preguntes pures
         const adaptedTextVariants = allVariants.filter(v => !!v.isAdaptedVersion);
         const questionBatteryVariants = allVariants.filter(v => !v.isAdaptedVersion);
 
@@ -2190,7 +2211,9 @@
         const isAuthor = currentUser && data.authorUid === currentUser.uid;
         const isCurrentlyAdapted = !!data.isAdaptedVersion;
 
-        // Barra de pestanyes DUA (Lectura Estàndard vs Versió Adaptada / Simplificada)
+        const encodedRootTitle = encodeURIComponent(parentDocData.title || data.title || 'Lectura');
+        const encodedDocTitle = encodeURIComponent(data.title || 'Lectura');
+
         let dualVersionTabsHTML = '';
         if (hasAdaptedTextTabs) {
           const isStandardActive = docId === parentDocData.id || !isCurrentlyAdapted;
@@ -2351,7 +2374,7 @@
           headerContentHTML = `
             <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
               ${data.imageUrl ? `
-                <img src="${data.imageUrl}" alt="${data.title || 'Coberta'}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
+                <img src="${data.imageUrl}" alt="${escapeHtmlAttr(data.title || 'Coberta')}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
               ` : `
                 <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
                   <i class="fa-solid fa-book text-4xl"></i>
@@ -2434,13 +2457,13 @@
               
               <div class="flex items-center gap-2 flex-wrap">
                 ${isDocentOrCollab ? `
-                  <button onclick="openCloneReadingModal('${rootParentId}', '${(parentDocData.title || data.title || 'Lectura').replace(/'/g, "\\'")}', ${isAuthor})" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                  <button onclick="openCloneReadingModal('${rootParentId}', decodeURIComponent('${encodedRootTitle}'), ${isAuthor})" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
                     <i class="fa-solid fa-seedling"></i>
                     <span>🌱 ${isAuthor ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)'}</span>
                   </button>
                 ` : ''}
 
-                <button onclick="shareToGoogleClassroom('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}')" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
+                <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedDocTitle}'))" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
                   <i class="fa-solid fa-chalkboard"></i>
                   <span>Classroom</span>
                 </button>
@@ -2464,7 +2487,7 @@
                   <strong class="block font-bold">💬 Bústia Docent de Millora i Col·laboració:</strong>
                   Has trobat cap errada o vols deixar un comentari o suggeriment al creador/a d'aquesta lectura?
                 </div>
-                <button onclick="openTeacherFeedbackModal('${docId}', '${(data.title || 'Lectura').replace(/'/g, "\\'")}', '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
+                <button onclick="openTeacherFeedbackModal('${docId}', decodeURIComponent('${encodedDocTitle}'), '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
                   <i class="fa-solid fa-paper-plane"></i>
                   <span>Enviar suggeriment al docent</span>
                 </button>
@@ -2474,12 +2497,14 @@
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
+        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar la lectura: ${err.message}</div>`;
       }
     }
 
     function openTeacherFeedbackModal(readingId, readingTitle, authorUid) {
       if (!currentUser) return;
       const modal = document.getElementById('feedback-modal-container');
+      const encodedTitle = encodeURIComponent(readingTitle || 'Lectura');
 
       modal.innerHTML = `
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2488,18 +2513,18 @@
               <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-comments text-indigo-600"></i> Suggeriment Docent
               </h3>
-              <button onclick="modal.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+              <button onclick="document.getElementById('feedback-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <p class="text-xs text-slate-600">
-              Envies un comentari respectuós al creador/a de la lectura: <strong class="text-slate-800">${readingTitle}</strong>.
+              Envies un comentari respectuós al creador/a de la lectura: <strong class="text-slate-800">${escapeHtmlAttr(readingTitle)}</strong>.
             </p>
 
             <textarea id="feedback-comment-text" rows="4" placeholder="Escriu el teu suggeriment, millora ortogràfica o missatge d'ànim..." class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
 
             <div class="flex justify-end space-x-2 pt-2">
-              <button onclick="modal.innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
-              <button onclick="sendTeacherFeedback('${readingId}', '${readingTitle.replace(/'/g, "\\'")}', '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
+              <button onclick="document.getElementById('feedback-modal-container').innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
+              <button onclick="sendTeacherFeedback('${readingId}', decodeURIComponent('${encodedTitle}'), '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
                 Enviar Suggeriment
               </button>
             </div>
@@ -2961,7 +2986,7 @@
               <h3 class="text-lg font-bold text-slate-800">Afegir a una Carpeta / SA</h3>
               <select id="select-folder-id" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-semibold">${options}</select>
               <div class="flex justify-end space-x-2">
-                <button onclick="modal.innerHTML=''" class="px-3 py-1.5 text-xs text-slate-600">Cancel·lar</button>
+                <button onclick="document.getElementById('folder-modal-container').innerHTML=''" class="px-3 py-1.5 text-xs text-slate-600">Cancel·lar</button>
                 <button onclick="confirmAddToFolder('${readingId}')" class="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl">Desar</button>
               </div>
             </div>
@@ -3055,10 +3080,9 @@
               <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
                 <i class="fa-solid fa-book-open text-indigo-600"></i> Accés a Lectura Aventura
               </h3>
-              <button onclick="modal.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+              <button onclick="document.getElementById('auth-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
-            <!-- MANIFEST COL·LABORATIU (v0.17.0) -->
             <div class="bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200 text-xs text-indigo-950 space-y-1.5">
               <p class="font-bold flex items-center gap-1.5 text-indigo-800">
                 <i class="fa-solid fa-handshake-angle text-indigo-600"></i> Comunitat Oberta de Comprensió Lectora
@@ -3177,21 +3201,21 @@
           <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
             <div class="flex justify-between items-center">
               <h3 class="text-lg font-bold text-slate-800">El meu Perfil de Lectura</h3>
-              <button onclick="container.innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+              <button onclick="document.getElementById('profile-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form onsubmit="saveUserProfile(event)" class="space-y-3">
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label>
-                <input type="text" id="profile-display-name" value="${userDisplayName}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                <input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm">
               </div>
               <div>
                 <label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label>
-                <input type="text" id="profile-school" value="${userSchool}" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                <input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
               </div>
               ${userRole === 'alumne' ? `
                 <div>
                   <label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label>
-                  <input type="text" id="profile-teacher-uid" value="${userTeacherUid}" placeholder="Enganxa el codi del teu mestre" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono">
+                  <input type="text" id="profile-teacher-uid" value="${escapeHtmlAttr(userTeacherUid)}" placeholder="Enganxa el codi del teu mestre" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono">
                 </div>
               ` : ''}
               <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-sm">Desar dades de perfil</button>
@@ -3466,6 +3490,10 @@
         </div>
       `;
     }
+
+    // Inicialització immediata de la capçalera i ruta inicial
+    renderNav();
+    routeInitialView();
   </script>
 </body>
 </html>
