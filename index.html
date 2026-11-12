@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.36.0</title>
+  <title>Lectura Aventura - v0.36.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,13 +35,14 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-indigo-200 font-mono">v0.36.0</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
     </div>
   </header>
 
+  <div id="global-error-box"></div>
   <div id="motivation-banner"></div>
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6"></main>
 
@@ -50,7 +51,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.36.0 — Historial de versions</span>
+        <span>v0.36.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -62,6 +63,27 @@
   <div id="clone-modal-container"></div>
 
   <script>
+    // Captura global d'errors perquè mai es quedi en blanc sense avís
+    window.onerror = function(msg, url, lineNo) {
+      const box = document.getElementById('global-error-box');
+      if (box) {
+        box.innerHTML = `<div class="max-w-4xl mx-auto mt-3 p-3 bg-red-100 border border-red-300 text-red-800 rounded-xl text-xs font-mono">
+          <strong>⚠️ Error JS (Línia ${lineNo}):</strong> ${msg}
+        </div>`;
+      }
+      return false;
+    };
+
+    // Helper per evitar esperes eternes de xarxa/Firestore
+    function withTimeout(promise, ms = 7000, label = "connexió amb la base de dades") {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Temps d'espera esgotat (${ms/1000}s) en ${label}. Comprova la connexió o torna-ho a provar.`)), ms)
+        )
+      ]);
+    }
+
     const firebaseConfig = {
       apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
       authDomain: "lectura-aventura.firebaseapp.com",
@@ -154,9 +176,6 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
-    /* ==========================================================================
-       PUJADA DIRECTA AMB COMPRESSIÓ AUTOMÀTICA PER EVITAR EL LÍMIT DE FIRESTORE
-       ========================================================================== */
     function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
       if (!fileInputElem) return;
       const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
@@ -358,9 +377,6 @@
       }
     }
 
-    /* ==========================================================================
-       MOTOR DE PREGUNTES (SUPORTA 1 IMATGE, MÚLTIPLE IMATGES I OPINIÓ IMATGES)
-       ========================================================================== */
     const QuestionEngine = {
       render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
         const type = qData.questionType || 'single';
@@ -606,7 +622,7 @@
     async function loadUserData() {
       if (!currentUser) return;
       try {
-        const doc = await db.collection("users").doc(currentUser.uid).get();
+        const doc = await withTimeout(db.collection("users").doc(currentUser.uid).get(), 5000, "perfil d'usuari");
         if (doc.exists) {
           const data = doc.data();
           userPoints = data.points !== undefined ? data.points : 0;
@@ -779,9 +795,17 @@
       try {
         let snapshot;
         try {
-          snapshot = await db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get();
+          snapshot = await withTimeout(
+            db.collection(DB_COLLECTION).orderBy('createdAt', 'desc').get(),
+            8000,
+            "càrrega del catàleg"
+          );
         } catch (orderErr) {
-          snapshot = await db.collection(DB_COLLECTION).get();
+          snapshot = await withTimeout(
+            db.collection(DB_COLLECTION).get(),
+            8000,
+            "càrrega alternativa del catàleg"
+          );
         }
         
         const adaptedParentsSet = new Set();
@@ -880,8 +904,6 @@
         const totalDocsInDb = docsArray.length;
 
         if (totalDocsInDb > 0) {
-          const filteredItems = [];
-
           for (let i = 0; i < docsArray.length; i++) {
             const doc = docsArray[i];
             const data = doc.data() || {};
@@ -927,22 +949,8 @@
             
             if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) continue;
 
-            filteredItems.push({ docId, data, readingCode, currentLevel, isBook, isCompleted, isAdaptedText });
-          }
-
-          const countsArray = await Promise.all(filteredItems.map(async item => {
-            try {
-              const qSnap = await db.collection(DB_COLLECTION).doc(item.docId).collection(SUB_COLLECTION).get();
-              return !qSnap.empty ? qSnap.size : 10;
-            } catch (e) {
-              return 10;
-            }
-          }));
-
-          filteredItems.forEach((item, idx) => {
             cardCount++;
-            const { docId, data, readingCode, currentLevel, isBook, isCompleted, isAdaptedText } = item;
-            const qCount = countsArray[idx];
+            const qCount = data.questionCount || 10;
             const isVariant = !!data.parentReadingId;
             const hasGlossary = Array.isArray(data.glossary) && data.glossary.length > 0;
 
@@ -956,7 +964,6 @@
             const authorEmail = data.authorEmail || "";
             const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
 
-            const bookAuthorName = data.bookAuthor || '';
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
             const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
             const totalPointsInGame = qCount * ptsPerQuestion;
@@ -1064,7 +1071,7 @@
                 </div>
               </div>
             `;
-          });
+          }
         }
 
         if (totalDocsInDb === 0 || cardCount === 0) {
@@ -1084,7 +1091,16 @@
         renderBanner();
       } catch (err) {
         console.error("Error carregant el catàleg:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar el catàleg: ${err.message}</div>`;
+        app.innerHTML = `
+          <div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center space-y-3">
+            <i class="fa-solid fa-triangle-exclamation text-3xl text-red-500"></i>
+            <h3 class="font-bold text-base">Error en carregar el catàleg</h3>
+            <p class="text-xs">${err.message}</p>
+            <button onclick="renderCatalog()" class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow">
+              <i class="fa-solid fa-rotate-right mr-1"></i> Reintentar ara
+            </button>
+          </div>
+        `;
       }
     }
 
@@ -1132,19 +1148,15 @@
 
       if (targetDocId) {
         try {
-          const docSnap = await db.collection(DB_COLLECTION).doc(targetDocId).get();
+          const docSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).get(), 7000, "lectura a editar");
           if (docSnap.exists) {
             initialData = docSnap.data();
             
             let qSnap;
             try {
-              qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
+              qSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get(), 6000, "preguntes");
             } catch (orderErr) {
-              qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get();
-            }
-
-            if (qSnap.empty) {
-              qSnap = await db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get();
+              qSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get(), 6000, "preguntes");
             }
 
             qSnap.forEach(qDoc => { 
@@ -1195,7 +1207,6 @@
               <p>Estàs creant una bateria de preguntes adaptada a partir d'aquesta lectura mare. El text original es manté integrat i enllaçat.</p>
             </div>
           ` : `
-            <!-- REQUADRE GUIA 1: QUALITAT EDITORIAL -->
             <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl mb-3 shadow-xs">
               <h3 class="text-xs font-black text-amber-900 mb-1.5 flex items-center gap-1.5 uppercase tracking-wide">
                 <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
@@ -1212,7 +1223,6 @@
               </div>
             </div>
 
-            <!-- REQUADRE GUIA 2: VARIETAT DE PREGUNTES I LES 5 TAXONOMIES COGNITIVES -->
             <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
               <h3 class="text-xs font-black text-indigo-900 flex items-center gap-1.5 uppercase tracking-wide">
                 <i class="fa-solid fa-brain text-indigo-600"></i> Varietat de Preguntes i Nivells de Comprensió
@@ -1352,7 +1362,6 @@
               ${isAdaptedMode ? `<p class="text-[11px] text-emerald-800 font-semibold mt-1">✏️ Text desbloquejat: adapta el vocabulari i l'extensió per a la versió simplificada.</p>` : ''}
             </div>
 
-            <!-- PUJADA D'IMATGE AMB COMPRESSIÓ AUTOMÀTICA (COBERTA) -->
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
               <label class="block text-sm font-bold text-indigo-900">Coberta del Llibre (Imatge)</label>
               <div class="flex flex-col sm:flex-row gap-2 items-center">
@@ -1365,7 +1374,6 @@
               <span id="upload-cover-status"></span>
             </div>
 
-            <!-- GLOSSARI -->
             <div class="bg-teal-50/70 p-4 rounded-xl border border-teal-200/80 space-y-3">
               <div class="flex items-center justify-between">
                 <div>
@@ -1925,6 +1933,9 @@
       const authorSchool = userSchool || "";
       const authorEmail = currentUser ? currentUser.email : "";
 
+      const qBlocks = document.querySelectorAll('.q-block');
+      const totalQCount = qBlocks.length;
+
       try {
         let docId = editingDocId;
 
@@ -1939,6 +1950,7 @@
             estimatedTime: estimatedTime,
             bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
+            questionCount: totalQCount,
             content: content,
             imageUrl: imageUrl,
             glossary: glossary,
@@ -1968,6 +1980,7 @@
             estimatedTime: estimatedTime,
             bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
+            questionCount: totalQCount,
             content: content,
             imageUrl: imageUrl,
             readingNumber: nextNum,
@@ -1984,7 +1997,6 @@
           docId = docRef.id;
         }
 
-        const qBlocks = document.querySelectorAll('.q-block');
         let orderIndex = 0;
 
         for (const block of qBlocks) {
@@ -2141,7 +2153,7 @@
       app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
 
       try {
-        const doc = await db.collection(DB_COLLECTION).doc(docId).get();
+        const doc = await withTimeout(db.collection(DB_COLLECTION).doc(docId).get(), 7000, "lectura");
         if (!doc.exists) {
           app.innerHTML = `
             <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
@@ -2157,8 +2169,7 @@
         const data = doc.data() || {};
         const isBook = data.type === 'book';
 
-        const totalDocsInDb = (await db.collection(DB_COLLECTION).get()).size;
-        const readingNum = data.readingNumber || totalDocsInDb;
+        const readingNum = data.readingNumber || 1;
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
@@ -2186,17 +2197,14 @@
 
         let questionsSnap = { empty: true, size: 0, forEach: () => {} };
         try {
-          questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
+          questionsSnap = await withTimeout(db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get(), 6000, "preguntes");
         } catch (qErr) {
           try {
-            questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
+            questionsSnap = await withTimeout(db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get(), 6000, "preguntes");
           } catch (e) {
             console.warn("No s'han pogut carregar les preguntes de Firestore:", e);
           }
         }
-
-        const totalAllSnapReader = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-        if (questionsSnap.size < totalAllSnapReader.size) questionsSnap = totalAllSnapReader;
         
         const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
@@ -2617,9 +2625,6 @@
       } catch (e) {
         questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
       }
-
-      const totalAllSnapSubmit = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
-      if (questionsSnap.size < totalAllSnapSubmit.size) questionsSnap = totalAllSnapSubmit;
 
       let score = 0;
       let total = questionsSnap.size;
@@ -3311,9 +3316,6 @@
       }
     }
 
-    /* ==========================================================================
-       HISTORIAL DE VERSIONS EN MATRIU COMPLETA DE 4 FILES (12 REQUADRES INTACTES)
-       ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -3332,10 +3334,21 @@
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
+              version: "v0.36.1",
+              date: "Novembre 2026",
+              badge: "Fast Boot & Timeout Guard",
+              color: "bg-emerald-600 text-white font-bold border-emerald-700",
+              summary: "Optimització de càrrega del catàleg (sense consultes N+1) i control de temps d'espera.",
+              highlights: [
+                "Eliminació de les consultes individuals a subcol·leccions al catàleg per a una arrencada instantània.",
+                "Temporitzador de seguretat (withTimeout) i detector d'errors visuals per evitar esperes eternes."
+              ]
+            },
+            {
               version: "v0.36.0",
               date: "Novembre 2026",
               badge: "Versió Adaptada DUA",
-              color: "bg-emerald-600 text-white font-bold border-emerald-700",
+              color: "bg-teal-600 text-white font-bold border-teal-700",
               summary: "Versió Adaptada / Simplificada (Text + Preguntes) annexada en pestanyes.",
               highlights: [
                 "Permet al propi autor o a altres docents escurçar/simplificar el text i adaptar preguntes.",
@@ -3346,13 +3359,18 @@
               version: "v0.35.5",
               date: "Novembre 2026",
               badge: "Visual Multiple & Opinion",
-              color: "bg-teal-600 text-white font-bold border-teal-700",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
               summary: "Selector de mode de correcció en preguntes amb imatges.",
               highlights: [
                 "Mode '1 imatge correcta', 'Vàries imatges correctes' (checkboxes) i 'Opinió (Totes vàlides)'.",
                 "Retrocompatibilitat completa amb totes les preguntes visuals creades prèviament."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
+          blocks: [
             {
               version: "v0.35.4",
               date: "Novembre 2026",
@@ -3363,12 +3381,7 @@
                 "Reducció del pes de la imatge d'1.7 MB a uns 50-90 KB.",
                 "Solució definitiva a l'error de límit de mida de Firestore (1 MB max)."
               ]
-            }
-          ]
-        },
-        {
-          title: "🚀 FILA 3 — EVOLUCIÓ PEDAGÒGICA I ACCESSIBILITAT",
-          blocks: [
+            },
             {
               version: "v0.34.0",
               date: "Octubre 2026",
@@ -3390,7 +3403,12 @@
                 "Permet adaptar les preguntes d'una lectura existent al nivell d'un grup-classe.",
                 "Selector ràpid al lector per alternar entre la bateria original i les adaptacions."
               ]
-            },
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — FONAMENTS, TAXONOMIA I COMUNITAT DOCENT",
+          blocks: [
             {
               version: "v0.32.0",
               date: "Octubre 2026",
@@ -3400,22 +3418,6 @@
               highlights: [
                 "Síntesi de veu nativa (Web Speech API) amb control de pausa i velocitat (0.8x–1.2x).",
                 "Glossari interactiu integrat amb desplaçament suau."
-              ]
-            }
-          ]
-        },
-        {
-          title: "🏛️ FILA 4 — FONAMENTS, TAXONOMIA I COMUNITAT DOCENT",
-          blocks: [
-            {
-              version: "v0.29.0",
-              date: "Setembre 2026",
-              badge: "Xarxa i Bústia Docent",
-              color: "bg-purple-600 text-white font-bold border-purple-700",
-              summary: "Bústia de suggeriments entre docents i preguntes visuals amb imatges.",
-              highlights: [
-                "Comunicació directa per millorar lectures compartides.",
-                "Ordenació cronològica de fets amb fletxes dinàmiques (v0.27.0)."
               ]
             },
             {
@@ -3457,7 +3459,7 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.36.0
+              ⚡ Versió Actual: v0.36.1
             </span>
           </div>
 
@@ -3491,7 +3493,6 @@
       `;
     }
 
-    // Inicialització immediata de la capçalera i ruta inicial
     renderNav();
     routeInitialView();
   </script>
