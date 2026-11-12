@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.37.1</title>
+  <title>Lectura Aventura - v0.37.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.2...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.37.1 — Historial de versions</span>
+        <span>v0.37.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -68,15 +68,22 @@
   <div id="clone-modal-container"></div>
   <div id="zoom-modal-container"></div>
 
-  <!-- SCRIPT 1: Captura d'errors aïllada -->
+  <!-- SCRIPT 1: Captura d'errors aïllada (inclou promeses) -->
   <script>
-    window.addEventListener('error', function(event) {
+    function showGlobalError(msg) {
       var box = document.getElementById('global-error-box');
       if (box) {
         box.innerHTML = '<div class="max-w-4xl mx-auto mt-3 p-4 bg-red-100 border-2 border-red-400 text-red-900 rounded-xl text-xs font-mono shadow">' +
-          '<strong>⚠️ Error detectat al navegador (Línia ' + (event.lineno || '?') + '):</strong> ' + (event.message || 'Error desconegut') +
+          '<strong>⚠️ Error detectat:</strong> ' + msg +
           '</div>';
       }
+    }
+    window.addEventListener('error', function(event) {
+      showGlobalError('(Línia ' + (event.lineno || '?') + ') ' + (event.message || 'Error desconegut'));
+    });
+    window.addEventListener('unhandledrejection', function(event) {
+      var reason = event.reason ? (event.reason.message || String(event.reason)) : 'Error en promesa';
+      showGlobalError('(Async) ' + reason);
     });
   </script>
 
@@ -105,12 +112,27 @@
       measurementId: "G-7132LXLDTR"
     };
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+    let auth = null;
+    let db = null;
+    let storage = null;
+
+    try {
+      if (typeof firebase === 'undefined') {
+        throw new Error("No s'ha pogut carregar l'SDK de Firebase. Revisa la connexió a Internet o bloquejadors d'scripts.");
+      }
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      auth = firebase.auth();
+      db = firebase.firestore();
+      storage = firebase.storage();
+    } catch (initErr) {
+      showGlobalError("Error iniciant Firebase: " + initErr.message);
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center space-y-3"><h3 class="font-bold">Error d\'inicialització</h3><p class="text-xs">' + initErr.message + '</p></div>';
+      }
     }
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const storage = firebase.storage();
 
     const DB_COLLECTION = "lectures";
     const FOLDERS_COLLECTION = "folders";
@@ -637,36 +659,47 @@
       }
     }
 
-    auth.onAuthStateChanged(async function(user) {
-      currentUser = user;
-      if (user) {
-        await loadUserData();
-      } else {
-        userPoints = 0;
-        userRole = 'alumne';
-        userCompletedReadings = [];
-        userDisplayName = "";
-        userSchool = "";
-        userTeacherUid = "";
-        filterMyLectures = false;
-      }
-      renderNav();
-      if (!isInitialRouteDone || user) {
-        isInitialRouteDone = true;
-        routeInitialView();
-      }
-    });
+    // Inicialització blindada de la sessió i arrencada immediata
+    if (auth) {
+      auth.onAuthStateChanged(async function(user) {
+        currentUser = user;
+        if (user) {
+          await loadUserData();
+        } else {
+          userPoints = 0;
+          userRole = 'alumne';
+          userCompletedReadings = [];
+          userDisplayName = "";
+          userSchool = "";
+          userTeacherUid = "";
+          filterMyLectures = false;
+        }
+        renderNav();
+        if (!isInitialRouteDone || user) {
+          isInitialRouteDone = true;
+          routeInitialView();
+        }
+      }, function(authErr) {
+        console.warn("Auth state warning:", authErr);
+        renderNav();
+        if (!isInitialRouteDone) {
+          isInitialRouteDone = true;
+          routeInitialView();
+        }
+      });
+    }
 
+    // Garantia d'arrencada ràpida (1.2s) si Firebase Auth tarda o s'executa en local
     setTimeout(function() {
       if (!isInitialRouteDone) {
         isInitialRouteDone = true;
         renderNav();
         routeInitialView();
       }
-    }, 2500);
+    }, 1200);
 
     async function loadUserData() {
-      if (!currentUser) return;
+      if (!currentUser || !db) return;
       try {
         const doc = await withTimeout(db.collection("users").doc(currentUser.uid).get(), 5000, "perfil d'usuari");
         if (doc.exists) {
@@ -839,6 +872,10 @@
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
+      if (!db) {
+        app.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center">No hi ha connexió amb la base de dades Firestore.</div>';
+        return;
+      }
       app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>';
 
       try {
@@ -2955,3 +2992,261 @@
               <div><label class="block text-xs font-bold text-slate-700 mb-1">Correu electrònic *</label><input type="email" id="auth-email" required placeholder="nom@exemple.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
               <div><label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label><input type="password" id="auth-password" required minlength="6" placeholder="Mínim 6 caràcters" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
               <div id="register-extra-fields" class="hidden space-y-3 pt-2 border-t border-slate-100">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom o Pseudònim *</label><input type="text" id="auth-name" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
+                <div>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Tria el teu Rol *</label>
+                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/40 rounded-xl text-xs font-bold text-indigo-950">
+                    <option value="alumne">🎒 Alumne/a</option>
+                    <option value="adult">🧑‍💼 Lector/a Adult/a</option>
+                    <option value="docent">👨‍🏫 Docent</option>
+                    <option value="colaborador">✍️ Col·laborador/a</option>
+                  </select>
+                </div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre (Opcional)</label><input type="text" id="auth-school" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
+              </div>
+              <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">Entrar</button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function switchAuthTab(mode) {
+      document.getElementById('auth-mode').value = mode;
+      const extra = document.getElementById('register-extra-fields');
+      const btnLogin = document.getElementById('tab-login-btn');
+      const btnReg = document.getElementById('tab-register-btn');
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      if (mode === 'register') {
+        extra.classList.remove('hidden');
+        btnReg.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
+        btnLogin.className = "w-1/2 py-2 rounded-lg text-slate-600";
+        submitBtn.innerText = "Registrar-me i Començar";
+      } else {
+        extra.classList.add('hidden');
+        btnLogin.className = "w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs";
+        btnReg.className = "w-1/2 py-2 rounded-lg text-slate-600";
+        submitBtn.innerText = "Entrar";
+      }
+    }
+
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      if (!auth) { alert("El servei d'autenticació no està disponible."); return; }
+      const mode = document.getElementById('auth-mode').value;
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      try {
+        if (mode === 'register') {
+          const name = document.getElementById('auth-name').value || email.split('@')[0];
+          const role = document.getElementById('auth-role').value || 'alumne';
+          const school = document.getElementById('auth-school').value || '';
+
+          const cred = await auth.createUserWithEmailAndPassword(email, password);
+          await db.collection("users").doc(cred.user.uid).set({
+            email: email,
+            displayName: name,
+            role: role,
+            school: school,
+            points: 0,
+            completedReadings: [],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          await auth.signInWithEmailAndPassword(email, password);
+        }
+        document.getElementById('auth-modal-container').innerHTML = '';
+      } catch (err) {
+        alert("Error d'autenticació: " + err.message);
+      }
+    }
+
+    function renderUserProfileModal() {
+      if (!currentUser) return;
+      const container = document.getElementById('profile-modal-container');
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-slate-800">El meu Perfil de Lectura</h3>
+              <button onclick="document.getElementById('profile-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form onsubmit="saveUserProfile(event)" class="space-y-3">
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label><input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label><input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              ${userRole === 'alumne' ? '<div><label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label><input type="text" id="profile-teacher-uid" value="' + escapeHtmlAttr(userTeacherUid) + '" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"></div>' : ''}
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-sm">Desar dades de perfil</button>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveUserProfile(e) {
+      e.preventDefault();
+      const name = document.getElementById('profile-display-name').value;
+      const school = document.getElementById('profile-school').value;
+      const teacherEl = document.getElementById('profile-teacher-uid');
+      const teacherUid = teacherEl ? teacherEl.value : '';
+
+      try {
+        await db.collection("users").doc(currentUser.uid).set({
+          displayName: name,
+          school: school,
+          teacherUid: teacherUid
+        }, { merge: true });
+
+        document.getElementById('profile-modal-container').innerHTML = '';
+        await loadUserData();
+        renderNav();
+        renderCatalog();
+      } catch (err) {
+        alert("Error en desar el perfil: " + err.message);
+      }
+    }
+
+    async function logout() {
+      stopSpeechSynthesis();
+      try {
+        if (auth) await auth.signOut();
+        filterMyLectures = false;
+        renderNav();
+        resetFiltersAndRenderCatalog();
+      } catch (err) {
+        alert("Error en tancar la sessió: " + err.message);
+      }
+    }
+
+    function toggleMyLectures() {
+      filterMyLectures = !filterMyLectures;
+      renderNav();
+      renderCatalog();
+    }
+
+    function applyCatalogFilters() {
+      const sInput = document.getElementById('search-input');
+      const aInput = document.getElementById('author-search-input');
+      const tSelect = document.getElementById('type-select');
+      const lSelect = document.getElementById('level-select');
+      const cSelect = document.getElementById('category-select');
+      const dSelect = document.getElementById('duration-select');
+      const stSelect = document.getElementById('status-select');
+
+      filterSearch = sInput ? sInput.value.toLowerCase().trim() : "";
+      filterBookAuthor = aInput ? aInput.value.toLowerCase().trim() : "";
+      filterType = tSelect ? tSelect.value : "all";
+      filterLevel = lSelect ? lSelect.value : "all";
+      filterCategory = cSelect ? cSelect.value : "all";
+      filterDuration = dSelect ? dSelect.value : "all";
+      filterStatus = stSelect ? stSelect.value : "all";
+
+      renderCatalog();
+    }
+
+    function resetFiltersAndRenderCatalog() {
+      filterSearch = "";
+      filterBookAuthor = "";
+      filterType = "all";
+      filterLevel = "all";
+      filterCategory = "all";
+      filterStatus = "all";
+      filterDuration = "all";
+      filterMyLectures = false;
+
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      renderNav();
+      renderCatalog();
+    }
+
+    function shareReadingLink(docId, readingCode) {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareUrl = baseUrl + "?lectura=" + encodeURIComponent(docId);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(function() {
+          alert("🔗 Enllaç copiat al porta-retalls (" + (readingCode || docId) + "):\n" + shareUrl);
+        }).catch(function() {
+          prompt("Copia aquest enllaç directe per compartir la lectura:", shareUrl);
+        });
+      } else {
+        prompt("Copia aquest enllaç directe per compartir la lectura:", shareUrl);
+      }
+    }
+
+    function shareFolderLink(folderId) {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const shareUrl = baseUrl + "?carpeta=" + encodeURIComponent(folderId);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(shareUrl).then(function() {
+          alert("📁 Enllaç de la Carpeta / SA copiat al porta-retalls:\n" + shareUrl);
+        }).catch(function() {
+          prompt("Copia aquest enllaç per compartir la carpeta:", shareUrl);
+        });
+      } else {
+        prompt("Copia aquest enllaç per compartir la carpeta:", shareUrl);
+      }
+    }
+
+    function shareToGoogleClassroom(docId, title) {
+      const baseUrl = window.location.origin + window.location.pathname;
+      const targetUrl = baseUrl + "?lectura=" + encodeURIComponent(docId);
+      const classroomUrl = "https://classroom.google.com/share?url=" + encodeURIComponent(targetUrl) + "&title=" + encodeURIComponent("Lectura Aventura: " + (title || "Activitat de comprensió lectora"));
+      window.open(classroomUrl, "_blank", "noopener,noreferrer");
+    }
+
+    function renderChangelogPage() {
+      stopSpeechSynthesis();
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      app.innerHTML = `
+        <div class="max-w-3xl mx-auto space-y-6">
+          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+          </button>
+
+          <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div>
+                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
+                </h1>
+                <p class="text-xs text-slate-500 mt-1">Evolució i millores de Lectura Aventura</p>
+              </div>
+              <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-xl border border-amber-300">v0.37.2</span>
+            </div>
+
+            <div class="space-y-4 text-sm">
+              <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="font-black text-indigo-950">v0.37.2 — Blindatge d'arrencada i diagnòstic</span>
+                  <span class="text-[11px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">Actual</span>
+                </div>
+                <ul class="list-disc list-inside text-xs text-slate-700 space-y-1">
+                  <li>Inicialització blindada de Firebase amb gestió explícita d'errors i promeses.</li>
+                  <li>Arrencada immediata del catàleg sense bloquejos en la pantalla de càrrega.</li>
+                </ul>
+              </div>
+
+              <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+                <div class="flex items-center justify-between">
+                  <span class="font-black text-slate-800">v0.37.1 — Fase 2 (Lectures Visuals i DUA)</span>
+                </div>
+                <ul class="list-disc list-inside text-xs text-slate-600 space-y-1">
+                  <li>Suport per a <strong>Lectures Visuals</strong> (imatges de referència, cartells, infografies i zoom).</li>
+                  <li>Versions adaptades (DUA) annexades en pestanyes dins del mateix lector.</li>
+                  <li>Motor de preguntes ampliat: opció única, múltiple, ordenació cronològica, selecció d'imatge i resposta oberta.</li>
+                  <li>Eines d'accessibilitat: font OpenDyslexic, mida de lletra, mode sèpia/fosc i lectura en veu alta.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>
