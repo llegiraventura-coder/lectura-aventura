@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.36.1</title>
+  <title>Lectura Aventura - v0.36.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.36.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -44,14 +44,19 @@
 
   <div id="global-error-box"></div>
   <div id="motivation-banner"></div>
-  <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6"></main>
+  <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
+    <div class="text-center py-12">
+      <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.36.2...</p>
+    </div>
+  </main>
 
   <footer class="bg-slate-800 text-slate-400 py-4 text-sm mt-auto border-t border-slate-700">
     <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.36.1 — Historial de versions</span>
+        <span>v0.36.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -62,25 +67,30 @@
   <div id="feedback-modal-container"></div>
   <div id="clone-modal-container"></div>
 
+  <!-- SCRIPT 1: Captura d'errors aïllada perquè sempre s'executi encara que falli el script principal -->
   <script>
-    // Captura global d'errors perquè mai es quedi en blanc sense avís
-    window.onerror = function(msg, url, lineNo) {
-      const box = document.getElementById('global-error-box');
+    window.addEventListener('error', function(event) {
+      var box = document.getElementById('global-error-box');
       if (box) {
-        box.innerHTML = `<div class="max-w-4xl mx-auto mt-3 p-3 bg-red-100 border border-red-300 text-red-800 rounded-xl text-xs font-mono">
-          <strong>⚠️ Error JS (Línia ${lineNo}):</strong> ${msg}
-        </div>`;
+        box.innerHTML = '<div class="max-w-4xl mx-auto mt-3 p-4 bg-red-100 border-2 border-red-400 text-red-900 rounded-xl text-xs font-mono shadow">' +
+          '<strong>⚠️ Error detectat al navegador (Línia ' + (event.lineno || '?') + '):</strong> ' + (event.message || 'Error desconegut') +
+          '</div>';
       }
-      return false;
-    };
+    });
+  </script>
 
-    // Helper per evitar esperes eternes de xarxa/Firestore
-    function withTimeout(promise, ms = 7000, label = "connexió amb la base de dades") {
+  <!-- SCRIPT 2: Lògica principal de Lectura Aventura -->
+  <script>
+    function withTimeout(promise, ms, label) {
+      ms = ms || 8000;
+      label = label || "connexió amb la base de dades";
       return Promise.race([
         promise,
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error(`Temps d'espera esgotat (${ms/1000}s) en ${label}. Comprova la connexió o torna-ho a provar.`)), ms)
-        )
+        new Promise(function(_, reject) {
+          setTimeout(function() {
+            reject(new Error("Temps d'espera esgotat (" + (ms / 1000) + "s) en " + label + ". Comprova la connexió o torna-ho a provar."));
+          }, ms);
+        })
       ]);
     }
 
@@ -99,7 +109,7 @@
     }
     const auth = firebase.auth();
     const db = firebase.firestore();
-    const storage = firebase.storage(); 
+    const storage = firebase.storage();
 
     const DB_COLLECTION = "lectures";
     const FOLDERS_COLLECTION = "folders";
@@ -109,19 +119,20 @@
 
     let currentUser = null;
     let userPoints = 0;
-    let userRole = 'alumne'; 
+    let userRole = 'alumne';
     let userCompletedReadings = [];
     let userDisplayName = "";
     let userSchool = "";
-    let userTeacherUid = ""; 
+    let userTeacherUid = "";
     let filterMyLectures = false;
     let editingDocId = null;
     let cloningParentId = null;
     let cloningMode = 'questions';
     let currentLeaderboardTab = 'group';
+    let isInitialRouteDone = false;
 
     let isDyslexicMode = false;
-    let readerFontSize = 18; 
+    let readerFontSize = 18;
     let readerTheme = 'default';
 
     let speechUtterance = null;
@@ -157,15 +168,13 @@
 
     function formatReadingCode(num) {
       if (!num || isNaN(num)) return "#CL-00001";
-      return `#CL-${String(num).padStart(5, '0')}`;
+      return "#CL-" + String(num).padStart(5, '0');
     }
 
     function scrollToGlossary(e) {
       if (e) e.preventDefault();
       const target = document.getElementById('glossary-section');
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function normalizeText(str) {
@@ -176,26 +185,25 @@
         .replace(/[^a-z0-9]/g, "");
     }
 
-    function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId = null) {
+    function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId) {
       if (!fileInputElem) return;
       const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
       if (!file) return;
 
       const optionWrapper = fileInputElem.closest('.flex-col') || fileInputElem.closest('.q-block');
       const block = fileInputElem.closest('.q-block');
-      
+
       let statusElem = statusSpanId ? document.getElementById(statusSpanId) : null;
       if (!statusElem && optionWrapper) {
         statusElem = optionWrapper.querySelector('.q-upload-status');
       }
-      
+
       if (statusElem) {
-        statusElem.innerHTML = `<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Compriment...`;
+        statusElem.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Compriment...';
         statusElem.className = "text-xs text-indigo-600 font-bold flex items-center gap-1";
       }
 
       const reader = new FileReader();
-      
       reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
@@ -219,22 +227,15 @@
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
-
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, width, height);
 
           const compressedDataURL = canvas.toDataURL('image/jpeg', 0.7);
 
           let inputElem = null;
-          if (optionWrapper) {
-            inputElem = optionWrapper.querySelector('input[type="text"]');
-          }
-          if (!inputElem && block) {
-            inputElem = block.querySelector('.' + targetInputClass);
-          }
-          if (!inputElem) {
-            inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
-          }
+          if (optionWrapper) inputElem = optionWrapper.querySelector('input[type="text"]');
+          if (!inputElem && block) inputElem = block.querySelector('.' + targetInputClass);
+          if (!inputElem) inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
 
           if (inputElem) {
             inputElem.value = compressedDataURL;
@@ -244,30 +245,22 @@
           }
 
           if (statusElem) {
-            statusElem.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Carregada!`;
+            statusElem.innerHTML = '<i class="fa-solid fa-check text-emerald-600"></i> Carregada!';
             statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
-            setTimeout(() => { if (statusElem) statusElem.innerHTML = ''; }, 3000);
+            setTimeout(function() { if (statusElem) statusElem.innerHTML = ''; }, 3000);
           }
           fileInputElem.value = '';
         };
 
         img.onerror = function() {
           if (statusElem) {
-            statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error en la imatge`;
+            statusElem.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error en la imatge';
             statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
           }
           fileInputElem.value = '';
         };
 
         img.src = e.target.result;
-      };
-
-      reader.onerror = function() {
-        if (statusElem) {
-          statusElem.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error`;
-          statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
-        }
-        fileInputElem.value = '';
       };
 
       reader.readAsDataURL(file);
@@ -291,7 +284,7 @@
     function changeReaderFontSize(delta) {
       readerFontSize = Math.min(Math.max(readerFontSize + delta, 14), 28);
       const box = document.getElementById('reading-text-box');
-      if (box) box.style.fontSize = `${readerFontSize}px`;
+      if (box) box.style.fontSize = readerFontSize + "px";
     }
 
     function setReaderTheme(theme) {
@@ -306,7 +299,7 @@
 
     function toggleSpeechSynthesis() {
       if (!('speechSynthesis' in window)) {
-        alert("El teu navegador no suporta la síntesi de veu (Web Speech API).");
+        alert("El teu navegador no suporta la síntesi de veu.");
         return;
       }
       if (isSpeaking && !isSpeechPaused) {
@@ -333,12 +326,12 @@
       speechUtterance.rate = speechRate;
 
       const voices = window.speechSynthesis.getVoices();
-      const caVoice = voices.find(v => v.lang.startsWith('ca'));
+      const caVoice = voices.find(function(v) { return v.lang.startsWith('ca'); });
       if (caVoice) speechUtterance.voice = caVoice;
 
-      speechUtterance.onstart = () => { isSpeaking = true; isSpeechPaused = false; updateSpeechUI(); };
-      speechUtterance.onend = () => { stopSpeechSynthesis(); };
-      speechUtterance.onerror = () => { stopSpeechSynthesis(); };
+      speechUtterance.onstart = function() { isSpeaking = true; isSpeechPaused = false; updateSpeechUI(); };
+      speechUtterance.onend = function() { stopSpeechSynthesis(); };
+      speechUtterance.onerror = function() { stopSpeechSynthesis(); };
 
       window.speechSynthesis.speak(speechUtterance);
     }
@@ -361,13 +354,13 @@
 
       if (btnPlay) {
         if (isSpeaking && !isSpeechPaused) {
-          btnPlay.innerHTML = `<i class="fa-solid fa-pause text-amber-300"></i> Pausa`;
+          btnPlay.innerHTML = '<i class="fa-solid fa-pause text-amber-300"></i> Pausa';
           btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-amber-600 text-white border border-amber-700 shadow-xs flex items-center gap-1.5";
         } else if (isSpeaking && isSpeechPaused) {
-          btnPlay.innerHTML = `<i class="fa-solid fa-play text-white"></i> Reprendre`;
+          btnPlay.innerHTML = '<i class="fa-solid fa-play text-white"></i> Reprendre';
           btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white border border-emerald-700 shadow-xs flex items-center gap-1.5";
         } else {
-          btnPlay.innerHTML = `<i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta`;
+          btnPlay.innerHTML = '<i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta';
           btnPlay.className = "px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5";
         }
       }
@@ -378,29 +371,30 @@
     }
 
     const QuestionEngine = {
-      render(qDocId, qData, qIndex, totalQuestions = 0, glossaryWords = []) {
+      render: function(qDocId, qData, qIndex, totalQuestions, glossaryWords) {
+        totalQuestions = totalQuestions || 0;
+        glossaryWords = glossaryWords || [];
         const type = qData.questionType || 'single';
         const imgMode = qData.imageSelectionMode || 'single';
         const taxonomy = qData.taxonomyType || 'literal';
         const taxConfig = TAXONOMY_CONFIG[taxonomy] || TAXONOMY_CONFIG.literal;
-        
-        let text = qData.questionText || qData.pregunta || `Pregunta ${qIndex + 1}`;
+
+        let text = qData.questionText || qData.pregunta || ("Pregunta " + (qIndex + 1));
         text = parseContentWithGlossary(text, glossaryWords);
-        const options = (qData.options || qData.opcions || []).filter(o => o !== null && o !== undefined && o !== '');
+        const options = (qData.options || qData.opcions || []).filter(function(o) { return o !== null && o !== undefined && o !== ''; });
 
         let badgeHTML = '';
-        if (type === 'multiple') badgeHTML = `<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple (${options.length} opcions)</span>`;
-        else if (type === 'opinion') badgeHTML = `<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió</span>`;
-        else if (type === 'ordering') badgeHTML = `<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació (${options.length} fets)</span>`;
+        if (type === 'multiple') badgeHTML = '<span class="text-[11px] font-bold text-purple-700 bg-purple-100 border border-purple-200 px-2 py-0.5 rounded-md shrink-0">☑️ Opció Múltiple (' + options.length + ' opcions)</span>';
+        else if (type === 'opinion') badgeHTML = '<span class="text-[11px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded-md shrink-0">💬 Reflexió / Opinió</span>';
+        else if (type === 'ordering') badgeHTML = '<span class="text-[11px] font-bold text-amber-800 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-md shrink-0">↕️ Ordenació (' + options.length + ' fets)</span>';
         else if (type === 'image_single') {
           const modeLabel = imgMode === 'multiple' ? '☑️ Múltiple' : (imgMode === 'opinion' ? '💬 Opinió' : '');
-          badgeHTML = `<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Imatges ${modeLabel}</span>`;
+          badgeHTML = '<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Imatges ' + modeLabel + '</span>';
         }
-        else if (type === 'text_input') badgeHTML = `<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>`;
+        else if (type === 'text_input') badgeHTML = '<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>';
 
-        const taxBadge = `<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${taxConfig.color}">
-          <i class="fa-solid ${taxConfig.icon}"></i> ${taxConfig.label}
-        </span>`;
+        const taxBadge = '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ' + taxConfig.color + '">' +
+          '<i class="fa-solid ' + taxConfig.icon + '"></i> ' + taxConfig.label + '</span>';
 
         let optionsHTML = '';
 
@@ -419,8 +413,8 @@
           const inputType = imgMode === 'multiple' ? 'checkbox' : 'radio';
           const reqAttr = imgMode === 'multiple' ? '' : 'required';
 
-          optionsHTML = `<div class="grid ${colsClass} gap-3 mt-2">`;
-          options.forEach((optImgUrl, oIdx) => {
+          optionsHTML = '<div class="grid ' + colsClass + ' gap-3 mt-2">';
+          options.forEach(function(optImgUrl, oIdx) {
             const letter = letterLabels[oIdx] || '';
             const imgSrc = optImgUrl.trim() || 'https://via.placeholder.com/300x200?text=Sense+Imatge';
             optionsHTML += `
@@ -430,15 +424,17 @@
                   <span>Opció ${letter}</span>
                 </div>
                 <div class="w-full h-36 overflow-hidden rounded-lg bg-slate-100 flex items-center justify-center">
-                  <img src="${imgSrc}" alt="Opció ${letter}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Carregant+Imatge'">
+                  <img src="${imgSrc}" alt="Opció ${letter}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" onerror="this.src='https://via.placeholder.com/300x200?text=Error+Imatge'">
                 </div>
               </label>
             `;
           });
-          optionsHTML += `</div>`;
+          optionsHTML += '</div>';
         } else if (type === 'ordering') {
-          let indexedOptions = options.map((opt, idx) => ({ text: parseContentWithGlossary(opt, glossaryWords), originalIdx: idx }));
-          indexedOptions.sort(() => Math.random() - 0.5);
+          let indexedOptions = options.map(function(opt, idx) {
+            return { text: parseContentWithGlossary(opt, glossaryWords), originalIdx: idx };
+          });
+          indexedOptions.sort(function() { return Math.random() - 0.5; });
 
           optionsHTML = `
             <div class="bg-amber-50/50 p-3 rounded-xl border border-amber-200/80 mb-2">
@@ -449,7 +445,7 @@
               <div id="ordering_list_${qDocId}" class="ordering-container space-y-2">
           `;
 
-          indexedOptions.forEach((optObj, posIdx) => {
+          indexedOptions.forEach(function(optObj, posIdx) {
             optionsHTML += `
               <div class="ordering-item flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200 shadow-xs" data-original-idx="${optObj.originalIdx}">
                 <div class="flex items-center space-x-3">
@@ -468,13 +464,13 @@
 
           optionsHTML += `
               </div>
-              <input type="hidden" name="q_${qDocId}" id="q_input_${qDocId}" value="${indexedOptions.map(o => o.originalIdx).join(',')}">
+              <input type="hidden" name="q_${qDocId}" id="q_input_${qDocId}" value="${indexedOptions.map(function(o) { return o.originalIdx; }).join(',')}">
             </div>
           `;
         } else {
           const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
-          options.forEach((opt, oIdx) => {
-            const letterBadge = `<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">${letterLabels[oIdx] || ''}</span>`;
+          options.forEach(function(opt, oIdx) {
+            const letterBadge = '<span class="w-5 h-5 rounded bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">' + (letterLabels[oIdx] || '') + '</span>';
             const optParsed = parseContentWithGlossary(opt, glossaryWords);
             if (type === 'multiple') {
               optionsHTML += `
@@ -487,7 +483,6 @@
             } else {
               const hoverColor = type === 'opinion' ? 'hover:bg-blue-50/50' : 'hover:bg-indigo-50/50';
               const radioColor = type === 'opinion' ? 'text-blue-600 focus:ring-blue-500' : 'text-indigo-600 focus:ring-indigo-500';
-              
               optionsHTML += `
                 <label class="flex items-center space-x-3 p-2.5 bg-white rounded-lg border border-slate-200 cursor-pointer ${hoverColor} transition">
                   <input type="radio" name="q_${qDocId}" value="${oIdx}" required class="w-4 h-4 ${radioColor}">
@@ -499,7 +494,7 @@
           });
         }
 
-        const progressIndicator = totalQuestions > 0 ? `<span class="text-xs text-indigo-600 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Pregunta ${qIndex + 1} de ${totalQuestions}</span>` : '';
+        const progressIndicator = totalQuestions > 0 ? '<span class="text-xs text-indigo-600 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Pregunta ' + (qIndex + 1) + ' de ' + totalQuestions + '</span>' : '';
 
         return `
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
@@ -515,45 +510,38 @@
         `;
       },
 
-      evaluate(qData, qDocId, formData) {
+      evaluate: function(qData, qDocId, formData) {
         const type = qData.questionType || 'single';
         const imgMode = qData.imageSelectionMode || 'single';
 
         if (type === 'text_input') {
-          const userText = formData.get(`q_${qDocId}`) || '';
+          const userText = formData.get('q_' + qDocId) || '';
           const normUser = normalizeText(userText);
           if (!normUser) return false;
 
           let keywords = [];
-          if (Array.isArray(qData.keywords)) {
-            keywords = qData.keywords;
-          } else if (typeof qData.keywords === 'string') {
-            keywords = qData.keywords.split(',').map(k => k.trim());
-          } else if (qData.correctAnswerText) {
-            keywords = [qData.correctAnswerText];
-          }
+          if (Array.isArray(qData.keywords)) keywords = qData.keywords;
+          else if (typeof qData.keywords === 'string') keywords = qData.keywords.split(',').map(function(k) { return k.trim(); });
+          else if (qData.correctAnswerText) keywords = [qData.correctAnswerText];
 
           if (keywords.length === 0) return true;
-          return keywords.some(kw => normUser.includes(normalizeText(kw)));
+          return keywords.some(function(kw) { return normUser.includes(normalizeText(kw)); });
         } else if (type === 'ordering') {
-          const val = formData.get(`q_${qDocId}`);
+          const val = formData.get('q_' + qDocId);
           if (!val) return false;
-          const userSequence = val.split(',').map(v => parseInt(v));
-          return userSequence.every((v, idx) => v === idx);
+          const userSequence = val.split(',').map(function(v) { return parseInt(v); });
+          return userSequence.every(function(v, idx) { return v === idx; });
         } else if (type === 'opinion' || (type === 'image_single' && imgMode === 'opinion')) {
-          const selected = formData.get(`q_${qDocId}`);
+          const selected = formData.get('q_' + qDocId);
           return selected !== null && selected !== undefined;
         } else if (type === 'multiple' || (type === 'image_single' && imgMode === 'multiple')) {
-          const selectedVals = formData.getAll(`q_${qDocId}`).map(v => parseInt(v)).sort();
+          const selectedVals = formData.getAll('q_' + qDocId).map(function(v) { return parseInt(v); }).sort();
           let correctVals = [];
-          if (Array.isArray(qData.correctAnswers)) {
-            correctVals = qData.correctAnswers.map(v => parseInt(v)).sort();
-          } else if (qData.correctAnswer !== undefined) {
-            correctVals = [parseInt(qData.correctAnswer)];
-          }
-          return selectedVals.length === correctVals.length && selectedVals.every((val, idx) => val === correctVals[idx]);
+          if (Array.isArray(qData.correctAnswers)) correctVals = qData.correctAnswers.map(function(v) { return parseInt(v); }).sort();
+          else if (qData.correctAnswer !== undefined) correctVals = [parseInt(qData.correctAnswer)];
+          return selectedVals.length === correctVals.length && selectedVals.every(function(val, idx) { return val === correctVals[idx]; });
         } else {
-          const selected = parseInt(formData.get(`q_${qDocId}`));
+          const selected = parseInt(formData.get('q_' + qDocId));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
           return selected === correct;
         }
@@ -570,14 +558,14 @@
       if (targetIdx >= 0 && targetIdx < items.length) {
         if (dir === -1) container.insertBefore(item, items[targetIdx]);
         else container.insertBefore(item, items[targetIdx].nextSibling);
-        
+
         const updatedItems = Array.from(container.children);
-        updatedItems.forEach((it, idx) => {
-          it.querySelector('.pos-badge').innerText = `${idx + 1}º`;
+        updatedItems.forEach(function(it, idx) {
+          it.querySelector('.pos-badge').innerText = (idx + 1) + 'º';
         });
         const hiddenInput = container.parentNode.querySelector('input[type="hidden"]');
         if (hiddenInput) {
-          hiddenInput.value = updatedItems.map(it => it.getAttribute('data-original-idx')).join(',');
+          hiddenInput.value = updatedItems.map(function(it) { return it.getAttribute('data-original-idx'); }).join(',');
         }
       }
     }
@@ -587,7 +575,7 @@
       const directFolderId = urlParams.get('carpeta');
       const directReadingId = urlParams.get('lectura');
       const viewChangelog = urlParams.get('changelog');
-      
+
       if (viewChangelog) {
         renderChangelogPage();
       } else if (directFolderId) {
@@ -602,7 +590,7 @@
       }
     }
 
-    auth.onAuthStateChanged(async user => {
+    auth.onAuthStateChanged(async function(user) {
       currentUser = user;
       if (user) {
         await loadUserData();
@@ -616,8 +604,18 @@
         filterMyLectures = false;
       }
       renderNav();
+      isInitialRouteDone = true;
       routeInitialView();
     });
+
+    // Fallback de seguretat si Firebase Auth triga més de 2.5s a respondre
+    setTimeout(function() {
+      if (!isInitialRouteDone) {
+        isInitialRouteDone = true;
+        renderNav();
+        routeInitialView();
+      }
+    }, 2500);
 
     async function loadUserData() {
       if (!currentUser) return;
@@ -647,7 +645,8 @@
       return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
-    function getTeacherRankDetails(points, email = "") {
+    function getTeacherRankDetails(points, email) {
+      email = email || "";
       if (email === ADMIN_SUPREMO_EMAIL) return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
       if (points >= 20) return { name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
       if (points >= 15) return { name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
@@ -665,7 +664,7 @@
       if (currentUser && (userRole === 'alumne' || userRole === 'adult')) {
         const rank = getRankDetails(userPoints);
         const displayName = userDisplayName || currentUser.email.split('@')[0];
-        
+
         let nextRankPoints = 100;
         let nextRankName = "Lector/a de Bronze";
         if (userPoints >= 100 && userPoints < 300) { nextRankPoints = 300; nextRankName = "Lector/a d'Argent"; }
@@ -701,7 +700,7 @@
                 <div class="text-left">
                   <span class="block text-xs font-semibold text-indigo-200">Següent objectiu</span>
                   <span class="text-xs font-bold text-slate-200">
-                    ${userPoints >= 1300 ? '🌟 Nivell Màxim Assolit!' : `+${pointsNeeded} pts per ${nextRankName}`}
+                    ${userPoints >= 1300 ? '🌟 Nivell Màxim Assolit!' : '+' + pointsNeeded + ' pts per ' + nextRankName}
                   </span>
                 </div>
               </div>
@@ -764,7 +763,7 @@
             <div class="w-8 h-8 rounded-full bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-sm shadow">
               <i class="fa-solid ${rank.icon}"></i>
             </div>
-            
+
             <div class="flex flex-col text-left">
               <div class="flex items-center space-x-1.5">
                 <span class="text-xs font-bold text-white tracking-wide">${nameToShow}</span>
@@ -779,9 +778,7 @@
           </div>
         `;
       } else {
-        nav.innerHTML = `
-          <button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">Inicia Sessió</button>
-        `;
+        nav.innerHTML = '<button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">Inicia Sessió</button>';
       }
       renderBanner();
     }
@@ -790,7 +787,7 @@
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>';
 
       try {
         let snapshot;
@@ -807,10 +804,10 @@
             "càrrega alternativa del catàleg"
           );
         }
-        
+
         const adaptedParentsSet = new Set();
         const docsArray = snapshot.docs || [];
-        docsArray.forEach(d => {
+        docsArray.forEach(function(d) {
           const item = d.data() || {};
           if (item.parentReadingId && item.isAdaptedVersion) {
             adaptedParentsSet.add(item.parentReadingId);
@@ -819,7 +816,7 @@
 
         let html = `
           <div class="max-w-6xl mx-auto space-y-6">
-            
+
             ${filterMyLectures ? `
               <div class="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-xs md:text-sm font-bold flex items-center justify-between shadow-sm">
                 <span class="flex items-center gap-2">
@@ -841,7 +838,7 @@
                   <i class="fa-solid fa-user-pen absolute left-3.5 top-3 text-slate-400 text-sm"></i>
                   <input type="text" id="author-search-input" value="${escapeHtmlAttr(filterBookAuthor)}" placeholder="Cercar per autor/a de l'obra..." oninput="applyCatalogFilters()" class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
-                
+
                 <div>
                   <select id="type-select" onchange="applyCatalogFilters()" class="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
                     <option value="all" ${filterType === 'all' ? 'selected' : ''}>📑 Tots els tipus</option>
@@ -933,7 +930,7 @@
             const matchesSearch = (data.title || '').toLowerCase().includes(filterSearch) || readingCode.toLowerCase().includes(filterSearch);
             const matchesBookAuthor = !filterBookAuthor || (bookAuthorName.toLowerCase().includes(filterBookAuthor));
             const matchesType = filterType === 'all' || (isBook ? 'book' : 'text') === filterType;
-            
+
             let matchesLevel = filterLevel === 'all';
             if (!matchesLevel) {
               matchesLevel = currentLevel === filterLevel;
@@ -941,12 +938,12 @@
 
             const matchesCategory = filterCategory === 'all' || (data.category || 'General') === filterCategory;
             const matchesDuration = filterDuration === 'all' || (data.estimatedTime === filterDuration);
-            
+
             let matchesStatus = true;
             if (filterStatus === 'completed') matchesStatus = isCompleted;
             if (filterStatus === 'pending') matchesStatus = !isCompleted;
             if (filterStatus === 'has_adapted') matchesStatus = hasAnnexAdaptation;
-            
+
             if (!matchesSearch || !matchesBookAuthor || !matchesType || !matchesLevel || !matchesCategory || !matchesDuration || !matchesStatus) continue;
 
             cardCount++;
@@ -959,32 +956,36 @@
             const canEdit = isAdmin || isAuthor;
             const isDocentOrCollab = userRole === 'docent' || userRole === 'colaborador';
 
-            const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+            const schoolSuffix = data.authorSchool ? (' (' + data.authorSchool + ')') : '';
+            const teacherText = data.authorDisplayName ? (data.authorDisplayName + schoolSuffix) : 'Docent / Col·laborador/a';
             const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
             const authorEmail = data.authorEmail || "";
             const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
 
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
-            const durationLabel = isBook ? (data.bookPages ? `📄 ${data.bookPages} pàg.` : '') : (data.estimatedTime ? `⏱️ ${data.estimatedTime}` : '');
+            const durationLabel = isBook ? (data.bookPages ? ('📄 ' + data.bookPages + ' pàg.') : '') : (data.estimatedTime ? ('⏱️ ' + data.estimatedTime) : '');
             const totalPointsInGame = qCount * ptsPerQuestion;
             const encodedTitle = encodeURIComponent(data.title || 'Lectura');
 
+            let topBannerHTML = '';
+            if (isAdaptedText) {
+              topBannerHTML = '<div class="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-600"><i class="fa-solid fa-seedling"></i> Versió Adaptada / Simplificada (DUA)</div>';
+            } else if (isVariant) {
+              topBannerHTML = '<div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500"><i class="fa-solid fa-code-fork"></i> Bateria de Preguntes Adaptada</div>';
+            } else if (adaptedParentsSet.has(docId)) {
+              topBannerHTML = '<div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200"><i class="fa-solid fa-seedling text-emerald-600"></i> Amb Versió Adaptada (DUA) annexa</div>';
+            }
+
+            const cardBorderClass = isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200');
+            const typeBadgeClass = isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800';
+            const typeBadgeLabel = isBook ? '📖 Llibre' : '📄 Text';
+            const btnReadClass = isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700';
+            const btnReadLabel = isCompleted ? 'Repetir' : (isBook ? 'Qüestionari' : 'Llegir');
+            const btnReadSpan = isDocentOrCollab ? 'col-span-4' : 'col-span-5';
+
             html += `
-              <div class="bg-white rounded-2xl border ${isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : 'border-slate-200')} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
-                
-                ${isAdaptedText ? `
-                  <div class="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-600">
-                    <i class="fa-solid fa-seedling"></i> Versió Adaptada / Simplificada (DUA)
-                  </div>
-                ` : (isVariant ? `
-                  <div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500">
-                    <i class="fa-solid fa-code-fork"></i> Bateria de Preguntes Adaptada
-                  </div>
-                ` : (adaptedParentsSet.has(docId) ? `
-                  <div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200">
-                    <i class="fa-solid fa-seedling text-emerald-600"></i> Amb Versió Adaptada (DUA) annexa
-                  </div>
-                ` : ''))}
+              <div class="bg-white rounded-2xl border ${cardBorderClass} shadow-sm hover:shadow-md transition overflow-hidden flex flex-col justify-between relative">
+                ${topBannerHTML}
 
                 <div class="p-5">
                   <div class="flex items-center justify-between mb-3 gap-2">
@@ -992,36 +993,27 @@
                       <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-indigo-50/80 text-indigo-700 border border-indigo-200/80">
                         ${readingCode}
                       </span>
-                      <span class="text-xs font-bold px-2 py-0.5 rounded-full ${isBook ? 'bg-purple-100 text-purple-800' : 'bg-indigo-100 text-indigo-800'}">
-                        ${isBook ? '📖 Llibre' : '📄 Text'}
+                      <span class="text-xs font-bold px-2 py-0.5 rounded-full ${typeBadgeClass}">
+                        ${typeBadgeLabel}
                       </span>
                     </div>
 
                     <div class="flex items-center gap-1.5 flex-wrap justify-end">
-                      ${hasGlossary ? `<span class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-md border border-teal-200">📖 Vocabulari</span>` : ''}
-                      ${durationLabel ? `<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">${durationLabel}</span>` : ''}
+                      ${hasGlossary ? '<span class="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-md border border-teal-200">📖 Vocabulari</span>' : ''}
+                      ${durationLabel ? '<span class="text-[10px] bg-slate-100 text-slate-700 font-extrabold px-2 py-0.5 rounded-md border border-slate-200">' + durationLabel + '</span>' : ''}
                       <span class="text-[10px] bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-2.5 py-0.5 rounded-md shadow-xs">
                         🏆 ${totalPointsInGame} PTS
                       </span>
-                      ${isCompleted ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>` : ''}
+                      ${isCompleted ? '<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-md">✅ Feta</span>' : ''}
                     </div>
                   </div>
 
-                  ${isBook && data.imageUrl ? `
-                    <div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100">
-                      <img src="${data.imageUrl}" alt="${escapeHtmlAttr(data.title)}" class="w-full h-full object-cover">
-                    </div>
-                  ` : ''}
+                  ${(isBook && data.imageUrl) ? '<div class="w-full h-40 mb-3 overflow-hidden rounded-xl bg-slate-100"><img src="' + data.imageUrl + '" alt="' + escapeHtmlAttr(data.title) + '" class="w-full h-full object-cover"></div>' : ''}
 
                   <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
                   <p class="text-xs font-semibold text-indigo-600 mb-2">${currentLevel}</p>
-                  
-                  ${bookAuthorName ? `
-                    <p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5">
-                      <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                      <span>Autor/a de l'obra: <strong class="text-slate-900 font-bold">${bookAuthorName}</strong></span>
-                    </p>
-                  ` : ''}
+
+                  ${bookAuthorName ? '<p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>Autor/a de l\'obra: <strong class="text-slate-900 font-bold">' + bookAuthorName + '</strong></span></p>' : ''}
 
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <span class="block text-xs text-slate-500 flex items-center gap-1">
@@ -1042,17 +1034,13 @@
 
                 <div class="p-5 pt-0 mt-auto space-y-2">
                   <div class="grid grid-cols-7 gap-1.5">
-                    <button onclick="renderReader('${docId}')" class="${isDocentOrCollab ? 'col-span-4' : 'col-span-5'} ${isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700'} text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
+                    <button onclick="renderReader('${docId}')" class="${btnReadSpan} ${btnReadClass} text-white font-bold py-2.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
                       <i class="fa-solid fa-book-open"></i>
-                      <span>${isCompleted ? 'Repetir' : (isBook ? 'Qüestionari' : 'Llegir')}</span>
+                      <span>${btnReadLabel}</span>
                     </button>
 
-                    ${isDocentOrCollab ? `
-                      <button onclick="openAddToFolderModal('${docId}')" title="Afegir a una Carpeta / SA" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200">
-                        <i class="fa-solid fa-folder-plus text-sm text-amber-700"></i>
-                      </button>
-                    ` : ''}
-                    
+                    ${isDocentOrCollab ? '<button onclick="openAddToFolderModal(\'' + docId + '\')" title="Afegir a una Carpeta / SA" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200"><i class="fa-solid fa-folder-plus text-sm text-amber-700"></i></button>' : ''}
+
                     <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedTitle}'))" title="Enviar a Google Classroom" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
                       <i class="fa-solid fa-chalkboard text-sm"></i>
                     </button>
@@ -1062,12 +1050,7 @@
                     </button>
                   </div>
 
-                  ${canEdit ? `
-                    <button onclick="renderEditor('${docId}')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold py-1.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5">
-                      <i class="fa-solid fa-pen-to-square text-amber-600"></i>
-                      <span>Editar Lectura ${isAdmin && !isAuthor ? '(Admin)' : ''}</span>
-                    </button>
-                  ` : ''}
+                  ${canEdit ? '<button onclick="renderEditor(\'' + docId + '\')" class="w-full bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold py-1.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5"><i class="fa-solid fa-pen-to-square text-amber-600"></i><span>Editar Lectura ' + ((isAdmin && !isAuthor) ? '(Admin)' : '') + '</span></button>' : ''}
                 </div>
               </div>
             `;
@@ -1086,7 +1069,7 @@
           `;
         }
 
-        html += `</div></div>`;
+        html += '</div></div>';
         app.innerHTML = html;
         renderBanner();
       } catch (err) {
@@ -1104,7 +1087,11 @@
       }
     }
 
-    async function renderEditor(docIdToEdit = null, cloneFromDocId = null, mode = 'questions') {
+    async function renderEditor(docIdToEdit, cloneFromDocId, mode) {
+      docIdToEdit = docIdToEdit || null;
+      cloneFromDocId = cloneFromDocId || null;
+      mode = mode || 'questions';
+
       stopSpeechSynthesis();
       if (!currentUser) {
         renderLogin();
@@ -1123,7 +1110,7 @@
       cloningMode = mode;
 
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l'editor...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant l\'editor...</p></div>';
 
       let initialData = {
         type: 'text',
@@ -1151,19 +1138,18 @@
           const docSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).get(), 7000, "lectura a editar");
           if (docSnap.exists) {
             initialData = docSnap.data();
-            
             let qSnap;
             try {
               qSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get(), 6000, "preguntes");
             } catch (orderErr) {
               qSnap = await withTimeout(db.collection(DB_COLLECTION).doc(targetDocId).collection(SUB_COLLECTION).get(), 6000, "preguntes");
             }
-
-            qSnap.forEach(qDoc => { 
-              initialQuestions.push({ id: qDoc.id, ...qDoc.data() }); 
+            qSnap.forEach(function(qDoc) {
+              initialQuestions.push(Object.assign({ id: qDoc.id }, qDoc.data()));
             });
-
-            initialQuestions.sort((a, b) => (a.orderIndex !== undefined ? a.orderIndex : 0) - (b.orderIndex !== undefined ? b.orderIndex : 0));
+            initialQuestions.sort(function(a, b) {
+              return (a.orderIndex !== undefined ? a.orderIndex : 0) - (b.orderIndex !== undefined ? b.orderIndex : 0);
+            });
           }
         } catch (err) {
           console.error("Error carregant la lectura per a l'editor:", err);
@@ -1176,28 +1162,26 @@
         initialData.parentReadingId = rootId;
 
         if (cloningMode === 'adapted') {
-          initialData.title = `${(initialData.title || '').replace(/\s*\(Versió Adaptada.*\)/i, '')} (Versió Adaptada)`;
+          initialData.title = (initialData.title || '').replace(/\s*\(Versió Adaptada.*\)/i, '') + ' (Versió Adaptada)';
           initialData.isAdaptedVersion = true;
         } else {
-          initialData.title = `${initialData.title || ''} (Bateria de preguntes)`;
+          initialData.title = (initialData.title || '') + ' (Bateria de preguntes)';
           initialData.isAdaptedVersion = false;
         }
       }
 
       const isAdaptedMode = (cloningParentId && cloningMode === 'adapted') || (editingDocId && initialData.isAdaptedVersion);
       const isReadOnlyText = cloningParentId && cloningMode === 'questions';
-
       const assignedCode = (editingDocId && initialData.readingNumber) ? formatReadingCode(initialData.readingNumber) : "Assignació automàtica en publicar";
 
       app.innerHTML = `
         <div class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-          
           ${isAdaptedMode ? `
             <div class="bg-emerald-50 border border-emerald-300 p-4 rounded-2xl mb-4 text-emerald-950 text-xs font-semibold shadow-xs space-y-1">
               <h3 class="font-black text-sm flex items-center gap-1.5 text-emerald-900">
                 <i class="fa-solid fa-seedling text-emerald-600"></i> Mode Versió Adaptada / Simplificada (DUA)
               </h3>
-              <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> i dissenyar <strong>preguntes més breus i accessibles</strong> perquè tot el grup-classe treballi la mateixa història al seu ritme.</p>
+              <p>Aquesta versió quedarà annexada a la lectura original mitjançant una pestanya al lector. Pots <strong>escurçar i simplificar el text</strong> i dissenyar <strong>preguntes més breus i accessibles</strong>.</p>
             </div>
           ` : (cloningParentId ? `
             <div class="bg-amber-50 border border-amber-300 p-4 rounded-2xl mb-4 text-amber-900 text-xs font-semibold shadow-xs">
@@ -1212,53 +1196,16 @@
                 <i class="fa-solid fa-spell-check text-amber-600"></i> Recomanacions de Qualitat Editorial
               </h3>
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-amber-900">
-                <div class="flex items-center gap-1.5">
-                  <i class="fa-solid fa-check text-emerald-600"></i>
-                  <span>Cura ortogràfica i sintàctica abans de publicar.</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                  <i class="fa-solid fa-bullseye text-indigo-600"></i>
-                  <span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span>
-                </div>
+                <div class="flex items-center gap-1.5"><i class="fa-solid fa-check text-emerald-600"></i><span>Cura ortogràfica i sintàctica abans de publicar.</span></div>
+                <div class="flex items-center gap-1.5"><i class="fa-solid fa-bullseye text-indigo-600"></i><span>Recomanem afegir unes <strong>10 preguntes</strong> per lectura.</span></div>
               </div>
             </div>
-
-            <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-2xl mb-6 shadow-xs space-y-2.5">
-              <h3 class="text-xs font-black text-indigo-900 flex items-center gap-1.5 uppercase tracking-wide">
-                <i class="fa-solid fa-brain text-indigo-600"></i> Varietat de Preguntes i Nivells de Comprensió
-              </h3>
-              <p class="text-xs text-indigo-950 font-medium leading-relaxed">
-                Per oferir una experiència rica als lectors, et demanem <strong>varietat en la tipologia de preguntes</strong> combinant aquests 5 nivells cognitius:
-              </p>
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                <div class="bg-white/90 p-2 rounded-xl border border-emerald-200 flex items-start gap-2">
-                  <span class="bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded shrink-0">🟢 Literal</span>
-                  <span class="text-slate-700">Buscar dades i informació explícita que apareix escrita al text.</span>
-                </div>
-                <div class="bg-white/90 p-2 rounded-xl border border-blue-200 flex items-start gap-2">
-                  <span class="bg-blue-100 text-blue-800 font-bold px-1.5 py-0.5 rounded shrink-0">🔵 Inferencial</span>
-                  <span class="text-slate-700">Deduir informació implícita, causes o intencions a partir de pistes.</span>
-                </div>
-                <div class="bg-white/90 p-2 rounded-xl border border-purple-200 flex items-start gap-2">
-                  <span class="bg-purple-100 text-purple-800 font-bold px-1.5 py-0.5 rounded shrink-0">🟣 Sentit Figurat</span>
-                  <span class="text-slate-700">Desxifrar metàfores, frases fetes, ironies o llenguatge no literal.</span>
-                </div>
-                <div class="bg-white/90 p-2 rounded-xl border border-amber-200 flex items-start gap-2">
-                  <span class="bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded shrink-0">💬 D'Opinió</span>
-                  <span class="text-slate-700">Valorar fets, jutjar actituds o donar el punt de vista crític personal.</span>
-                </div>
-                <div class="bg-white/90 p-2 rounded-xl border border-rose-200 flex items-start gap-2 sm:col-span-2">
-                  <span class="bg-rose-100 text-rose-800 font-bold px-1.5 py-0.5 rounded shrink-0">🎨 Creativa</span>
-                  <span class="text-slate-700">Imaginar finals alternatius, solucions noves o connectar amb l'expressió artística.</span>
-                </div>
-              </div>
-            </div>
-          `}
+          `)}
 
           <div class="flex items-center justify-between mb-6 flex-wrap gap-2">
             <h1 class="text-2xl font-bold text-slate-800 flex items-center">
-              <i class="fa-solid ${isAdaptedMode ? 'fa-seedling text-emerald-600' : (cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'))} mr-2"></i> 
-              ${isAdaptedMode && !editingDocId ? 'Crear Versió Adaptada (Lectura Fàcil)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
+              <i class="fa-solid ${isAdaptedMode ? 'fa-seedling text-emerald-600' : (cloningParentId ? 'fa-code-fork text-amber-600' : (editingDocId ? 'fa-pen-to-square text-amber-500' : 'fa-plus text-indigo-600'))} mr-2"></i>
+              ${(isAdaptedMode && !editingDocId) ? 'Crear Versió Adaptada (Lectura Fàcil)' : (cloningParentId ? 'Clonar Bateria de Preguntes' : (editingDocId ? 'Editar Lectura' : 'Crear Nova Lectura'))}
             </h1>
             <span class="text-xs font-mono font-bold bg-indigo-50/80 text-indigo-700 px-3 py-1 rounded-xl border border-indigo-200/80 shadow-xs">
               <i class="fa-solid fa-barcode text-indigo-400 mr-1"></i> ${assignedCode}
@@ -1285,13 +1232,11 @@
               <h3 class="text-xs font-bold text-amber-900 uppercase tracking-wide flex items-center gap-1.5">
                 <i class="fa-solid fa-feather-pointed"></i> Dades d'Atribució i Drets d'Autor
               </h3>
-              
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label class="block text-xs font-bold text-slate-700 mb-1">Autor/a Original de l'Obra</label>
                   <input type="text" id="editor-book-author" value="${escapeHtmlAttr(initialData.bookAuthor)}" placeholder="Ex: Mercè Rodoreda, J.K. Rowling" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                 </div>
-
                 <div>
                   <label id="label-editorial-source" class="block text-xs font-bold text-slate-700 mb-1">Editorial / Font o Referència Legal</label>
                   <input type="text" id="editor-source" value="${escapeHtmlAttr(initialData.editorialOrSource)}" placeholder="Ex: Edicions 62, o URL d'origen" class="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-500 outline-none">
@@ -1358,8 +1303,6 @@
                 </button>
               </div>
               <textarea id="editor-content" rows="6" class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
-              ${isReadOnlyText ? `<p class="text-[11px] text-amber-800 font-semibold mt-1">🔒 El text es manté integrat de la lectura mare en clonar només la bateria de preguntes.</p>` : ''}
-              ${isAdaptedMode ? `<p class="text-[11px] text-emerald-800 font-semibold mt-1">✏️ Text desbloquejat: adapta el vocabulari i l'extensió per a la versió simplificada.</p>` : ''}
             </div>
 
             <div id="wrapper-image" class="hidden space-y-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-200/80">
@@ -1399,7 +1342,7 @@
                   <i class="fa-solid fa-plus mr-1"></i> Afegir pregunta
                 </button>
               </div>
-              
+
               <div id="questions-container" class="space-y-4"></div>
 
               <div class="mt-4 pt-2">
@@ -1413,7 +1356,7 @@
             <div class="flex justify-end space-x-3 pt-4">
               <button type="button" onclick="renderCatalog()" class="px-4 py-2 border border-slate-300 rounded-xl text-sm text-slate-600 hover:bg-slate-50">Cancel·lar</button>
               <button type="submit" class="px-5 py-2 ${isAdaptedMode ? 'bg-emerald-600 hover:bg-emerald-700' : (cloningParentId ? 'bg-amber-600 hover:bg-amber-700' : (editingDocId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-indigo-600 hover:bg-indigo-700'))} text-white font-bold rounded-xl text-sm shadow transition">
-                ${isAdaptedMode && !editingDocId ? 'Publicar Versió Adaptada (+1 PTS)' : (cloningParentId ? 'Publicar Adaptació Docent (+1 PTS)' : (editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'))}
+                ${(isAdaptedMode && !editingDocId) ? 'Publicar Versió Adaptada (+1 PTS)' : (cloningParentId ? 'Publicar Adaptació Docent (+1 PTS)' : (editingDocId ? 'Desar Canvis' : 'Publicar Lectura (+1 PTS)'))}
               </button>
             </div>
           </form>
@@ -1424,11 +1367,11 @@
 
       const glossContainer = document.getElementById('glossary-container');
       if (glossContainer && Array.isArray(initialData.glossary) && initialData.glossary.length > 0) {
-        initialData.glossary.forEach(g => addGlossaryField(g));
+        initialData.glossary.forEach(function(g) { addGlossaryField(g); });
       }
 
       if (initialQuestions.length > 0) {
-        initialQuestions.forEach(q => addQuestionField(q));
+        initialQuestions.forEach(function(q) { addQuestionField(q); });
       } else {
         addQuestionField();
       }
@@ -1440,12 +1383,12 @@
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
       const selectedText = textarea.value.substring(start, end) || "paraula";
-      const replacement = `[${selectedText}](#glossari-section)`;
+      const replacement = "[" + selectedText + "](#glossari-section)";
       textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
       textarea.focus();
     }
 
-    function addGlossaryField(item = null) {
+    function addGlossaryField(item) {
       const container = document.getElementById('glossary-container');
       if (!container) return;
 
@@ -1454,11 +1397,9 @@
 
       const div = document.createElement('div');
       div.className = "glossary-item flex items-center gap-2 bg-white p-2 rounded-xl border border-teal-200 shadow-2xs";
-      div.innerHTML = `
-        <input type="text" value="${escapeHtmlAttr(gWord)}" placeholder="Mot o Concepte" class="g-word w-1/3 p-1.5 border border-slate-300 rounded-lg text-xs font-bold text-teal-900 outline-none">
-        <input type="text" value="${escapeHtmlAttr(gDef)}" placeholder="Definició breu i senzilla..." class="g-def w-2/3 p-1.5 border border-slate-300 rounded-lg text-xs outline-none">
-        <button type="button" onclick="this.parentNode.remove()" title="Eliminar" class="p-1.5 text-xs text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>
-      `;
+      div.innerHTML = '<input type="text" value="' + escapeHtmlAttr(gWord) + '" placeholder="Mot o Concepte" class="g-word w-1/3 p-1.5 border border-slate-300 rounded-lg text-xs font-bold text-teal-900 outline-none">' +
+        '<input type="text" value="' + escapeHtmlAttr(gDef) + '" placeholder="Definició breu i senzilla..." class="g-def w-2/3 p-1.5 border border-slate-300 rounded-lg text-xs outline-none">' +
+        '<button type="button" onclick="this.parentNode.remove()" title="Eliminar" class="p-1.5 text-xs text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button>';
       container.appendChild(div);
     }
 
@@ -1488,7 +1429,7 @@
       }
     }
 
-    function addQuestionField(data = null) {
+    function addQuestionField(data) {
       const container = document.getElementById('questions-container');
       if (!container) return;
 
@@ -1497,7 +1438,7 @@
       const qType = data ? (data.questionType || 'single') : 'single';
       const imgMode = data ? (data.imageSelectionMode || 'single') : 'single';
       const qTaxonomy = data ? (data.taxonomyType || 'literal') : 'literal';
-      
+
       let qKeywords = '';
       if (data) {
         if (Array.isArray(data.keywords)) qKeywords = data.keywords.join(', ');
@@ -1510,7 +1451,7 @@
 
       if (data) {
         if (Array.isArray(data.correctAnswers)) {
-          correctMultipleArr = data.correctAnswers.map(v => parseInt(v));
+          correctMultipleArr = data.correctAnswers.map(function(v) { return parseInt(v); });
           correctSingleIdx = correctMultipleArr[0] || 0;
         } else if (data.correctAnswer !== undefined) {
           correctSingleIdx = parseInt(data.correctAnswer);
@@ -1522,13 +1463,13 @@
 
       const qDiv = document.createElement('div');
       qDiv.className = 'q-block p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3 relative';
-      
+
       qDiv.innerHTML = `
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-slate-200/60 pb-2">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="q-number-badge w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">1</span>
             <span class="q-number-label text-xs font-bold text-slate-700">Pregunta 1</span>
-            
+
             <select class="q-type-select p-1 text-xs border border-slate-300 rounded-md font-bold text-slate-700 bg-white outline-none" onchange="toggleQuestionAnswerType(this)">
               <option value="single" ${qType === 'single' ? 'selected' : ''}>🔘 Opció Única (1 resposta)</option>
               <option value="multiple" ${qType === 'multiple' ? 'selected' : ''}>☑️ Opció Múltiple (Vàries respostes)</option>
@@ -1552,7 +1493,7 @@
               <option value="creative" ${qTaxonomy === 'creative' ? 'selected' : ''}>🎨 Creativa (Alternatives)</option>
             </select>
           </div>
-          
+
           <div class="flex items-center space-x-1 self-end sm:self-auto">
             <button type="button" onclick="moveQuestionUp(this)" title="Pujar pregunta" class="p-1.5 text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg">
               <i class="fa-solid fa-arrow-up"></i>
@@ -1567,95 +1508,47 @@
         </div>
 
         <input type="text" value="${escapeHtmlAttr(qText)}" placeholder="Escriu l'enunciat de la pregunta" required class="q-text w-full p-2 border border-slate-300 rounded-lg text-sm">
-        
+
         <div class="q-options-wrapper space-y-2">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">A</span>
-                <input type="text" value="${escapeHtmlAttr(opts[0])}" placeholder="Opció A" class="q-opt-0 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge A
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-0')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">B</span>
-                <input type="text" value="${escapeHtmlAttr(opts[1])}" placeholder="Opció B" class="q-opt-1 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge B
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-1')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">C</span>
-                <input type="text" value="${escapeHtmlAttr(opts[2])}" placeholder="Opció C" class="q-opt-2 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge C
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-2')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">D</span>
-                <input type="text" value="${escapeHtmlAttr(opts[3])}" placeholder="Opció D" class="q-opt-3 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge D
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-3')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
+            ${['A', 'B', 'C', 'D'].map(function(letter, idx) {
+              return `
+                <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
+                  <div class="flex items-center overflow-hidden">
+                    <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">${letter}</span>
+                    <input type="text" value="${escapeHtmlAttr(opts[idx])}" placeholder="Opció ${letter}" class="q-opt-${idx} w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                  </div>
+                  <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
+                    <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge ${letter}
+                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}')">
+                    </label>
+                    <span class="q-upload-status text-[10px]"></span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
           <div class="q-extra-opts-box ${hasExtendedOptions ? '' : 'hidden'} grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">E</span>
-                <input type="text" value="${escapeHtmlAttr(opts[4])}" placeholder="Opció E" class="q-opt-4 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge E
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-4')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
-
-            <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
-              <div class="flex items-center overflow-hidden">
-                <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">F</span>
-                <input type="text" value="${escapeHtmlAttr(opts[5])}" placeholder="Opció F" class="q-opt-5 w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
-              </div>
-              <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
-                <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge F
-                  <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-5')">
-                </label>
-                <span class="q-upload-status text-[10px]"></span>
-              </div>
-            </div>
+            ${['E', 'F'].map(function(letter, eIdx) {
+              const idx = eIdx + 4;
+              return `
+                <div class="flex flex-col gap-1 border border-slate-300 rounded-lg bg-white p-1.5">
+                  <div class="flex items-center overflow-hidden">
+                    <span class="opt-label-badge bg-slate-100 text-slate-700 font-extrabold text-xs px-2.5 py-1.5 border-r border-slate-200 shrink-0">${letter}</span>
+                    <input type="text" value="${escapeHtmlAttr(opts[idx])}" placeholder="Opció ${letter}" class="q-opt-${idx} w-full p-1.5 text-xs outline-none" oninput="updateImagePreview(this)">
+                  </div>
+                  <div class="q-upload-btn-container hidden flex items-center justify-between pt-1 border-t border-slate-100 px-1">
+                    <label class="cursor-pointer text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                      <i class="fa-solid fa-cloud-arrow-up"></i> Pujar Imatge ${letter}
+                      <input type="file" accept="image/*" class="hidden" onchange="uploadImageToFirebase(this, 'q-opt-${idx}')">
+                    </label>
+                    <span class="q-upload-status text-[10px]"></span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
           <div class="flex justify-end pt-1">
@@ -1667,24 +1560,9 @@
         </div>
 
         <div class="q-image-previews-box hidden grid grid-cols-6 gap-2 pt-1">
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-0 w-full h-full object-cover" src="${opts[0] || ''}" onerror="this.src='https://via.placeholder.com/100?text=A'">
-          </div>
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-1 w-full h-full object-cover" src="${opts[1] || ''}" onerror="this.src='https://via.placeholder.com/100?text=B'">
-          </div>
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-2 w-full h-full object-cover" src="${opts[2] || ''}" onerror="this.src='https://via.placeholder.com/100?text=C'">
-          </div>
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-3 w-full h-full object-cover" src="${opts[3] || ''}" onerror="this.src='https://via.placeholder.com/100?text=D'">
-          </div>
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-4 w-full h-full object-cover" src="${opts[4] || ''}" onerror="this.src='https://via.placeholder.com/100?text=E'">
-          </div>
-          <div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center">
-            <img class="img-preview-5 w-full h-full object-cover" src="${opts[5] || ''}" onerror="this.src='https://via.placeholder.com/100?text=F'">
-          </div>
+          ${['A', 'B', 'C', 'D', 'E', 'F'].map(function(letter, idx) {
+            return '<div class="h-16 bg-white rounded-lg border border-slate-200 overflow-hidden flex items-center justify-center"><img class="img-preview-' + idx + ' w-full h-full object-cover" src="' + (opts[idx] || '') + '" onerror="this.src=\'https://via.placeholder.com/100?text=' + letter + '\'"></div>';
+          }).join('')}
         </div>
 
         <div class="q-single-box flex items-center space-x-2 bg-indigo-50 p-2.5 rounded-lg border border-indigo-100">
@@ -1706,30 +1584,10 @@
             <span>Marca totes les respostes que són correctes:</span>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="0" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(0) ? 'checked' : ''}>
-              <span class="font-bold">Opció A</span>
-            </label>
-            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="1" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(1) ? 'checked' : ''}>
-              <span class="font-bold">Opció B</span>
-            </label>
-            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="2" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(2) ? 'checked' : ''}>
-              <span class="font-bold">Opció C</span>
-            </label>
-            <label class="flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="3" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(3) ? 'checked' : ''}>
-              <span class="font-bold">Opció D</span>
-            </label>
-            <label class="opt-ef-multi ${hasExtendedOptions ? '' : 'hidden'} flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="4" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(4) ? 'checked' : ''}>
-              <span class="font-bold">Opció E</span>
-            </label>
-            <label class="opt-ef-multi ${hasExtendedOptions ? '' : 'hidden'} flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer">
-              <input type="checkbox" value="5" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ${correctMultipleArr.includes(5) ? 'checked' : ''}>
-              <span class="font-bold">Opció F</span>
-            </label>
+            ${['A', 'B', 'C', 'D', 'E', 'F'].map(function(letter, idx) {
+              const efClass = idx >= 4 ? ('opt-ef-multi ' + (hasExtendedOptions ? '' : 'hidden')) : '';
+              return '<label class="' + efClass + ' flex items-center space-x-2 bg-white p-1.5 rounded border border-purple-200 cursor-pointer"><input type="checkbox" value="' + idx + '" class="q-correct-multi w-4 h-4 text-purple-600 rounded" ' + (correctMultipleArr.includes(idx) ? 'checked' : '') + '><span class="font-bold">Opció ' + letter + '</span></label>';
+            }).join('')}
           </div>
         </div>
 
@@ -1739,7 +1597,6 @@
             <span>Paraules Clau per a l'Autocorrecció (separades per comes):</span>
           </div>
           <input type="text" value="${escapeHtmlAttr(qKeywords)}" placeholder="Ex: amistat, lleialtat, bosc" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
-          <p class="text-[11px] text-emerald-800">El motor d'avaluació donarà per vàlida la resposta si l'alumne escriu almenys una d'aquestes paraules clau (ignorant majúscules i accents).</p>
         </div>
 
         <div class="q-opinion-box hidden p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
@@ -1754,7 +1611,7 @@
       `;
 
       container.appendChild(qDiv);
-      
+
       const selectElem = qDiv.querySelector('.q-type-select');
       if (selectElem) toggleQuestionAnswerType(selectElem);
 
@@ -1770,14 +1627,14 @@
 
       if (isHidden) {
         extraBox.classList.remove('hidden');
-        choiceEF.forEach(el => el.classList.remove('hidden'));
-        multiEF.forEach(el => el.classList.remove('hidden'));
-        btn.innerHTML = `<i class="fa-solid fa-minus"></i> <span>Ocultar opcions E i F</span>`;
+        choiceEF.forEach(function(el) { el.classList.remove('hidden'); });
+        multiEF.forEach(function(el) { el.classList.remove('hidden'); });
+        btn.innerHTML = '<i class="fa-solid fa-minus"></i> <span>Ocultar opcions E i F</span>';
       } else {
         extraBox.classList.add('hidden');
-        choiceEF.forEach(el => el.classList.add('hidden'));
-        multiEF.forEach(el => el.classList.add('hidden'));
-        btn.innerHTML = `<i class="fa-solid fa-plus"></i> <span>Afegir opcions E i F (fins a 6)</span>`;
+        choiceEF.forEach(function(el) { el.classList.add('hidden'); });
+        multiEF.forEach(function(el) { el.classList.add('hidden'); });
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i> <span>Afegir opcions E i F (fins a 6)</span>';
         block.querySelector('.q-opt-4').value = '';
         block.querySelector('.q-opt-5').value = '';
       }
@@ -1789,8 +1646,8 @@
       const optMatch = inputElem.className.match(/q-opt-(\d)/);
       if (optMatch && optMatch[1] !== undefined) {
         const optIdx = optMatch[1];
-        const img = block.querySelector(`.img-preview-${optIdx}`);
-        if (img) img.src = inputElem.value.trim() || `https://via.placeholder.com/100?text=${['A','B','C','D','E','F'][optIdx]}`;
+        const img = block.querySelector('.img-preview-' + optIdx);
+        if (img) img.src = inputElem.value.trim() || ('https://via.placeholder.com/100?text=' + ['A','B','C','D','E','F'][optIdx]);
       }
     }
 
@@ -1819,11 +1676,11 @@
 
     function updateQuestionIndexes() {
       const blocks = document.querySelectorAll('#questions-container .q-block');
-      blocks.forEach((block, idx) => {
+      blocks.forEach(function(block, idx) {
         const badge = block.querySelector('.q-number-badge');
         const label = block.querySelector('.q-number-label');
         if (badge) badge.innerText = idx + 1;
-        if (label) label.innerText = `Pregunta ${idx + 1}`;
+        if (label) label.innerText = 'Pregunta ' + (idx + 1);
       });
       const badge = document.getElementById('question-count-badge');
       if (badge) badge.innerText = blocks.length;
@@ -1855,7 +1712,7 @@
       if (textInputBox) textInputBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
-      uploadContainers.forEach(c => c.classList.add('hidden'));
+      uploadContainers.forEach(function(c) { c.classList.add('hidden'); });
 
       const isOrdering = mainType === 'ordering';
       const isImage = mainType === 'image_single';
@@ -1867,18 +1724,18 @@
         return;
       }
 
-      badges.forEach((b, idx) => {
+      badges.forEach(function(b, idx) {
         const labelsLetter = ['A', 'B', 'C', 'D', 'E', 'F'];
         const labelsOrder = ['1r', '2n', '3r', '4t', '5è', '6è'];
         b.innerText = isOrdering ? labelsOrder[idx] : labelsLetter[idx];
       });
 
       for (let i = 0; i < 6; i++) {
-        const input = block.querySelector(`.q-opt-${i}`);
+        const input = block.querySelector('.q-opt-' + i);
         if (input) {
-          if (isImage) input.placeholder = `URL o imatge ${['A','B','C','D','E','F'][i]}...`;
-          else if (isOrdering) input.placeholder = `${['1r','2n','3r','4t','5è','6è'][i]} fet que passa`;
-          else input.placeholder = `Opció ${['A','B','C','D','E','F'][i]}`;
+          if (isImage) input.placeholder = 'URL o imatge ' + ['A','B','C','D','E','F'][i] + '...';
+          else if (isOrdering) input.placeholder = ['1r','2n','3r','4t','5è','6è'][i] + ' fet que passa';
+          else input.placeholder = 'Opció ' + ['A','B','C','D','E','F'][i];
         }
       }
 
@@ -1891,7 +1748,7 @@
       } else if (isImage) {
         if (imgModeSelect) imgModeSelect.classList.remove('hidden');
         if (imagePreviewsBox) imagePreviewsBox.classList.remove('hidden');
-        uploadContainers.forEach(c => c.classList.remove('hidden'));
+        uploadContainers.forEach(function(c) { c.classList.remove('hidden'); });
 
         if (imgMode === 'multiple') {
           multiBox.classList.remove('hidden');
@@ -1909,23 +1766,23 @@
 
     async function saveReading(e) {
       e.preventDefault();
-      const type = document.getElementById('editor-type')?.value || 'text';
+      const type = document.getElementById('editor-type').value || 'text';
       const title = document.getElementById('editor-title').value;
-      const bookAuthor = document.getElementById('editor-book-author')?.value || '';
-      const editorialOrSource = document.getElementById('editor-source')?.value || '';
+      const bookAuthor = document.getElementById('editor-book-author').value || '';
+      const editorialOrSource = document.getElementById('editor-source').value || '';
       const level = document.getElementById('editor-level').value;
-      const category = document.getElementById('editor-category')?.value || 'General';
-      const estimatedTime = document.getElementById('editor-duration')?.value || '10 min';
-      const bookPages = document.getElementById('editor-book-pages')?.value || '';
-      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q')?.value || 1);
-      const content = document.getElementById('editor-content')?.value || '';
-      const imageUrl = document.getElementById('editor-image')?.value || '';
-      const isAdaptedVersion = document.getElementById('editor-is-adapted')?.value === 'true';
+      const category = document.getElementById('editor-category').value || 'General';
+      const estimatedTime = document.getElementById('editor-duration').value || '10 min';
+      const bookPages = document.getElementById('editor-book-pages').value || '';
+      const pointsPerQuestion = parseInt(document.getElementById('editor-points-per-q').value || 1);
+      const content = document.getElementById('editor-content').value || '';
+      const imageUrl = document.getElementById('editor-image').value || '';
+      const isAdaptedVersion = document.getElementById('editor-is-adapted').value === 'true';
 
       const glossary = [];
-      document.querySelectorAll('#glossary-container .glossary-item').forEach(item => {
-        const w = item.querySelector('.g-word')?.value.trim();
-        const d = item.querySelector('.g-def')?.value.trim();
+      document.querySelectorAll('#glossary-container .glossary-item').forEach(function(item) {
+        const w = item.querySelector('.g-word').value.trim();
+        const d = item.querySelector('.g-def').value.trim();
         if (w && d) glossary.push({ word: w, definition: d });
       });
 
@@ -2001,13 +1858,13 @@
 
         for (const block of qBlocks) {
           const qText = block.querySelector('.q-text').value;
-          const qType = block.querySelector('.q-type-select')?.value || 'single';
-          const imgMode = block.querySelector('.q-img-mode-select')?.value || 'single';
-          const taxonomyType = block.querySelector('.q-taxonomy-select')?.value || 'literal';
+          const qType = block.querySelector('.q-type-select').value || 'single';
+          const imgMode = block.querySelector('.q-img-mode-select').value || 'single';
+          const taxonomyType = block.querySelector('.q-taxonomy-select').value || 'literal';
 
           if (qType === 'text_input') {
-            const rawKw = block.querySelector('.q-keywords-input')?.value || '';
-            const keywordsArr = rawKw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            const rawKw = block.querySelector('.q-keywords-input').value || '';
+            const keywordsArr = rawKw.split(',').map(function(k) { return k.trim(); }).filter(function(k) { return k.length > 0; });
 
             if (qText) {
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
@@ -2023,7 +1880,8 @@
           } else {
             const options = [];
             for (let i = 0; i < 6; i++) {
-              const optVal = block.querySelector(`.q-opt-${i}`)?.value || '';
+              const optEl = block.querySelector('.q-opt-' + i);
+              const optVal = optEl ? optEl.value : '';
               if (optVal.trim()) options.push(optVal.trim());
             }
 
@@ -2041,20 +1899,18 @@
                 await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(baseQData);
               } else if (qType === 'multiple' || (qType === 'image_single' && imgMode === 'multiple')) {
                 const multiCheckboxes = block.querySelectorAll('.q-correct-multi:checked');
-                const correctAnswers = Array.from(multiCheckboxes).map(cb => parseInt(cb.value));
+                const correctAnswers = Array.from(multiCheckboxes).map(function(cb) { return parseInt(cb.value); });
 
-                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                  ...baseQData,
+                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(Object.assign({}, baseQData, {
                   correctAnswers: correctAnswers.length > 0 ? correctAnswers : [0]
-                });
+                }));
               } else {
                 const correctSelect = block.querySelector('.q-correct-single');
                 const correctIdx = correctSelect ? parseInt(correctSelect.value) : 0;
 
-                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
-                  ...baseQData,
+                await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add(Object.assign({}, baseQData, {
                   correctAnswer: correctIdx
-                });
+                }));
               }
               orderIndex++;
             }
@@ -2072,7 +1928,7 @@
       }
     }
 
-    function openCloneReadingModal(parentDocId, parentTitle, isAuthor = false) {
+    function openCloneReadingModal(parentDocId, parentTitle, isAuthor) {
       if (!currentUser) { renderLogin(); return; }
       const container = document.getElementById('clone-modal-container');
 
@@ -2099,7 +1955,7 @@
                   <span class="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-md">Recomanat DUA</span>
                 </div>
                 <p class="text-xs text-emerald-900 leading-relaxed">
-                  Escurça i simplifica el <strong>text original</strong> anant més al gra i dissenya unes <strong>preguntes més curtetes</strong>. Quedarà annexada en una pestanya al lector perquè cada alumne llegeixi al seu nivell.
+                  Escurça i simplifica el <strong>text original</strong> anant més al gra i dissenya unes <strong>preguntes més curtetes</strong>. Quedarà annexada en una pestanya al lector.
                 </p>
               </div>
 
@@ -2123,23 +1979,23 @@
       `;
     }
 
-    function confirmCloneReading(parentDocId, mode = 'adapted') {
+    function confirmCloneReading(parentDocId, mode) {
       document.getElementById('clone-modal-container').innerHTML = '';
-      renderEditor(null, parentDocId, mode);
+      renderEditor(null, parentDocId, mode || 'adapted');
     }
 
-    function parseContentWithGlossary(rawText, glossaryList = []) {
+    function parseContentWithGlossary(rawText, glossaryList) {
       if (!rawText) return '';
       let processed = rawText;
       processed = processed.replace(/\[([^\]]+)\]\(#glossari-section\)/g, function(match, word) {
-        return `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar glossari">${word}</a>`;
+        return '<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar glossari">' + word + '</a>';
       });
       if (Array.isArray(glossaryList) && glossaryList.length > 0) {
-        glossaryList.forEach(g => {
+        glossaryList.forEach(function(g) {
           if (g.word && g.word.trim()) {
             const wordToFind = g.word.trim();
-            const regex = new RegExp(`\\b(${wordToFind})\\b(?![^<]*>|[^[]*])`, 'gi');
-            processed = processed.replace(regex, `<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar '${escapeHtmlAttr(wordToFind)}' al Glossari">$1</a>`);
+            const regex = new RegExp('\\b(' + wordToFind + ')\\b(?![^<]*>|[^[]*])', 'gi');
+            processed = processed.replace(regex, '<a href="#glossari-section" onclick="scrollToGlossary(event)" class="text-indigo-600 font-bold border-b-2 border-indigo-400 hover:text-indigo-800 transition" title="Consultar al Glossari">$1</a>');
           }
         });
       }
@@ -2150,7 +2006,7 @@
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la lectura assignada...</p></div>';
 
       try {
         const doc = await withTimeout(db.collection(DB_COLLECTION).doc(docId).get(), 7000, "lectura");
@@ -2159,7 +2015,6 @@
             <div class="max-w-md mx-auto bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center space-y-4">
               <i class="fa-solid fa-file-circle-xmark text-4xl text-red-400"></i>
               <h2 class="text-xl font-bold text-slate-800">Lectura no trobada</h2>
-              <p class="text-sm text-slate-600">L'enllaç utilitzat és incorrecte o la lectura s'ha eliminat.</p>
               <button onclick="resetFiltersAndRenderCatalog()" class="w-full bg-indigo-600 text-white font-bold py-2 rounded-xl text-sm">Anar al Catàleg General</button>
             </div>
           `;
@@ -2168,45 +2023,44 @@
 
         const data = doc.data() || {};
         const isBook = data.type === 'book';
-
         const readingNum = data.readingNumber || 1;
         const readingCode = formatReadingCode(readingNum);
         const glossaryList = Array.isArray(data.glossary) ? data.glossary : [];
 
         const rootParentId = data.parentReadingId || docId;
-        
-        let parentDocData = { id: docId, ...data };
+        let parentDocData = Object.assign({ id: docId }, data);
         if (data.parentReadingId) {
           const parentSnap = await db.collection(DB_COLLECTION).doc(data.parentReadingId).get();
           if (parentSnap.exists) {
-            parentDocData = { id: parentSnap.id, ...parentSnap.data() };
+            parentDocData = Object.assign({ id: parentSnap.id }, parentSnap.data());
           }
         }
 
         const variantsSnap = await db.collection(DB_COLLECTION).where('parentReadingId', '==', rootParentId).get();
         let allVariants = [];
-        variantsSnap.forEach(vDoc => {
-          allVariants.push({ id: vDoc.id, ...vDoc.data() });
+        variantsSnap.forEach(function(vDoc) {
+          allVariants.push(Object.assign({ id: vDoc.id }, vDoc.data()));
         });
 
-        const adaptedTextVariants = allVariants.filter(v => !!v.isAdaptedVersion);
-        const questionBatteryVariants = allVariants.filter(v => !v.isAdaptedVersion);
+        const adaptedTextVariants = allVariants.filter(function(v) { return !!v.isAdaptedVersion; });
+        const questionBatteryVariants = allVariants.filter(function(v) { return !v.isAdaptedVersion; });
 
         const hasAdaptedTextTabs = parentDocData && adaptedTextVariants.length > 0;
         const hasBatteryOptions = parentDocData && questionBatteryVariants.length > 0;
 
-        let questionsSnap = { empty: true, size: 0, forEach: () => {} };
+        let questionsSnap = { empty: true, size: 0, forEach: function() {} };
         try {
           questionsSnap = await withTimeout(db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get(), 6000, "preguntes");
         } catch (qErr) {
           try {
             questionsSnap = await withTimeout(db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get(), 6000, "preguntes");
           } catch (e) {
-            console.warn("No s'han pogut carregar les preguntes de Firestore:", e);
+            console.warn("No s'han pogut carregar les preguntes:", e);
           }
         }
-        
-        const teacherText = data.authorDisplayName ? `${data.authorDisplayName}${data.authorSchool ? ' (' + data.authorSchool + ')' : ''}` : 'Docent / Col·laborador/a';
+
+        const schoolSuffix = data.authorSchool ? (' (' + data.authorSchool + ')') : '';
+        const teacherText = data.authorDisplayName ? (data.authorDisplayName + schoolSuffix) : 'Docent / Col·laborador/a';
         const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
         const authorEmail = data.authorEmail || "";
         const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
@@ -2225,7 +2079,7 @@
         let dualVersionTabsHTML = '';
         if (hasAdaptedTextTabs) {
           const isStandardActive = docId === parentDocData.id || !isCurrentlyAdapted;
-          const activeAdaptedObj = adaptedTextVariants.find(v => v.id === docId) || adaptedTextVariants[0];
+          const activeAdaptedObj = adaptedTextVariants.find(function(v) { return v.id === docId; }) || adaptedTextVariants[0];
 
           dualVersionTabsHTML = `
             <div class="mb-5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 shadow-2xs">
@@ -2239,13 +2093,6 @@
                   <i class="fa-solid fa-seedling ${!isStandardActive ? 'text-amber-300' : 'text-emerald-600'}"></i>
                   <span>🌱 Versió Adaptada / Simplificada</span>
                 </button>
-                ${adaptedTextVariants.length > 1 ? `
-                  <select onchange="renderReader(this.value)" title="Tria versió adaptada" class="p-2 bg-white border border-emerald-300 rounded-xl text-xs font-bold text-emerald-900 outline-none">
-                    ${adaptedTextVariants.map((av, idx) => `
-                      <option value="${av.id}" ${av.id === docId ? 'selected' : ''}>v${idx + 1}: ${av.authorDisplayName || 'Docent'}</option>
-                    `).join('')}
-                  </select>
-                ` : ''}
               </div>
             </div>
           `;
@@ -2266,16 +2113,12 @@
                 ${hasBatteryOptions ? `
                   <div class="flex items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-300 text-xs shadow-2xs">
                     <i class="fa-solid fa-code-fork text-amber-600 text-sm"></i>
-                    <span class="font-bold text-amber-900">Bateria de Preguntes:</span>
+                    <span class="font-bold text-amber-900">Bateria:</span>
                     <select onchange="renderReader(this.value)" class="bg-white border border-amber-300 rounded-lg p-1 text-xs font-bold text-slate-800 outline-none cursor-pointer">
-                      <option value="${parentDocData.id}" ${docId === parentDocData.id ? 'selected' : ''}>
-                        📌 Original (${parentDocData.authorDisplayName || 'Autor/a'})
-                      </option>
-                      ${questionBatteryVariants.map(v => `
-                        <option value="${v.id}" ${v.id === docId ? 'selected' : ''}>
-                          🔀 Bateria: ${v.authorDisplayName || 'Docent'}${v.authorSchool ? ' (' + v.authorSchool + ')' : ''}
-                        </option>
-                      `).join('')}
+                      <option value="${parentDocData.id}" ${docId === parentDocData.id ? 'selected' : ''}>📌 Original</option>
+                      ${questionBatteryVariants.map(function(v) {
+                        return '<option value="' + v.id + '" ' + (v.id === docId ? 'selected' : '') + '>🔀 ' + (v.authorDisplayName || 'Docent') + '</option>';
+                      }).join('')}
                     </select>
                   </div>
                 ` : ''}
@@ -2287,7 +2130,7 @@
           `;
 
           let qIndex = 0;
-          questionsSnap.forEach(qDoc => {
+          questionsSnap.forEach(function(qDoc) {
             const q = qDoc.data() || {};
             questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex, totalQuestions, glossaryList);
             qIndex++;
@@ -2300,11 +2143,7 @@
             </form>
           `;
         } else {
-          questionsHTML = `
-            <div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
-              <i class="fa-solid fa-circle-info mr-1"></i> No s'han trobat preguntes enregistrades per a aquesta lectura.
-            </div>
-          `;
+          questionsHTML = '<div class="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm"><i class="fa-solid fa-circle-info mr-1"></i> No s\'han trobat preguntes enregistrades per a aquesta lectura.</div>';
         }
 
         let glossaryHTML = '';
@@ -2316,20 +2155,13 @@
                   <h3 class="text-sm font-black text-teal-900 uppercase tracking-wide flex items-center gap-2">
                     <i class="fa-solid fa-book-bookmark text-teal-600 text-base"></i> Glossari i Aclariment de Vocabulari
                   </h3>
-                  <p class="text-xs text-teal-700">Consulta aquí la definició del vocabulari més complex de la lectura o de les preguntes.</p>
                 </div>
-                <a href="#reader-top-anchor" class="text-xs text-teal-800 font-bold hover:underline bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-300">
-                  ⬆️ Tornar al text
-                </a>
+                <a href="#reader-top-anchor" class="text-xs text-teal-800 font-bold hover:underline bg-teal-100 px-3 py-1.5 rounded-lg border border-teal-300">⬆️ Tornar al text</a>
               </div>
-
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                ${glossaryList.map(g => `
-                  <div class="bg-white p-3.5 rounded-xl border border-teal-100 shadow-2xs space-y-1">
-                    <span class="font-black text-teal-900 text-sm block border-b border-slate-100 pb-1">${g.word}</span>
-                    <p class="text-slate-700 leading-relaxed">${g.definition}</p>
-                  </div>
-                `).join('')}
+                ${glossaryList.map(function(g) {
+                  return '<div class="bg-white p-3.5 rounded-xl border border-teal-100 shadow-2xs space-y-1"><span class="font-black text-teal-900 text-sm block border-b border-slate-100 pb-1">' + g.word + '</span><p class="text-slate-700 leading-relaxed">' + g.definition + '</p></div>';
+                }).join('')}
               </div>
             </div>
           `;
@@ -2341,15 +2173,12 @@
               <span class="text-xs font-black text-indigo-900 px-1.5 flex items-center gap-1">
                 <i class="fa-solid fa-headphones text-indigo-600"></i> Àudio:
               </span>
-
               <button id="btn-speech-play" onclick="toggleSpeechSynthesis()" class="px-3 py-1 text-xs font-bold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white border border-indigo-700 shadow-xs flex items-center gap-1.5 transition">
                 <i class="fa-solid fa-volume-high text-indigo-200"></i> Escolta
               </button>
-
               <button id="btn-speech-stop" onclick="stopSpeechSynthesis()" class="hidden px-2.5 py-1 text-xs font-bold rounded-lg bg-red-100 hover:bg-red-200 text-red-700 border border-red-300 transition">
                 <i class="fa-solid fa-stop"></i>
               </button>
-
               <select onchange="changeSpeechRate(this.value)" class="p-1 text-xs font-bold text-indigo-900 bg-white border border-indigo-200 rounded-lg outline-none">
                 <option value="0.8">🐢 0.8x Llent</option>
                 <option value="1.0" selected>⚡ 1.0x Normal</option>
@@ -2358,19 +2187,17 @@
             </div>
 
             <div class="flex items-center gap-2">
-              <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition" title="Activar/Desactivar font OpenDyslexic i major espaiat">
+              <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition">
                 📖 Font Dislèxia
               </button>
-
               <div class="flex items-center bg-white rounded-lg border border-slate-300 overflow-hidden">
                 <button onclick="changeReaderFontSize(-2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-r border-slate-200">A-</button>
                 <span class="px-2 text-xs font-mono font-bold text-slate-600">Mida</span>
                 <button onclick="changeReaderFontSize(2)" class="px-2 py-0.5 text-xs font-extrabold hover:bg-slate-100 border-l border-slate-200">A+</button>
               </div>
-
               <div class="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-300">
                 <button onclick="setReaderTheme('default')" class="w-5 h-5 rounded-full bg-slate-100 border border-slate-300" title="Mode Estàndard"></button>
-                <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="Mode Sèpia (Menys fatiga)"></button>
+                <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="Mode Sèpia"></button>
                 <button onclick="setReaderTheme('dark')" class="w-5 h-5 rounded-full bg-slate-800 border border-slate-600" title="Mode Contrast Fosc"></button>
               </div>
             </div>
@@ -2381,40 +2208,16 @@
         if (isBook) {
           headerContentHTML = `
             <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
-              ${data.imageUrl ? `
-                <img src="${data.imageUrl}" alt="${escapeHtmlAttr(data.title || 'Coberta')}" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">
-              ` : `
-                <div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400">
-                  <i class="fa-solid fa-book text-4xl"></i>
-                </div>
-              `}
+              ${data.imageUrl ? '<img src="' + data.imageUrl + '" alt="Coberta" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">' : '<div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400"><i class="fa-solid fa-book text-4xl"></i></div>'}
               <div class="space-y-2">
                 <span class="text-xs font-bold px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full inline-block">Fitxa del Llibre</span>
                 <h2 class="text-xl font-bold text-slate-800">${data.title || 'Sense títol'}</h2>
-                
-                ${bookAuthorName ? `
-                  <p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5">
-                    <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                    <span>Autor/a de l'obra: <strong class="text-slate-900">${bookAuthorName}</strong></span>
-                  </p>
-                ` : ''}
-
-                ${editorialOrSource ? `
-                  <p class="text-xs text-slate-500 font-medium flex items-center gap-1.5">
-                    <i class="fa-solid fa-building-columns text-slate-400"></i>
-                    <span>Editorial / Edició: <strong>${editorialOrSource}</strong></span>
-                  </p>
-                ` : ''}
-
+                ${bookAuthorName ? '<p class="text-sm text-slate-700 font-semibold flex items-center gap-1.5"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>Autor/a de l\'obra: <strong class="text-slate-900">' + bookAuthorName + '</strong></span></p>' : ''}
+                ${editorialOrSource ? '<p class="text-xs text-slate-500 font-medium flex items-center gap-1.5"><i class="fa-solid fa-building-columns text-slate-400"></i><span>Editorial / Edició: <strong>' + editorialOrSource + '</strong></span></p>' : ''}
                 <div class="pt-2 border-t border-indigo-100 space-y-1">
                   <span class="block text-xs text-slate-500">Preguntes de comprensió lectora:</span>
                   <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                  <div class="pt-0.5">
-                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                      <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                      ${teacherRank.name}
-                    </span>
-                  </div>
+                  <div class="pt-0.5"><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}"><i class="fa-solid ${teacherRank.icon} text-[10px]"></i>${teacherRank.name}</span></div>
                 </div>
               </div>
             </div>
@@ -2422,34 +2225,15 @@
         } else {
           headerContentHTML = `
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 space-y-3">
-              ${bookAuthorName ? `
-                <p class="text-sm text-slate-800 font-bold flex items-center gap-2">
-                  <i class="fa-solid fa-feather-pointed text-amber-600"></i>
-                  <span>Autor/a de l'obra: <span class="text-indigo-900 font-black">${bookAuthorName}</span></span>
-                </p>
-              ` : ''}
-
-              ${editorialOrSource ? `
-                <p class="text-xs text-slate-500 font-medium flex items-center gap-2">
-                  <i class="fa-solid fa-scale-balanced text-slate-400"></i>
-                  <span>Font / Referència: <em>${editorialOrSource}</em></span>
-                </p>
-              ` : ''}
-
+              ${bookAuthorName ? '<p class="text-sm text-slate-800 font-bold flex items-center gap-2"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>Autor/a de l\'obra: <span class="text-indigo-900 font-black">' + bookAuthorName + '</span></span></p>' : ''}
+              ${editorialOrSource ? '<p class="text-xs text-slate-500 font-medium flex items-center gap-2"><i class="fa-solid fa-scale-balanced text-slate-400"></i><span>Font / Referència: <em>' + editorialOrSource + '</em></span></p>' : ''}
               <div class="pt-2 border-t border-slate-200 space-y-1">
                 <span class="block text-xs text-slate-500">${isCurrentlyAdapted ? 'Versió adaptada i simplificada per:' : 'Lectura adaptada:'}</span>
                 <div class="text-sm text-slate-800 font-bold">${teacherText}</div>
-                <div class="pt-0.5">
-                  <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}">
-                    <i class="fa-solid ${teacherRank.icon} text-[10px]"></i>
-                    ${teacherRank.name}
-                  </span>
-                </div>
+                <div class="pt-0.5"><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ${teacherRank.badgeBg}"><i class="fa-solid ${teacherRank.icon} text-[10px]"></i>${teacherRank.name}</span></div>
               </div>
             </div>
-
             ${accessibilityToolbarHTML}
-
             <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border ${isCurrentlyAdapted ? 'border-emerald-300' : 'border-slate-200'} text-slate-700 leading-relaxed whitespace-pre-line mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
               ${parseContentWithGlossary(data.content, glossaryList)}
             </div>
@@ -2462,14 +2246,9 @@
               <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
-              
+
               <div class="flex items-center gap-2 flex-wrap">
-                ${isDocentOrCollab ? `
-                  <button onclick="openCloneReadingModal('${rootParentId}', decodeURIComponent('${encodedRootTitle}'), ${isAuthor})" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
-                    <i class="fa-solid fa-seedling"></i>
-                    <span>🌱 ${isAuthor ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)'}</span>
-                  </button>
-                ` : ''}
+                ${isDocentOrCollab ? '<button onclick="openCloneReadingModal(\'' + rootParentId + '\', decodeURIComponent(\'' + encodedRootTitle + '\'), ' + isAuthor + ')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-seedling"></i><span>🌱 ' + (isAuthor ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)') + '</span></button>' : ''}
 
                 <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedDocTitle}'))" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
                   <i class="fa-solid fa-chalkboard"></i>
@@ -2489,23 +2268,12 @@
             ${questionsHTML}
             ${glossaryHTML}
 
-            ${isDocentOrCollab ? `
-              <div class="mt-8 pt-4 border-t border-slate-200 bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div class="text-xs text-amber-900 font-medium">
-                  <strong class="block font-bold">💬 Bústia Docent de Millora i Col·laboració:</strong>
-                  Has trobat cap errada o vols deixar un comentari o suggeriment al creador/a d'aquesta lectura?
-                </div>
-                <button onclick="openTeacherFeedbackModal('${docId}', decodeURIComponent('${encodedDocTitle}'), '${data.authorUid || ''}')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5">
-                  <i class="fa-solid fa-paper-plane"></i>
-                  <span>Enviar suggeriment al docent</span>
-                </button>
-              </div>
-            ` : ''}
+            ${isDocentOrCollab ? '<div class="mt-8 pt-4 border-t border-slate-200 bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3"><div class="text-xs text-amber-900 font-medium"><strong class="block font-bold">💬 Bústia Docent de Millora i Col·laboració:</strong>Has trobat cap errada o vols deixar un comentari o suggeriment al creador/a d\'aquesta lectura?</div><button onclick="openTeacherFeedbackModal(\'' + docId + '\', decodeURIComponent(\'' + encodedDocTitle + '\'), \'' + (data.authorUid || '') + '\')" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold text-xs px-4 py-2 rounded-xl transition shrink-0 shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-paper-plane"></i><span>Enviar suggeriment al docent</span></button></div>' : ''}
           </div>
         `;
       } catch (err) {
         console.error("Error carregant la lectura:", err);
-        app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar la lectura: ${err.message}</div>`;
+        app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-lg max-w-2xl mx-auto">Error en carregar la lectura: ' + err.message + '</div>';
       }
     }
 
@@ -2518,23 +2286,14 @@
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-xl">
             <div class="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-comments text-indigo-600"></i> Suggeriment Docent
-              </h3>
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-comments text-indigo-600"></i> Suggeriment Docent</h3>
               <button onclick="document.getElementById('feedback-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
-            <p class="text-xs text-slate-600">
-              Envies un comentari respectuós al creador/a de la lectura: <strong class="text-slate-800">${escapeHtmlAttr(readingTitle)}</strong>.
-            </p>
-
-            <textarea id="feedback-comment-text" rows="4" placeholder="Escriu el teu suggeriment, millora ortogràfica o missatge d'ànim..." class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
-
+            <p class="text-xs text-slate-600">Envies un comentari respectuós al creador/a de la lectura: <strong class="text-slate-800">${escapeHtmlAttr(readingTitle)}</strong>.</p>
+            <textarea id="feedback-comment-text" rows="4" placeholder="Escriu el teu suggeriment..." class="w-full p-3 border border-slate-300 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
             <div class="flex justify-end space-x-2 pt-2">
               <button onclick="document.getElementById('feedback-modal-container').innerHTML=''" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Cancel·lar</button>
-              <button onclick="sendTeacherFeedback('${readingId}', decodeURIComponent('${encodedTitle}'), '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">
-                Enviar Suggeriment
-              </button>
+              <button onclick="sendTeacherFeedback('${readingId}', decodeURIComponent('${encodedTitle}'), '${authorUid}')" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow transition">Enviar Suggeriment</button>
             </div>
           </div>
         </div>
@@ -2543,11 +2302,7 @@
 
     async function sendTeacherFeedback(readingId, readingTitle, authorUid) {
       const commentText = document.getElementById('feedback-comment-text').value.trim();
-      if (!commentText) {
-        alert("Si us plau, escriu un comentari abans d'enviar.");
-        return;
-      }
-
+      if (!commentText) { alert("Si us plau, escriu un comentari abans d'enviar."); return; }
       try {
         await db.collection(FEEDBACK_COLLECTION).add({
           readingId: readingId,
@@ -2560,9 +2315,8 @@
           comment: commentText,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
         document.getElementById('feedback-modal-container').innerHTML = '';
-        alert("🎉 Suggeriment enviat correctament! Moltes gràcies per fer xarxa i comunitat.");
+        alert("🎉 Suggeriment enviat correctament!");
       } catch (err) {
         alert("Error en enviar el suggeriment: " + err.message);
       }
@@ -2571,49 +2325,33 @@
     async function renderTeacherFeedbackInbox() {
       if (!currentUser) return;
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la bústia de suggeriments...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la bústia de suggeriments...</p></div>';
 
       try {
         const snap = await db.collection(FEEDBACK_COLLECTION).where('authorUid', '==', currentUser.uid).get();
-
         let commentsHTML = '';
-        snap.forEach(doc => {
+        snap.forEach(function(doc) {
           const fb = doc.data();
-          commentsHTML += `
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                <span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md">${fb.readingTitle}</span>
-                <span class="text-[10px] text-slate-400 font-mono">${fb.senderDisplayName} (${fb.senderSchool || 'Docent'})</span>
-              </div>
-              <p class="text-xs text-slate-700 font-medium leading-relaxed">${fb.comment}</p>
-            </div>
-          `;
+          commentsHTML += '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-2"><div class="flex items-center justify-between border-b border-slate-100 pb-2"><span class="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-md">' + fb.readingTitle + '</span><span class="text-[10px] text-slate-400 font-mono">' + fb.senderDisplayName + '</span></div><p class="text-xs text-slate-700 font-medium leading-relaxed">' + fb.comment + '</p></div>';
         });
 
         app.innerHTML = `
           <div class="max-w-4xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
-            
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-comments text-amber-500"></i> Suggeriments Rebuts per les teves Lectures
-              </h1>
-              
-              <div class="space-y-3">
-                ${commentsHTML || `<p class="text-xs text-slate-500 italic p-4 text-center">Encara no has rebut cap suggeriment per a les teves lectures publicades.</p>`}
-              </div>
+              <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-comments text-amber-500"></i> Suggeriments Rebuts</h1>
+              <div class="space-y-3">${commentsHTML || '<p class="text-xs text-slate-500 italic p-4 text-center">Encara no has rebut cap suggeriment.</p>'}</div>
             </div>
           </div>
         `;
       } catch (err) {
-        console.error("Error carregant la bústia:", err);
+        console.error(err);
       }
     }
 
-    async function submitQuiz(e, docId, pointsPerQuestion = 1) {
+    async function submitQuiz(e, docId, pointsPerQuestion) {
       e.preventDefault();
+      pointsPerQuestion = pointsPerQuestion || 1;
       if (!currentUser) { renderLogin(); return; }
 
       const form = e.target;
@@ -2622,13 +2360,12 @@
       let questionsSnap;
       try {
         questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).orderBy('orderIndex', 'asc').get();
-      } catch (e) {
+      } catch (err) {
         questionsSnap = await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).get();
       }
 
       let score = 0;
       let total = questionsSnap.size;
-
       const stats = {
         literal: { correct: 0, total: 0 },
         inferential: { correct: 0, total: 0 },
@@ -2637,7 +2374,7 @@
         creative: { correct: 0, total: 0 }
       };
 
-      questionsSnap.forEach(qDoc => {
+      questionsSnap.forEach(function(qDoc) {
         const q = qDoc.data() || {};
         const taxKey = q.taxonomyType || 'literal';
         if (!stats[taxKey]) stats[taxKey] = { correct: 0, total: 0 };
@@ -2655,9 +2392,7 @@
       try {
         const userDoc = await db.collection("users").doc(currentUser.uid).get();
         if (userDoc.exists) userScores = userDoc.data().scores || {};
-      } catch (err) {
-        console.warn("Error llegint puntuacions anteriors:", err);
-      }
+      } catch (err) {}
 
       const previousQuizPoints = userScores[docId] || 0;
       let pointsToAdd = 0;
@@ -2676,13 +2411,10 @@
           completedReadings: userCompletedReadings,
           scores: userScores
         }, { merge: true });
-      } catch (err) {
-        console.warn("Dades desades localment:", err);
-      }
+      } catch (err) {}
 
       await loadUserData();
       renderNav();
-
       renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats);
     }
 
@@ -2691,26 +2423,12 @@
       if (!container) return;
 
       let breakdownRows = '';
-      Object.keys(stats).forEach(taxKey => {
+      Object.keys(stats).forEach(function(taxKey) {
         const item = stats[taxKey];
         if (item.total > 0) {
           const cfg = TAXONOMY_CONFIG[taxKey] || TAXONOMY_CONFIG.literal;
           const pct = Math.round((item.correct / item.total) * 100);
-          
-          breakdownRows += `
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded-md border ${cfg.color} inline-flex items-center gap-1">
-                  <i class="fa-solid ${cfg.icon}"></i> ${cfg.label}
-                </span>
-                <span class="text-xs text-slate-500 hidden sm:inline">${cfg.desc}</span>
-              </div>
-              <div class="text-right">
-                <span class="text-sm font-black text-slate-800">${item.correct} / ${item.total}</span>
-                <span class="text-xs font-bold ml-1.5 ${pct >= 70 ? 'text-emerald-600' : (pct >= 50 ? 'text-amber-600' : 'text-slate-500')}">(${pct}%)</span>
-              </div>
-            </div>
-          `;
+          breakdownRows += '<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"><div class="flex items-center space-x-2"><span class="text-xs font-bold px-2 py-0.5 rounded-md border ' + cfg.color + ' inline-flex items-center gap-1"><i class="fa-solid ' + cfg.icon + '"></i> ' + cfg.label + '</span></div><div class="text-right"><span class="text-sm font-black text-slate-800">' + item.correct + ' / ' + item.total + '</span><span class="text-xs font-bold ml-1.5 text-emerald-600">(' + pct + '%)</span></div></div>';
         }
       });
 
@@ -2718,27 +2436,13 @@
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-5 shadow-2xl">
             <div class="text-center space-y-1">
-              <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner border border-amber-200">
-                <i class="fa-solid fa-trophy"></i>
-              </div>
+              <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner border border-amber-200"><i class="fa-solid fa-trophy"></i></div>
               <h3 class="text-xl font-black text-slate-800">Resultat de la Lectura</h3>
               <p class="text-xs text-slate-500">Has encertat <strong>${score} de ${total}</strong> preguntes (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
             </div>
-
-            ${pointsToAdd > 0 ? `
-              <div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">
-                🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+${pointsToAdd} PTS</span> nous per al teu perfil!
-              </div>
-            ` : ''}
-
-            <div class="space-y-2">
-              <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Desglossament de la Comprensió Lectora:</h4>
-              <div class="space-y-2">${breakdownRows}</div>
-            </div>
-
-            <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">
-              Continuar al Catàleg
-            </button>
+            ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+' + pointsToAdd + ' PTS</span> nous!</div>' : ''}
+            <div class="space-y-2">${breakdownRows}</div>
+            <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">Continuar al Catàleg</button>
           </div>
         </div>
       `;
@@ -2746,148 +2450,88 @@
 
     async function renderStudentLeaderboard() {
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>';
 
       try {
         const usersSnap = await db.collection("users").get();
         let allUsers = [];
-        usersSnap.forEach(d => {
+        usersSnap.forEach(function(d) {
           const u = d.data();
           if (u.role === 'alumne' || u.role === 'adult' || !u.role) {
-            allUsers.push({ id: d.id, ...u });
+            allUsers.push(Object.assign({ id: d.id }, u));
           }
         });
 
-        let filteredUsers = [...allUsers];
+        let filteredUsers = allUsers.slice();
         if (currentLeaderboardTab === 'group' && currentUser) {
-          filteredUsers = allUsers.filter(u => u.teacherUid === userTeacherUid || u.id === currentUser.uid);
+          filteredUsers = allUsers.filter(function(u) { return u.teacherUid === userTeacherUid || u.id === currentUser.uid; });
         } else if (currentLeaderboardTab === 'school' && userSchool) {
-          filteredUsers = allUsers.filter(u => u.school && u.school.toLowerCase() === userSchool.toLowerCase());
+          filteredUsers = allUsers.filter(function(u) { return u.school && u.school.toLowerCase() === userSchool.toLowerCase(); });
         }
 
-        filteredUsers.sort((a, b) => (b.points || 0) - (a.points || 0));
+        filteredUsers.sort(function(a, b) { return (b.points || 0) - (a.points || 0); });
 
         let rowsHTML = '';
-        filteredUsers.forEach((u, idx) => {
+        filteredUsers.forEach(function(u, idx) {
           const pts = u.points || 0;
           const rank = getRankDetails(pts);
           const isMe = currentUser && u.id === currentUser.uid;
-          
-          let medal = `<span class="font-bold text-slate-500">${idx + 1}</span>`;
-          if (idx === 0) medal = `🥇`;
-          if (idx === 1) medal = `🥈`;
-          if (idx === 2) medal = `🥉`;
+          let medal = '<span class="font-bold text-slate-500">' + (idx + 1) + '</span>';
+          if (idx === 0) medal = '🥇';
+          if (idx === 1) medal = '🥈';
+          if (idx === 2) medal = '🥉';
 
-          rowsHTML += `
-            <tr class="${isMe ? 'bg-amber-50 font-bold' : 'hover:bg-slate-50'} border-b border-slate-100">
-              <td class="p-3 text-center text-sm">${medal}</td>
-              <td class="p-3 text-sm flex items-center gap-2">
-                <span class="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold">
-                  <i class="fa-solid ${rank.icon}"></i>
-                </span>
-                <span>${u.displayName || 'Lector/a Anònim'} ${isMe ? '(Tu)' : ''}</span>
-              </td>
-              <td class="p-3 text-sm text-slate-500 hidden sm:table-cell">${u.school || 'Sense centre'}</td>
-              <td class="p-3 text-xs text-amber-800 font-bold">${rank.name}</td>
-              <td class="p-3 text-sm text-right font-black text-amber-600">${pts} PTS</td>
-            </tr>
-          `;
+          rowsHTML += '<tr class="' + (isMe ? 'bg-amber-50 font-bold' : 'hover:bg-slate-50') + ' border-b border-slate-100"><td class="p-3 text-center text-sm">' + medal + '</td><td class="p-3 text-sm">' + (u.displayName || 'Lector/a') + '</td><td class="p-3 text-sm text-slate-500 hidden sm:table-cell">' + (u.school || '') + '</td><td class="p-3 text-xs text-amber-800 font-bold">' + rank.name + '</td><td class="p-3 text-sm text-right font-black text-amber-600">' + pts + ' PTS</td></tr>';
         });
 
         app.innerHTML = `
           <div class="max-w-4xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-trophy text-amber-500"></i> Classificació de Lectors
-                </h1>
-                
+                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-trophy text-amber-500"></i> Classificació de Lectors</h1>
                 <div class="flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold">
                   <button onclick="currentLeaderboardTab='group'; renderStudentLeaderboard()" class="${currentLeaderboardTab === 'group' ? 'bg-white text-indigo-700 shadow' : 'text-slate-600'} px-3 py-1.5 rounded-lg">El meu Grup</button>
                   <button onclick="currentLeaderboardTab='school'; renderStudentLeaderboard()" class="${currentLeaderboardTab === 'school' ? 'bg-white text-indigo-700 shadow' : 'text-slate-600'} px-3 py-1.5 rounded-lg">El meu Centre</button>
                   <button onclick="currentLeaderboardTab='global'; renderStudentLeaderboard()" class="${currentLeaderboardTab === 'global' ? 'bg-white text-indigo-700 shadow' : 'text-slate-600'} px-3 py-1.5 rounded-lg">Global</button>
                 </div>
               </div>
-
-              <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
-                      <th class="p-3 text-center">Posició</th>
-                      <th class="p-3">Nom</th>
-                      <th class="p-3 hidden sm:table-cell">Centre</th>
-                      <th class="p-3">Rang</th>
-                      <th class="p-3 text-right">Punts</th>
-                    </tr>
-                  </thead>
-                  <tbody>${rowsHTML}</tbody>
-                </table>
-              </div>
+              <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200"><th class="p-3 text-center">Posició</th><th class="p-3">Nom</th><th class="p-3 hidden sm:table-cell">Centre</th><th class="p-3">Rang</th><th class="p-3 text-right">Punts</th></tr></thead><tbody>${rowsHTML}</tbody></table></div>
             </div>
           </div>
         `;
       } catch (err) {
-        console.error("Error carregant la classificació:", err);
+        console.error(err);
       }
     }
 
     async function renderTeacherFoldersList() {
       if (!currentUser) return;
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant Carpetes i SA...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant Carpetes i SA...</p></div>';
 
       try {
         const snap = await db.collection(FOLDERS_COLLECTION).where('authorUid', '==', currentUser.uid).get();
         let foldersHTML = '';
-        snap.forEach(doc => {
+        snap.forEach(function(doc) {
           const f = doc.data();
           const fId = doc.id;
           const count = (f.readings || []).length;
-
-          foldersHTML += `
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
-              <div>
-                <div class="flex items-center justify-between mb-2">
-                  <span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">${f.level || 'Primària'}</span>
-                  <span class="text-xs font-semibold text-slate-400">${count} ${count === 1 ? 'lectura' : 'lectures'}</span>
-                </div>
-                <h3 class="font-bold text-slate-800 text-lg mb-1">${f.title}</h3>
-                <p class="text-xs text-slate-500 line-clamp-2">${f.description || 'Sense descripció.'}</p>
-              </div>
-
-              <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <button onclick="renderFolderView('${fId}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl">Veure Carpeta</button>
-                <button onclick="shareFolderLink('${fId}')" class="text-slate-400 hover:text-indigo-600 text-xs"><i class="fa-solid fa-share-nodes"></i> Compartir</button>
-              </div>
-            </div>
-          `;
+          foldersHTML += '<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4"><div><div class="flex items-center justify-between mb-2"><span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">' + (f.level || 'Primària') + '</span><span class="text-xs font-semibold text-slate-400">' + count + ' lectures</span></div><h3 class="font-bold text-slate-800 text-lg mb-1">' + f.title + '</h3><p class="text-xs text-slate-500 line-clamp-2">' + (f.description || '') + '</p></div><div class="pt-3 border-t border-slate-100 flex items-center justify-between"><button onclick="renderFolderView(\'' + fId + '\')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl">Veure Carpeta</button><button onclick="shareFolderLink(\'' + fId + '\')" class="text-slate-400 hover:text-indigo-600 text-xs"><i class="fa-solid fa-share-nodes"></i> Compartir</button></div></div>';
         });
 
         app.innerHTML = `
           <div class="max-w-5xl mx-auto space-y-6">
             <div class="flex items-center justify-between">
-              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-              </button>
-              <button onclick="createNewFolderPrompt()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow">
-                <i class="fa-solid fa-folder-plus mr-1"></i> Nova Carpeta / SA
-              </button>
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
+              <button onclick="createNewFolderPrompt()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow"><i class="fa-solid fa-folder-plus mr-1"></i> Nova Carpeta / SA</button>
             </div>
-
-            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
-              <i class="fa-solid fa-folder-closed text-amber-500"></i> Les meves Carpetes / Situacions d'Aprenentatge (SA)
-            </h1>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              ${foldersHTML || `<p class="col-span-full text-slate-500 text-sm italic">Encara no has creat cap carpeta. Crea'n una per agrupar lectures per a la teva aula.</p>`}
-            </div>
+            <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-folder-closed text-amber-500"></i> Les meves Carpetes / Situacions d'Aprenentatge</h1>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${foldersHTML || '<p class="col-span-full text-slate-500 text-sm italic">Encara no has creat cap carpeta.</p>'}</div>
           </div>
         `;
       } catch (err) {
-        console.error("Error carregant carpetes:", err);
+        console.error(err);
       }
     }
 
@@ -2895,7 +2539,6 @@
       const title = prompt("Títol de la nova Carpeta / SA:");
       if (!title) return;
       const description = prompt("Descripció curta (opcional):") || "";
-      
       try {
         await db.collection(FOLDERS_COLLECTION).add({
           title: title,
@@ -2913,93 +2556,54 @@
 
     async function renderFolderView(folderId) {
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el contingut de la carpeta...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el contingut de la carpeta...</p></div>';
 
       try {
         const folderDoc = await db.collection(FOLDERS_COLLECTION).doc(folderId).get();
         if (!folderDoc.exists) {
-          app.innerHTML = `<div class="p-4 bg-red-100 text-red-700 rounded-lg">Carpeta no trobada.</div>`;
+          app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-lg">Carpeta no trobada.</div>';
           return;
         }
-
         const folder = folderDoc.data();
         const readingIds = folder.readings || [];
 
         let readingsHTML = '';
-        if (readingIds.length > 0) {
-          for (const rId of readingIds) {
-            const rSnap = await db.collection(DB_COLLECTION).doc(rId).get();
-            if (rSnap.exists) {
-              const r = rSnap.data();
-              readingsHTML += `
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
-                  <div>
-                    <h4 class="font-bold text-slate-800 text-sm">${r.title}</h4>
-                    <span class="text-xs text-indigo-600">${r.level || ''}</span>
-                  </div>
-                  <button onclick="renderReader('${rId}')" class="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Llegir</button>
-                </div>
-              `;
-            }
+        for (const rId of readingIds) {
+          const rSnap = await db.collection(DB_COLLECTION).doc(rId).get();
+          if (rSnap.exists) {
+            const r = rSnap.data();
+            readingsHTML += '<div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center"><div><h4 class="font-bold text-slate-800 text-sm">' + r.title + '</h4><span class="text-xs text-indigo-600">' + (r.level || '') + '</span></div><button onclick="renderReader(\'' + rId + '\')" class="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Llegir</button></div>';
           }
         }
 
         app.innerHTML = `
           <div class="max-w-4xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <span class="text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">Carpeta / SA</span>
               <h1 class="text-3xl font-black text-slate-800">${folder.title}</h1>
               <p class="text-sm text-slate-600">${folder.description || ''}</p>
             </div>
-
-            <div class="space-y-3">
-              <h2 class="text-lg font-bold text-slate-800">Lectures incloses (${readingIds.length})</h2>
-              <div class="space-y-2">
-                ${readingsHTML || `<p class="text-xs text-slate-500">No hi ha cap lectura en aquesta carpeta.</p>`}
-              </div>
-            </div>
+            <div class="space-y-3"><h2 class="text-lg font-bold text-slate-800">Lectures incloses (${readingIds.length})</h2><div class="space-y-2">${readingsHTML || '<p class="text-xs text-slate-500">No hi ha cap lectura en aquesta carpeta.</p>'}</div></div>
           </div>
         `;
       } catch (err) {
-        console.error("Error visualitzant la carpeta:", err);
+        console.error(err);
       }
     }
 
     async function openAddToFolderModal(readingId) {
       if (!currentUser) return;
       const modal = document.getElementById('folder-modal-container');
-
       try {
         const snap = await db.collection(FOLDERS_COLLECTION).where('authorUid', '==', currentUser.uid).get();
-        if (snap.empty) {
-          alert("Primer has de crear una carpeta a la secció 'Carpetes / SA'.");
-          return;
-        }
-
+        if (snap.empty) { alert("Primer has de crear una carpeta a 'Carpetes / SA'."); return; }
         let options = '';
-        snap.forEach(doc => {
-          const f = doc.data();
-          options += `<option value="${doc.id}">${f.title}</option>`;
+        snap.forEach(function(doc) {
+          options += '<option value="' + doc.id + '">' + doc.data().title + '</option>';
         });
-
-        modal.innerHTML = `
-          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
-              <h3 class="text-lg font-bold text-slate-800">Afegir a una Carpeta / SA</h3>
-              <select id="select-folder-id" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-semibold">${options}</select>
-              <div class="flex justify-end space-x-2">
-                <button onclick="document.getElementById('folder-modal-container').innerHTML=''" class="px-3 py-1.5 text-xs text-slate-600">Cancel·lar</button>
-                <button onclick="confirmAddToFolder('${readingId}')" class="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl">Desar</button>
-              </div>
-            </div>
-          </div>
-        `;
-      } catch (err) {
-        console.error(err);
-      }
+        modal.innerHTML = '<div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"><div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl"><h3 class="text-lg font-bold text-slate-800">Afegir a una Carpeta / SA</h3><select id="select-folder-id" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-semibold">' + options + '</select><div class="flex justify-end space-x-2"><button onclick="document.getElementById(\'folder-modal-container\').innerHTML=\'\'" class="px-3 py-1.5 text-xs text-slate-600">Cancel·lar</button><button onclick="confirmAddToFolder(\'' + readingId + '\')" class="px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl">Desar</button></div></div></div>';
+      } catch (err) { console.error(err); }
     }
 
     async function confirmAddToFolder(readingId) {
@@ -3009,71 +2613,41 @@
           readings: firebase.firestore.FieldValue.arrayUnion(readingId)
         });
         document.getElementById('folder-modal-container').innerHTML = '';
-        alert("Lectura afegida correctament a la carpeta!");
+        alert("Lectura afegida correctament!");
       } catch (err) {
-        alert("Error en afegir la lectura: " + err.message);
+        alert("Error: " + err.message);
       }
     }
 
     async function renderStudentTrackingPanel() {
       if (!currentUser) return;
       const app = document.getElementById('app');
-      app.innerHTML = `<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el seguiment d'alumnes...</p></div>`;
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el seguiment d\'alumnes...</p></div>';
 
       try {
         const snap = await db.collection("users").where('teacherUid', '==', currentUser.uid).get();
-
         let rows = '';
-        snap.forEach(doc => {
+        snap.forEach(function(doc) {
           const u = doc.data();
           const pts = u.points || 0;
           const rank = getRankDetails(pts);
           const completedCount = (u.completedReadings || []).length;
-
-          rows += `
-            <tr class="border-b border-slate-100 hover:bg-slate-50">
-              <td class="p-3 text-sm font-bold text-slate-800">${u.displayName || 'Alumne/a Anònim'}</td>
-              <td class="p-3 text-xs text-slate-500">${u.school || 'Sense centre'}</td>
-              <td class="p-3 text-xs text-amber-800 font-bold">${rank.name}</td>
-              <td class="p-3 text-xs text-center font-bold text-indigo-600">${completedCount}</td>
-              <td class="p-3 text-sm text-right font-black text-amber-600">${pts} PTS</td>
-            </tr>
-          `;
+          rows += '<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="p-3 text-sm font-bold text-slate-800">' + (u.displayName || 'Alumne/a') + '</td><td class="p-3 text-xs text-slate-500">' + (u.school || '') + '</td><td class="p-3 text-xs text-amber-800 font-bold">' + rank.name + '</td><td class="p-3 text-xs text-center font-bold text-indigo-600">' + completedCount + '</td><td class="p-3 text-sm text-right font-black text-amber-600">' + pts + ' PTS</td></tr>';
         });
 
         app.innerHTML = `
           <div class="max-w-5xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-            </button>
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
             <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-users text-indigo-600"></i> Els meus Alumnes
-                </h1>
+                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-users text-indigo-600"></i> Els meus Alumnes</h1>
                 <span class="text-xs bg-indigo-50 text-indigo-700 font-mono font-bold px-3 py-1 rounded-lg">Codi Docent: ${currentUser.uid}</span>
               </div>
-
-              <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                  <thead>
-                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
-                      <th class="p-3">Nom de l'Alumne/a</th>
-                      <th class="p-3">Centre</th>
-                      <th class="p-3">Rang Assolit</th>
-                      <th class="p-3 text-center">Lectures Fetes</th>
-                      <th class="p-3 text-right">Punts Totals</th>
-                    </tr>
-                  </thead>
-                  <tbody>${rows || `<tr><td colspan="5" class="p-4 text-center text-xs text-slate-400">Encara no hi ha cap alumne vinculat al teu codi de mestre.</td></tr>`}</tbody>
-                </table>
-              </div>
+              <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200"><th class="p-3">Nom</th><th class="p-3">Centre</th><th class="p-3">Rang</th><th class="p-3 text-center">Lectures</th><th class="p-3 text-right">Punts</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="p-4 text-center text-xs text-slate-400">Encara no hi ha cap alumne vinculat.</td></tr>'}</tbody></table></div>
             </div>
           </div>
         `;
-      } catch (err) {
-        console.error("Error carregant el seguiment:", err);
-      }
+      } catch (err) { console.error(err); }
     }
 
     function renderLogin() {
@@ -3082,64 +2656,31 @@
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div class="bg-white p-6 md:p-8 rounded-2xl max-w-lg w-full space-y-5 shadow-2xl my-8">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                <i class="fa-solid fa-book-open text-indigo-600"></i> Accés a Lectura Aventura
-              </h3>
+              <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-book-open text-indigo-600"></i> Accés a Lectura Aventura</h3>
               <button onclick="document.getElementById('auth-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-
-            <div class="bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200 text-xs text-indigo-950 space-y-1.5">
-              <p class="font-bold flex items-center gap-1.5 text-indigo-800">
-                <i class="fa-solid fa-handshake-angle text-indigo-600"></i> Comunitat Oberta de Comprensió Lectora
-              </p>
-              <p class="leading-relaxed text-slate-700">
-                Un espai col·laboratiu on docents i famílies comparteixen lectures adaptades i qüestionaris gamificats per fomentar el gust per llegir.
-              </p>
-            </div>
-
             <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
               <button type="button" id="tab-login-btn" onclick="switchAuthTab('login')" class="w-1/2 py-2 rounded-lg bg-white text-indigo-700 shadow-xs">Ja tinc compte</button>
               <button type="button" id="tab-register-btn" onclick="switchAuthTab('register')" class="w-1/2 py-2 rounded-lg text-slate-600">Crear compte nou</button>
             </div>
-
             <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-3">
               <input type="hidden" id="auth-mode" value="login">
-              
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Correu electrònic *</label>
-                <input type="email" id="auth-email" required placeholder="nom@exemple.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label>
-                <input type="password" id="auth-password" required minlength="6" placeholder="Mínim 6 caràcters" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-              </div>
-
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Correu electrònic *</label><input type="email" id="auth-email" required placeholder="nom@exemple.cat" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Contrasenya *</label><input type="password" id="auth-password" required minlength="6" placeholder="Mínim 6 caràcters" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm"></div>
               <div id="register-extra-fields" class="hidden space-y-3 pt-2 border-t border-slate-100">
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom o Pseudònim *</label><input type="text" id="auth-name" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
                 <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Nom o Pseudònim *</label>
-                  <input type="text" id="auth-name" placeholder="Com vols que et vegem?" class="w-full p-2 border border-slate-300 rounded-xl text-sm">
-                </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Tria el teu Rol a la plataforma *</label>
-                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/40 rounded-xl text-xs font-bold text-indigo-950 outline-none">
-                    <option value="alumne">🎒 Alumne/a (Llegeix, respon i guanya punts)</option>
-                    <option value="adult">🧑‍💼 Lector/a Adult/a (CFA, autoaprenentatge o oci)</option>
-                    <option value="docent">👨‍🏫 Docent (Crea lectures, carpetes SA i segueix alumnes)</option>
-                    <option value="colaborador">✍️ Col·laborador/a (Famílies o creadors de lectures)</option>
+                  <label class="block text-xs font-bold text-slate-700 mb-1">Tria el teu Rol *</label>
+                  <select id="auth-role" class="w-full p-2.5 border border-indigo-300 bg-indigo-50/40 rounded-xl text-xs font-bold text-indigo-950">
+                    <option value="alumne">🎒 Alumne/a</option>
+                    <option value="adult">🧑‍💼 Lector/a Adult/a</option>
+                    <option value="docent">👨‍🏫 Docent</option>
+                    <option value="colaborador">✍️ Col·laborador/a</option>
                   </select>
                 </div>
-
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu (Opcional)</label>
-                  <input type="text" id="auth-school" placeholder="Ex: Escola Sant Jordi" class="w-full p-2 border border-slate-300 rounded-xl text-sm">
-                </div>
+                <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre (Opcional)</label><input type="text" id="auth-school" class="w-full p-2 border border-slate-300 rounded-xl text-sm"></div>
               </div>
-
-              <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">
-                Entrar
-              </button>
+              <button type="submit" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition mt-2">Entrar</button>
             </form>
           </div>
         </div>
@@ -3200,7 +2741,6 @@
     function renderUserProfileModal() {
       if (!currentUser) return;
       const container = document.getElementById('profile-modal-container');
-
       container.innerHTML = `
         <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
@@ -3209,20 +2749,9 @@
               <button onclick="document.getElementById('profile-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <form onsubmit="saveUserProfile(event)" class="space-y-3">
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label>
-                <input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label>
-                <input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
-              </div>
-              ${userRole === 'alumne' ? `
-                <div>
-                  <label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label>
-                  <input type="text" id="profile-teacher-uid" value="${escapeHtmlAttr(userTeacherUid)}" placeholder="Enganxa el codi del teu mestre" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono">
-                </div>
-              ` : ''}
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label><input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label><input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              ${userRole === 'alumne' ? '<div><label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label><input type="text" id="profile-teacher-uid" value="' + escapeHtmlAttr(userTeacherUid) + '" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"></div>' : ''}
               <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-sm">Desar dades de perfil</button>
             </form>
           </div>
@@ -3234,7 +2763,8 @@
       e.preventDefault();
       const name = document.getElementById('profile-display-name').value;
       const school = document.getElementById('profile-school').value;
-      const teacherUid = document.getElementById('profile-teacher-uid')?.value || '';
+      const teacherEl = document.getElementById('profile-teacher-uid');
+      const teacherUid = teacherEl ? teacherEl.value : '';
 
       try {
         await db.collection("users").doc(currentUser.uid).set({
@@ -3253,16 +2783,15 @@
     }
 
     function shareFolderLink(folderId) {
-      const shareUrl = `${window.location.href.split('?')[0]}?carpeta=${folderId}`;
+      const shareUrl = window.location.href.split('?')[0] + '?carpeta=' + folderId;
       prompt("Copia aquest enllaç directe a la carpeta:", shareUrl);
     }
 
     function shareToGoogleClassroom(docId, title) {
       const baseUrl = window.location.href.split('?')[0];
-      const targetUrl = encodeURIComponent(`${baseUrl}?lectura=${docId}`);
-      const encodedTitle = encodeURIComponent(`Lectura Aventura: ${title}`);
-      const classroomUrl = `https://classroom.google.com/u/0/share?url=${targetUrl}&title=${encodedTitle}`;
-      window.open(classroomUrl, '_blank', 'width=650,height=550');
+      const targetUrl = encodeURIComponent(baseUrl + '?lectura=' + docId);
+      const encodedTitle = encodeURIComponent('Lectura Aventura: ' + title);
+      window.open('https://classroom.google.com/u/0/share?url=' + targetUrl + '&title=' + encodedTitle, '_blank', 'width=650,height=550');
     }
 
     function resetFiltersAndRenderCatalog() {
@@ -3283,13 +2812,21 @@
     }
 
     function applyCatalogFilters() {
-      filterSearch = document.getElementById('search-input')?.value.toLowerCase() || '';
-      filterBookAuthor = document.getElementById('author-search-input')?.value.toLowerCase() || '';
-      filterType = document.getElementById('type-select')?.value || 'all';
-      filterLevel = document.getElementById('level-select')?.value || 'all';
-      filterCategory = document.getElementById('category-select')?.value || 'all';
-      filterStatus = document.getElementById('status-select')?.value || 'all';
-      filterDuration = document.getElementById('duration-select')?.value || 'all';
+      const s = document.getElementById('search-input');
+      const a = document.getElementById('author-search-input');
+      const t = document.getElementById('type-select');
+      const l = document.getElementById('level-select');
+      const c = document.getElementById('category-select');
+      const st = document.getElementById('status-select');
+      const d = document.getElementById('duration-select');
+
+      filterSearch = s ? s.value.toLowerCase() : '';
+      filterBookAuthor = a ? a.value.toLowerCase() : '';
+      filterType = t ? t.value : 'all';
+      filterLevel = l ? l.value : 'all';
+      filterCategory = c ? c.value : 'all';
+      filterStatus = st ? st.value : 'all';
+      filterDuration = d ? d.value : 'all';
       renderCatalog();
     }
 
@@ -3301,16 +2838,16 @@
 
     function logout() {
       stopSpeechSynthesis();
-      auth.signOut().then(() => renderCatalog());
+      auth.signOut().then(function() { renderCatalog(); });
     }
 
     function shareReadingLink(docId, titleOrCode) {
       const baseUrl = window.location.href.split('?')[0];
-      const shareUrl = `${baseUrl}?lectura=${docId}`;
+      const shareUrl = baseUrl + '?lectura=' + docId;
       if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(shareUrl).then(() => {
-          alert(`🔗 Enllaç copiat al porta-retalls (${titleOrCode})!\n\n${shareUrl}`);
-        }).catch(() => { prompt("Copia aquest enllaç:", shareUrl); });
+        navigator.clipboard.writeText(shareUrl).then(function() {
+          alert('🔗 Enllaç copiat al porta-retalls (' + titleOrCode + ')!\n\n' + shareUrl);
+        }).catch(function() { prompt("Copia aquest enllaç:", shareUrl); });
       } else {
         prompt("Copia aquest enllaç:", shareUrl);
       }
@@ -3320,28 +2857,28 @@
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
-      
+
       const changelogRows = [
         {
           title: "📌 FILA 1 — FUTURES ACTUALITZACIONS I FULL DE RUTA",
           blocks: [
-            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.37.0 (PDF)", color: "bg-dashed bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
-            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-dashed bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
-            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-dashed bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
+            { isPlaceholder: true, version: "📄 Pròxima Versió", date: "En planificació", badge: "v0.37.0 (PDF)", color: "bg-amber-50/60 text-amber-900 border-amber-300", summary: "Exportació a PDF / Full d'impressió.", highlights: ["Generador net per a impressió en paper de la lectura estàndard o adaptada."] },
+            { isPlaceholder: true, version: "🔮 Full de Ruta", date: "Futur", badge: "Estadístiques", color: "bg-purple-50/60 text-purple-900 border-purple-300", summary: "Panells visuals d'aula.", highlights: ["Gràfics de millora per taxonomia cognitiva per al docent."] },
+            { isPlaceholder: true, version: "🌟 Comunitat", date: "Futur", badge: "Insignies", color: "bg-teal-50/60 text-teal-900 border-teal-300", summary: "Sistema de reptes lectors.", highlights: ["Micro-insignies per a assoliments lectors entre aules."] }
           ]
         },
         {
           title: "⚡ FILA 2 — DARRERES VERSIONS RECENTMENT PUBLICADES",
           blocks: [
             {
-              version: "v0.36.1",
+              version: "v0.36.2",
               date: "Novembre 2026",
-              badge: "Fast Boot & Timeout Guard",
+              badge: "Clean Boot & Error Shield",
               color: "bg-emerald-600 text-white font-bold border-emerald-700",
-              summary: "Optimització de càrrega del catàleg (sense consultes N+1) i control de temps d'espera.",
+              summary: "Sanejament de sintaxi JS, escut d'errors independent i arrencada única sense bloquejos.",
               highlights: [
-                "Eliminació de les consultes individuals a subcol·leccions al catàleg per a una arrencada instantània.",
-                "Temporitzador de seguretat (withTimeout) i detector d'errors visuals per evitar esperes eternes."
+                "Separació de l'escut de diagnòstic d'errors en un script independent a la capçalera.",
+                "Eliminació de la doble crida simultània d'arrencada del catàleg i sanejament de plantilles."
               ]
             },
             {
@@ -3405,44 +2942,6 @@
               ]
             }
           ]
-        },
-        {
-          title: "🏛️ FILA 4 — FONAMENTS, TAXONOMIA I COMUNITAT DOCENT",
-          blocks: [
-            {
-              version: "v0.32.0",
-              date: "Octubre 2026",
-              badge: "Inclusió i Veu Alta",
-              color: "bg-blue-600 text-white font-bold border-blue-700",
-              summary: "Barra d'accessibilitat (OpenDyslexic, Sèpia, Contrast) i àudio-lectura en català.",
-              highlights: [
-                "Síntesi de veu nativa (Web Speech API) amb control de pausa i velocitat (0.8x–1.2x).",
-                "Glossari interactiu integrat amb desplaçament suau."
-              ]
-            },
-            {
-              version: "v0.26.0",
-              date: "Setembre 2026",
-              badge: "Taxonomia Cognitiva",
-              color: "bg-slate-700 text-white font-bold border-slate-800",
-              summary: "Classificació en 5 nivells cognitius i modal de feedback desglossat.",
-              highlights: [
-                "Avaluació diferenciada: Literal, Inferencial, Sentit Figurat, Opinió i Creativa.",
-                "Carpetes i Situacions d'Aprenentatge (SA) amb enllaços compartibles (v0.21.0)."
-              ]
-            },
-            {
-              version: "v0.19.0",
-              date: "Agost 2026",
-              badge: "Arquitectura Base",
-              color: "bg-slate-600 text-white font-bold border-slate-700",
-              summary: "Sistema de 4 rols, gamificació per rangs, Google Classroom i panell d'aula.",
-              highlights: [
-                "Rols diferenciats per a Alumnes, Adults, Docents i Col·laboradors.",
-                "Classificació per Grup, Centre i Global amb seguiment de progrés."
-              ]
-            }
-          ]
         }
       ];
 
@@ -3459,42 +2958,20 @@
               <p class="text-xs text-slate-500 mt-1">Evolució constant de Lectura Aventura</p>
             </div>
             <span class="hidden sm:inline-flex bg-amber-100 text-amber-900 font-extrabold text-xs px-3 py-1.5 rounded-xl border border-amber-300">
-              ⚡ Versió Actual: v0.36.1
+              ⚡ Versió Actual: v0.36.2
             </span>
           </div>
 
           <div class="space-y-8">
-            ${changelogRows.map(row => `
-              <div class="space-y-3">
-                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                  <i class="fa-solid fa-layer-group text-indigo-500"></i> ${row.title}
-                </h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  ${row.blocks.map(item => `
-                    <div class="${item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white'} p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
-                      <div>
-                        <div class="flex items-center justify-between mb-2">
-                          <span class="font-mono font-bold text-xs text-slate-500">${item.version}</span>
-                          <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${item.color}">${item.badge}</span>
-                        </div>
-                        <p class="text-xs text-slate-600 font-semibold mb-3">${item.summary}</p>
-                        <div class="space-y-2 text-[11px] text-slate-700">
-                          ${item.highlights.map(h => `<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>${h}</span></p>`).join('')}
-                        </div>
-                      </div>
-                      <span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">${item.date}</span>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            `).join('')}
+            ${changelogRows.map(function(row) {
+              return '<div class="space-y-3"><h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2"><i class="fa-solid fa-layer-group text-indigo-500"></i> ' + row.title + '</h2><div class="grid grid-cols-1 md:grid-cols-3 gap-5">' + row.blocks.map(function(item) {
+                return '<div class="' + (item.isPlaceholder ? 'bg-slate-50/70 border-dashed border-2' : 'bg-white') + ' p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3"><div><div class="flex items-center justify-between mb-2"><span class="font-mono font-bold text-xs text-slate-500">' + item.version + '</span><span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ' + item.color + '">' + item.badge + '</span></div><p class="text-xs text-slate-600 font-semibold mb-3">' + item.summary + '</p><div class="space-y-2 text-[11px] text-slate-700">' + item.highlights.map(function(h) { return '<p class="flex items-start gap-1.5"><i class="fa-solid fa-circle-dot text-[8px] text-indigo-500 mt-1 shrink-0"></i><span>' + h + '</span></p>'; }).join('') + '</div></div><span class="text-[10px] font-mono text-slate-400 pt-2 border-t border-slate-100 block text-right">' + item.date + '</span></div>';
+              }).join('') + '</div></div>';
+            }).join('')}
           </div>
         </div>
       `;
     }
-
-    renderNav();
-    routeInitialView();
   </script>
 </body>
 </html>
