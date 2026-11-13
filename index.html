@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.37.3</title>
+  <title>Lectura Aventura - v0.37.4</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.3</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.4</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.3...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.4...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.37.3 — Historial de versions</span>
+        <span>v0.37.4 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -145,6 +145,8 @@
     let userRole = 'alumne';
     let userCompletedReadings = [];
     let userScores = {};
+    let userTaxonomyStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
+    let userHasImprovedScore = false;
     let userDisplayName = "";
     let userSchool = "";
     let userTeacherUid = "";
@@ -688,6 +690,8 @@
           userRole = 'alumne';
           userCompletedReadings = [];
           userScores = {};
+          userTaxonomyStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
+          userHasImprovedScore = false;
           userDisplayName = "";
           userSchool = "";
           userTeacherUid = "";
@@ -729,6 +733,8 @@
           userRole = role;
           userCompletedReadings = data.completedReadings || [];
           userScores = data.scores || {};
+          userTaxonomyStats = Object.assign({ literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 }, data.taxonomyStats || {});
+          userHasImprovedScore = !!data.hasImprovedScore;
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
           userTeacherUid = data.teacherUid || "";
@@ -1035,7 +1041,11 @@
         `;
       });
 
-      // Medalles / Fites Especials per a Lectors
+      // Medalles / Fites Especials per a Lectors (11 medalles funcionals)
+      const infCorrect = userTaxonomyStats.inferential || 0;
+      const figCorrect = userTaxonomyStats.figurative || 0;
+      const opCreatCorrect = (userTaxonomyStats.opinion || 0) + (userTaxonomyStats.creative || 0);
+
       const achievements = [
         {
           id: 'first_read',
@@ -1076,6 +1086,56 @@
           progress: hasPerfectScore ? "Aconseguit!" : "Pendent",
           icon: "fa-bullseye",
           color: "bg-rose-500"
+        },
+        {
+          id: 'phoenix_reader',
+          title: "El Fènix Lector",
+          desc: "Repeteix una lectura que ja havies fet i supera la teva puntuació anterior.",
+          requirement: "Millorar la nota en repetir una lectura",
+          unlocked: userHasImprovedScore,
+          progress: userHasImprovedScore ? "Superat!" : "Pendent",
+          icon: "fa-fire-flame-curved",
+          color: "bg-amber-600"
+        },
+        {
+          id: 'chapter_devourer',
+          title: "Devorador/a de Capítols",
+          desc: "Llegeix un llibre sencer i supera el seu qüestionari de comprensió.",
+          requirement: "Completar 1 fitxa de Llibre de lectura",
+          unlocked: hasBookFormat,
+          progress: hasBookFormat ? "1/1 llibre" : "0/1 llibre",
+          icon: "fa-book-open-reader",
+          color: "bg-violet-600"
+        },
+        {
+          id: 'clue_detective',
+          title: "Detectiu de Pistes",
+          desc: "Saps llegir entre línies i deduir informació amagada al text.",
+          requirement: "Encertar 10 preguntes inferencials",
+          unlocked: infCorrect >= 10,
+          progress: Math.min(infCorrect, 10) + "/10",
+          icon: "fa-magnifying-glass-chart",
+          color: "bg-blue-600"
+        },
+        {
+          id: 'double_meaning_master',
+          title: "Mestre/a del Doble Sentit",
+          desc: "Domines les frases fetes, dites populars, metàfores i ironies.",
+          requirement: "Encertar 5 preguntes de sentit figurat",
+          unlocked: figCorrect >= 5,
+          progress: Math.min(figCorrect, 5) + "/5",
+          icon: "fa-comments",
+          color: "bg-fuchsia-600"
+        },
+        {
+          id: 'creative_critical_mind',
+          title: "Ment Creativa i Crítica",
+          desc: "Aportes el teu propi criteri i imagines alternatives originals.",
+          requirement: "Completar 5 preguntes d'opinió o creatives",
+          unlocked: opCreatCorrect >= 5,
+          progress: Math.min(opCreatCorrect, 5) + "/5",
+          icon: "fa-wand-magic-sparkles",
+          color: "bg-pink-600"
         },
         {
           id: 'multiformat',
@@ -3089,21 +3149,45 @@
       const maxPossiblePoints = total * pointsPerQuestion;
 
       let localScores = {};
+      let localTaxStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
+      let localHasImproved = userHasImprovedScore;
+      let wasAlreadyCompleted = userCompletedReadings.includes(docId);
+
       try {
         const userDoc = await db.collection("users").doc(currentUser.uid).get();
-        if (userDoc.exists) localScores = userDoc.data().scores || {};
+        if (userDoc.exists) {
+          const uData = userDoc.data();
+          localScores = uData.scores || {};
+          localTaxStats = Object.assign(localTaxStats, uData.taxonomyStats || {});
+          if (uData.hasImprovedScore) localHasImproved = true;
+          if (Array.isArray(uData.completedReadings) && uData.completedReadings.includes(docId)) {
+            wasAlreadyCompleted = true;
+          }
+        }
       } catch (err) {}
 
       const previousQuizPoints = localScores[docId] || 0;
       let pointsToAdd = 0;
 
       if (newQuizPoints > previousQuizPoints) {
+        if (wasAlreadyCompleted && previousQuizPoints > 0) {
+          localHasImproved = true;
+        }
         pointsToAdd = newQuizPoints - previousQuizPoints;
         localScores[docId] = newQuizPoints;
         userPoints += pointsToAdd;
       }
 
+      // Acumulem encerts per taxonomia al perfil del lector
+      Object.keys(stats).forEach(function(tKey) {
+        if (stats[tKey] && stats[tKey].correct > 0) {
+          localTaxStats[tKey] = (localTaxStats[tKey] || 0) + stats[tKey].correct;
+        }
+      });
+
       userScores = localScores;
+      userTaxonomyStats = localTaxStats;
+      userHasImprovedScore = localHasImproved;
 
       if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
 
@@ -3111,7 +3195,9 @@
         await db.collection("users").doc(currentUser.uid).set({
           points: userPoints,
           completedReadings: userCompletedReadings,
-          scores: localScores
+          scores: localScores,
+          taxonomyStats: localTaxStats,
+          hasImprovedScore: localHasImproved
         }, { merge: true });
       } catch (err) {}
 
@@ -3438,6 +3524,8 @@
             points: 0,
             completedReadings: [],
             scores: {},
+            taxonomyStats: { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 },
+            hasImprovedScore: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         } else {
@@ -3586,7 +3674,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.37.3)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.37.4)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -3596,10 +3684,23 @@
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.37.4",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Medalles Cognitives & Superació",
+          isCurrent: true,
+          summary: "Ampliació del Passaport Lector amb 5 noves medalles funcionals de superació, taxonomies cognitives i llibres.",
+          highlights: [
+            "<strong>El Fènix Lector:</strong> Nova medalla que premia la resiliència quan un lector repeteix una lectura i millora la seva puntuació anterior.",
+            "<strong>Devorador/a de Capítols:</strong> Reconeixement per completar qüestionaris de fitxes de <em>Llibre de lectura</em>.",
+            "<strong>3 Medalles d'Especialització Cognitiva:</strong> <em>Detectiu de Pistes</em> (10 encerts inferencials), <em>Mestre/a del Doble Sentit</em> (5 encerts de sentit figurat) i <em>Ment Creativa i Crítica</em> (5 respostes d'opinió o creatives).",
+            "Registre automàtic al núvol de l'historial d'encerts per taxonomia i millora de marques personals."
+          ]
+        },
+        {
           version: "v0.37.2",
           date: "Novembre 2026",
-          badge: "Versió Actual · Passaport & Medalles",
-          isCurrent: true,
+          badge: "Passaport & Medalles Base",
+          isCurrent: false,
           summary: "Passaport Oficial del Lector, Vitrina de Medalles i Restauració de l'Historial.",
           highlights: [
             "Nou <strong>Passaport Oficial de Lectura Aventura</strong> accessible des de la capçalera i el bàner superior.",
@@ -3846,7 +3947,7 @@
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.37.3
+              Versió Actual: v0.37.4
             </span>
           </div>
 
