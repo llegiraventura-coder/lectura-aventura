@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.38.0</title>
+  <title>Lectura Aventura - v0.38.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.38.0</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.38.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.38.0...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.38.1...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.38.0 — Historial de versions</span>
+        <span>v0.38.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -3656,7 +3656,7 @@
         });
 
         // Opcions per als desplegables d'assignació
-        let groupSelectOptionsHTML = '<option value="">⏳ Pendent d'assignar</option>';
+        let groupSelectOptionsHTML = '<option value="">⏳ Pendent d\'assignar</option>';
         allGroupsList.forEach(function(gName) {
           groupSelectOptionsHTML += '<option value="' + escapeHtmlAttr(gName) + '">🏫 ' + escapeHtmlAttr(gName) + '</option>';
         });
@@ -3669,7 +3669,7 @@
           const completedCount = (u.completedReadings || []).length;
           const currentGrp = (u.classGroup || '').trim();
 
-          let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d'assignar</option>';
+          let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d\'assignar</option>';
           allGroupsList.forEach(function(gName) {
             rowSelectOptions += '<option value="' + escapeHtmlAttr(gName) + '" ' + (currentGrp === gName ? 'selected' : '') + '>🏫 ' + escapeHtmlAttr(gName) + '</option>';
           });
@@ -4052,7 +4052,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.38.0)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.38.1)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -4062,10 +4062,20 @@
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.38.1",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Correcció d'Estabilitat",
+          isCurrent: true,
+          summary: "Correcció d'un error de sintaxi als desplegables d'assignació d'aules.",
+          highlights: [
+            "<strong>Estabilitat del panell docent:</strong> Escapat correcte dels apòstrofs a les opcions <em>Pendent d'assignar</em> dins de <code>renderStudentTrackingPanel()</code>."
+          ]
+        },
+        {
           version: "v0.38.0",
           date: "Novembre 2026",
-          badge: "Versió Actual · Gestió d'Aules i Grups Classe",
-          isCurrent: true,
+          badge: "Gestió d'Aules i Grups Classe",
+          isCurrent: false,
           summary: "Nou gestor d'aules, nivells i classes dins el panell docent 'Els meus Alumnes'.",
           highlights: [
             "<strong>Creació i gestió d'Aules / Grups:</strong> Els docents poden crear aules personalitzades (ex. <em>4t A</em>, <em>5è B</em>, <em>Grup Reforç</em>), canviar-ne el nom o eliminar-les amb seguretat.",
@@ -4338,7 +4348,7 @@
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.38.0
+              Versió Actual: v0.38.1
             </span>
           </div>
 
