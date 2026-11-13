@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.37.4</title>
+  <title>Lectura Aventura - v0.38.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.4</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.38.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.4...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.38.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.37.4 — Historial de versions</span>
+        <span>v0.38.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -150,6 +150,9 @@
     let userDisplayName = "";
     let userSchool = "";
     let userTeacherUid = "";
+    let userClassGroup = "";
+    let userTeacherGroups = [];
+    let selectedClassroomFilter = "all";
     let filterMyLectures = false;
     let editingDocId = null;
     let cloningParentId = null;
@@ -695,6 +698,9 @@
           userDisplayName = "";
           userSchool = "";
           userTeacherUid = "";
+          userClassGroup = "";
+          userTeacherGroups = [];
+          selectedClassroomFilter = "all";
           filterMyLectures = false;
         }
         renderNav();
@@ -738,6 +744,8 @@
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
           userTeacherUid = data.teacherUid || "";
+          userClassGroup = data.classGroup || "";
+          userTeacherGroups = Array.isArray(data.teacherGroups) ? data.teacherGroups : [];
         } else if (currentUser.email === ADMIN_SUPREMO_EMAIL) {
           userRole = 'docent';
         }
@@ -3259,7 +3267,12 @@
 
         let filteredUsers = allUsers.slice();
         if (currentLeaderboardTab === 'group' && currentUser) {
-          filteredUsers = allUsers.filter(function(u) { return u.teacherUid === userTeacherUid || u.id === currentUser.uid; });
+          filteredUsers = allUsers.filter(function(u) {
+            if (u.id === currentUser.uid) return true;
+            if (!userTeacherUid || u.teacherUid !== userTeacherUid) return false;
+            if (userClassGroup) return (u.classGroup || '') === userClassGroup;
+            return true;
+          });
         } else if (currentLeaderboardTab === 'school' && userSchool) {
           filteredUsers = allUsers.filter(function(u) { return u.school && u.school.toLowerCase() === userSchool.toLowerCase(); });
         }
@@ -3414,35 +3427,400 @@
       }
     }
 
+    function copyTeacherUidCode() {
+      if (!currentUser) return;
+      const uid = currentUser.uid;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(uid).then(function() {
+          alert("📋 Codi Docent copiat al porta-retalls:\n" + uid + "\n\nComparteix aquest codi amb els teus alumnes perquè el posin al seu perfil!");
+        }).catch(function() {
+          prompt("Copia el teu Codi Docent:", uid);
+        });
+      } else {
+        prompt("Copia el teu Codi Docent:", uid);
+      }
+    }
+
+    async function createTeacherClassGroup() {
+      if (!currentUser) return;
+      const rawName = prompt("Nom de la nova Aula, Nivell o Classe (ex: 4t A, 5è B, Grup Reforç):");
+      if (!rawName) return;
+      const groupName = rawName.trim();
+      if (!groupName) return;
+
+      if (!userTeacherGroups.includes(groupName)) {
+        userTeacherGroups.push(groupName);
+        try {
+          await db.collection("users").doc(currentUser.uid).set({
+            teacherGroups: userTeacherGroups
+          }, { merge: true });
+        } catch (err) {
+          alert("Error en crear l'aula: " + err.message);
+          return;
+        }
+      }
+      selectedClassroomFilter = groupName;
+      renderStudentTrackingPanel();
+    }
+
+    async function renameTeacherClassGroup(oldName) {
+      if (!currentUser || !oldName) return;
+      const rawNew = prompt("Nou nom per a l'aula «" + oldName + "»:", oldName);
+      if (!rawNew) return;
+      const newName = rawNew.trim();
+      if (!newName || newName === oldName) return;
+
+      try {
+        // Actualitzem la llista d'aules del docent
+        userTeacherGroups = userTeacherGroups.map(function(g) { return g === oldName ? newName : g; });
+        if (!userTeacherGroups.includes(newName)) userTeacherGroups.push(newName);
+
+        await db.collection("users").doc(currentUser.uid).set({
+          teacherGroups: userTeacherGroups
+        }, { merge: true });
+
+        // Actualitzem tots els alumnes vinculats que pertanyien a l'aula antiga
+        const snap = await db.collection("users").where('teacherUid', '==', currentUser.uid).get();
+        const updates = [];
+        snap.forEach(function(doc) {
+          const u = doc.data();
+          if ((u.classGroup || '') === oldName) {
+            updates.push(db.collection("users").doc(doc.id).update({ classGroup: newName }));
+          }
+        });
+        await Promise.all(updates);
+
+        if (selectedClassroomFilter === oldName) selectedClassroomFilter = newName;
+        renderStudentTrackingPanel();
+      } catch (err) {
+        alert("Error en canviar el nom de l'aula: " + err.message);
+      }
+    }
+
+    async function deleteTeacherClassGroup(groupName) {
+      if (!currentUser || !groupName) return;
+      if (!confirm("Vols eliminar l'aula «" + groupName + "»?\nEls alumnes d'aquesta aula NO s'esborraran: passaran a «Pendents d'assignar».")) return;
+
+      try {
+        userTeacherGroups = userTeacherGroups.filter(function(g) { return g !== groupName; });
+        await db.collection("users").doc(currentUser.uid).set({
+          teacherGroups: userTeacherGroups
+        }, { merge: true });
+
+        const snap = await db.collection("users").where('teacherUid', '==', currentUser.uid).get();
+        const updates = [];
+        snap.forEach(function(doc) {
+          const u = doc.data();
+          if ((u.classGroup || '') === groupName) {
+            updates.push(db.collection("users").doc(doc.id).update({ classGroup: '' }));
+          }
+        });
+        await Promise.all(updates);
+
+        if (selectedClassroomFilter === groupName) selectedClassroomFilter = 'all';
+        renderStudentTrackingPanel();
+      } catch (err) {
+        alert("Error en eliminar l'aula: " + err.message);
+      }
+    }
+
+    async function assignStudentToClassGroup(studentUid, newGroupName) {
+      if (!currentUser || !studentUid) return;
+      try {
+        await db.collection("users").doc(studentUid).update({
+          classGroup: newGroupName || ''
+        });
+        if (newGroupName && !userTeacherGroups.includes(newGroupName)) {
+          userTeacherGroups.push(newGroupName);
+          await db.collection("users").doc(currentUser.uid).set({
+            teacherGroups: userTeacherGroups
+          }, { merge: true });
+        }
+        renderStudentTrackingPanel();
+      } catch (err) {
+        alert("Error en assignar l'alumne al grup: " + err.message);
+      }
+    }
+
+    function toggleSelectAllStudents(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.student-bulk-checkbox');
+      checkboxes.forEach(function(cb) {
+        cb.checked = masterCheckbox.checked;
+      });
+      updateBulkAssignBar();
+    }
+
+    function updateBulkAssignBar() {
+      const checked = document.querySelectorAll('.student-bulk-checkbox:checked');
+      const bar = document.getElementById('bulk-assign-bar');
+      const countSpan = document.getElementById('bulk-selected-count');
+      if (!bar || !countSpan) return;
+
+      if (checked.length > 0) {
+        countSpan.innerText = checked.length;
+        bar.classList.remove('hidden');
+      } else {
+        bar.classList.add('hidden');
+      }
+    }
+
+    async function applyBulkAssignToGroup() {
+      const checked = document.querySelectorAll('.student-bulk-checkbox:checked');
+      const targetSelect = document.getElementById('bulk-target-group-select');
+      if (!targetSelect || checked.length === 0) return;
+
+      const targetGroup = targetSelect.value;
+      try {
+        const promises = [];
+        checked.forEach(function(cb) {
+          promises.push(db.collection("users").doc(cb.value).update({ classGroup: targetGroup }));
+        });
+        await Promise.all(promises);
+        renderStudentTrackingPanel();
+      } catch (err) {
+        alert("Error en l'assignació múltiple: " + err.message);
+      }
+    }
+
     async function renderStudentTrackingPanel() {
       if (!currentUser) return;
       const app = document.getElementById('app');
-      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el seguiment d\'alumnes...</p></div>';
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant els teus alumnes i aules...</p></div>';
 
       try {
         const snap = await db.collection("users").where('teacherUid', '==', currentUser.uid).get();
-        let rows = '';
+        let students = [];
+        const discoveredGroups = new Set(userTeacherGroups);
+
         snap.forEach(function(doc) {
           const u = doc.data();
+          const grp = (u.classGroup || '').trim();
+          if (grp) discoveredGroups.add(grp);
+          students.push(Object.assign({ id: doc.id }, u));
+        });
+
+        // Sincronitzem si hi havia algun grup als alumnes que no fos a la llista del docent
+        const allGroupsList = Array.from(discoveredGroups).sort(function(a, b) { return a.localeCompare(b, 'ca'); });
+        if (allGroupsList.length !== userTeacherGroups.length) {
+          userTeacherGroups = allGroupsList;
+          db.collection("users").doc(currentUser.uid).set({ teacherGroups: userTeacherGroups }, { merge: true }).catch(function() {});
+        }
+
+        students.sort(function(a, b) {
+          return (a.displayName || '').localeCompare(b.displayName || '', 'ca');
+        });
+
+        const totalStudents = students.length;
+        const unassignedStudents = students.filter(function(s) { return !(s.classGroup || '').trim(); });
+
+        if (selectedClassroomFilter !== 'all' && selectedClassroomFilter !== 'unassigned' && !allGroupsList.includes(selectedClassroomFilter)) {
+          selectedClassroomFilter = 'all';
+        }
+
+        let visibleStudents = students;
+        if (selectedClassroomFilter === 'unassigned') {
+          visibleStudents = unassignedStudents;
+        } else if (selectedClassroomFilter !== 'all') {
+          visibleStudents = students.filter(function(s) { return (s.classGroup || '').trim() === selectedClassroomFilter; });
+        }
+
+        // Estadístiques ràpides del grup seleccionat
+        const visibleCount = visibleStudents.length;
+        const avgPoints = visibleCount > 0 ? Math.round(visibleStudents.reduce(function(acc, s) { return acc + (s.points || 0); }, 0) / visibleCount) : 0;
+        const totalReadingsDone = visibleStudents.reduce(function(acc, s) { return acc + ((s.completedReadings || []).length); }, 0);
+
+        // Pestanyes d'Aules / Grups
+        let groupTabsHTML = `
+          <button onclick="selectedClassroomFilter='all'; renderStudentTrackingPanel()" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border ${selectedClassroomFilter === 'all' ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs' : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'}">
+            <i class="fa-solid fa-users"></i>
+            <span>Tots (${totalStudents})</span>
+          </button>
+
+          <button onclick="selectedClassroomFilter='unassigned'; renderStudentTrackingPanel()" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border ${selectedClassroomFilter === 'unassigned' ? 'bg-amber-500 text-white border-amber-600 shadow-xs' : (unassignedStudents.length > 0 ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-50 text-slate-500 border-slate-200')}">
+            <i class="fa-solid fa-clock"></i>
+            <span>Pendents d'assignar (${unassignedStudents.length})</span>
+          </button>
+        `;
+
+        allGroupsList.forEach(function(gName) {
+          const countInGroup = students.filter(function(s) { return (s.classGroup || '').trim() === gName; }).length;
+          const isSelected = selectedClassroomFilter === gName;
+          const encodedG = encodeURIComponent(gName);
+
+          groupTabsHTML += `
+            <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border ${isSelected ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-950 border-emerald-200'}">
+              <i class="fa-solid fa-chalkboard"></i>
+              <span>${escapeHtmlAttr(gName)} (${countInGroup})</span>
+            </button>
+          `;
+        });
+
+        // Opcions per als desplegables d'assignació
+        let groupSelectOptionsHTML = '<option value="">⏳ Pendent d'assignar</option>';
+        allGroupsList.forEach(function(gName) {
+          groupSelectOptionsHTML += '<option value="' + escapeHtmlAttr(gName) + '">🏫 ' + escapeHtmlAttr(gName) + '</option>';
+        });
+
+        // Files de la taula d'alumnes
+        let rows = '';
+        visibleStudents.forEach(function(u) {
           const pts = u.points || 0;
           const rank = getRankDetails(pts);
           const completedCount = (u.completedReadings || []).length;
-          rows += '<tr class="border-b border-slate-100 hover:bg-slate-50"><td class="p-3 text-sm font-bold text-slate-800">' + (u.displayName || 'Alumne/a') + '</td><td class="p-3 text-xs text-slate-500">' + (u.school || '') + '</td><td class="p-3 text-xs text-amber-800 font-bold">' + rank.name + '</td><td class="p-3 text-xs text-center font-bold text-indigo-600">' + completedCount + '</td><td class="p-3 text-sm text-right font-black text-amber-600">' + pts + ' PTS</td></tr>';
+          const currentGrp = (u.classGroup || '').trim();
+
+          let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d'assignar</option>';
+          allGroupsList.forEach(function(gName) {
+            rowSelectOptions += '<option value="' + escapeHtmlAttr(gName) + '" ' + (currentGrp === gName ? 'selected' : '') + '>🏫 ' + escapeHtmlAttr(gName) + '</option>';
+          });
+
+          rows += `
+            <tr class="border-b border-slate-100 hover:bg-slate-50/90 transition">
+              <td class="p-3 text-center">
+                <input type="checkbox" value="${u.id}" onchange="updateBulkAssignBar()" class="student-bulk-checkbox w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer">
+              </td>
+              <td class="p-3">
+                <div class="text-sm font-bold text-slate-800">${escapeHtmlAttr(u.displayName || 'Alumne/a')}</div>
+                <div class="text-[11px] text-slate-400">${escapeHtmlAttr(u.school || userSchool || 'Centre no especificat')}</div>
+              </td>
+              <td class="p-3">
+                <select onchange="assignStudentToClassGroup('${u.id}', this.value)" class="p-1.5 text-xs font-bold rounded-lg border outline-none cursor-pointer transition ${currentGrp ? 'bg-emerald-50 text-emerald-900 border-emerald-300' : 'bg-amber-50 text-amber-900 border-amber-300'}">
+                  ${rowSelectOptions}
+                </select>
+              </td>
+              <td class="p-3 text-xs text-amber-800 font-bold hidden md:table-cell">
+                <span class="inline-flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                  <i class="fa-solid ${rank.icon} text-amber-600"></i> ${rank.name}
+                </span>
+              </td>
+              <td class="p-3 text-xs text-center font-extrabold text-indigo-600">${completedCount}</td>
+              <td class="p-3 text-sm text-right font-black text-amber-600">${pts} PTS</td>
+            </tr>
+          `;
         });
 
+        const activeGroupEncoded = encodeURIComponent(selectedClassroomFilter);
+        const isSpecificGroupActive = selectedClassroomFilter !== 'all' && selectedClassroomFilter !== 'unassigned';
+
         app.innerHTML = `
-          <div class="max-w-5xl mx-auto space-y-6">
-            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg</button>
-            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2"><i class="fa-solid fa-users text-indigo-600"></i> Els meus Alumnes</h1>
-                <span class="text-xs bg-indigo-50 text-indigo-700 font-mono font-bold px-3 py-1 rounded-lg">Codi Docent: ${currentUser.uid}</span>
+          <div class="max-w-6xl mx-auto space-y-6">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+              </button>
+
+              <button onclick="createTeacherClassGroup()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-folder-plus"></i>
+                <span>+ Nova Aula / Classe</span>
+              </button>
+            </div>
+
+            <!-- CAPÇALERA DE GESTIÓ DOCENT I CENTRE -->
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div>
+                  <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-users-rectangle text-indigo-600"></i> Gestió d'Aules i Alumnes
+                  </h1>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    Centre: <strong class="text-slate-700">${escapeHtmlAttr(userSchool || 'No definit al perfil')}</strong> · Organitza els alumnes vinculats en classes, nivells o grups de lectura.
+                  </p>
+                </div>
+
+                <div class="flex items-center gap-2 bg-indigo-50 px-3.5 py-2 rounded-xl border border-indigo-200">
+                  <div>
+                    <span class="block text-[10px] font-bold uppercase tracking-wider text-indigo-500">El teu Codi Docent (UID)</span>
+                    <span class="text-xs font-mono font-black text-indigo-900 select-all">${currentUser.uid}</span>
+                  </div>
+                  <button onclick="copyTeacherUidCode()" title="Copiar codi per als alumnes" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-2xs flex items-center gap-1">
+                    <i class="fa-solid fa-copy"></i> Copiar
+                  </button>
+                </div>
               </div>
-              <div class="overflow-x-auto"><table class="w-full text-left border-collapse"><thead><tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200"><th class="p-3">Nom</th><th class="p-3">Centre</th><th class="p-3">Rang</th><th class="p-3 text-center">Lectures</th><th class="p-3 text-right">Punts</th></tr></thead><tbody>${rows || '<tr><td colspan="5" class="p-4 text-center text-xs text-slate-400">Encara no hi ha cap alumne vinculat.</td></tr>'}</tbody></table></div>
+
+              <!-- PESTANYES D'AULES / GRUPS -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-black text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                    <i class="fa-solid fa-layer-group text-indigo-500"></i> Les meves Aules / Grups Classe:
+                  </span>
+                  ${isSpecificGroupActive ? `
+                    <div class="flex items-center gap-2">
+                      <button onclick="renameTeacherClassGroup(decodeURIComponent('${activeGroupEncoded}'))" class="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-pen"></i> Canviar nom
+                      </button>
+                      <span class="text-slate-300">|</span>
+                      <button onclick="deleteTeacherClassGroup(decodeURIComponent('${activeGroupEncoded}'))" class="text-xs font-bold text-red-600 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-trash"></i> Eliminar aula
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  ${groupTabsHTML}
+                </div>
+              </div>
+
+              <!-- RESUM ESTADÍSTIC DE LA VISTA ACTUAL -->
+              <div class="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-center">
+                <div>
+                  <span class="block text-lg font-black text-slate-800">${visibleCount}</span>
+                  <span class="text-[11px] font-bold text-slate-500">Alumnes mostrats</span>
+                </div>
+                <div class="border-x border-slate-200">
+                  <span class="block text-lg font-black text-indigo-600">${totalReadingsDone}</span>
+                  <span class="text-[11px] font-bold text-slate-500">Lectures completades</span>
+                </div>
+                <div>
+                  <span class="block text-lg font-black text-amber-600">${avgPoints} PTS</span>
+                  <span class="text-[11px] font-bold text-slate-500">Mitjana de punts</span>
+                </div>
+              </div>
+
+              <!-- BARRA D'ASSIGNACIÓ MASSIVA -->
+              <div id="bulk-assign-bar" class="hidden bg-indigo-900 text-white p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                <span class="text-xs font-bold flex items-center gap-2">
+                  <i class="fa-solid fa-check-double text-amber-300"></i>
+                  <span><strong id="bulk-selected-count" class="text-amber-300 text-sm">0</strong> alumnes seleccionats</span>
+                </span>
+                <div class="flex items-center gap-2 w-full sm:w-auto">
+                  <select id="bulk-target-group-select" class="p-1.5 rounded-lg text-xs font-bold text-slate-900 bg-white outline-none flex-grow sm:flex-grow-0">
+                    ${groupSelectOptionsHTML}
+                  </select>
+                  <button onclick="applyBulkAssignToGroup()" class="bg-amber-400 hover:bg-amber-500 text-slate-950 font-black px-3.5 py-1.5 rounded-lg text-xs transition shrink-0">
+                    Assignar al grup
+                  </button>
+                </div>
+              </div>
+
+              <!-- TAULA D'ALUMNES -->
+              <div class="overflow-x-auto border border-slate-200 rounded-xl">
+                <table class="w-full text-left border-collapse">
+                  <thead>
+                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase border-b border-slate-200">
+                      <th class="p-3 text-center w-10">
+                        <input type="checkbox" onclick="toggleSelectAllStudents(this)" title="Seleccionar tots" class="w-4 h-4 text-indigo-600 rounded border-slate-300 cursor-pointer">
+                      </th>
+                      <th class="p-3">Alumne/a</th>
+                      <th class="p-3">Aula / Classe Assignada</th>
+                      <th class="p-3 hidden md:table-cell">Rang Lector</th>
+                      <th class="p-3 text-center">Lectures</th>
+                      <th class="p-3 text-right">Punts</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows || '<tr><td colspan="6" class="p-8 text-center text-xs text-slate-400">No hi ha cap alumne en aquesta vista.</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         `;
-      } catch (err) { console.error(err); }
+      } catch (err) {
+        console.error(err);
+        app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">Error en carregar els alumnes: ' + err.message + '</div>';
+      }
     }
 
     function renderLogin() {
@@ -3674,7 +4052,7 @@
     }
 
     /* ==========================================================================
-       PÀGINA D'HISTORIAL DE VERSIONS (v0.37.4)
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.38.0)
        ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
@@ -3684,10 +4062,23 @@
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.38.0",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Gestió d'Aules i Grups Classe",
+          isCurrent: true,
+          summary: "Nou gestor d'aules, nivells i classes dins el panell docent 'Els meus Alumnes'.",
+          highlights: [
+            "<strong>Creació i gestió d'Aules / Grups:</strong> Els docents poden crear aules personalitzades (ex. <em>4t A</em>, <em>5è B</em>, <em>Grup Reforç</em>), canviar-ne el nom o eliminar-les amb seguretat.",
+            "<strong>Assignació individual i massiva:</strong> Desplegable ràpid a cada alumne i selecció múltiple amb checkboxes per assignar tot un grup de cop.",
+            "<strong>Filtres per aula i mètriques:</strong> Pestanyes per aula amb comptador, vista de <em>Pendents d'assignar</em> i càlcul de mitjana de punts per classe.",
+            "<strong>Classificació per classe real:</strong> La pestanya <em>El meu Grup</em> del rànquing d'alumnes filtra automàticament pels companys de la mateixa aula assignada."
+          ]
+        },
+        {
           version: "v0.37.4",
           date: "Novembre 2026",
-          badge: "Versió Actual · Medalles Cognitives & Superació",
-          isCurrent: true,
+          badge: "Passaport Blindat · 11 Medalles Funcionals",
+          isCurrent: false,
           summary: "Ampliació del Passaport Lector amb 5 noves medalles funcionals de superació, taxonomies cognitives i llibres.",
           highlights: [
             "<strong>El Fènix Lector:</strong> Nova medalla que premia la resiliència quan un lector repeteix una lectura i millora la seva puntuació anterior.",
@@ -3947,7 +4338,7 @@
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.37.4
+              Versió Actual: v0.38.0
             </span>
           </div>
 
