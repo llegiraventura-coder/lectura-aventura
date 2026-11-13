@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.37.1</title>
+  <title>Lectura Aventura - v0.37.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.37.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.37.2...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.37.1 — Historial de versions</span>
+        <span>v0.37.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -68,15 +68,22 @@
   <div id="clone-modal-container"></div>
   <div id="zoom-modal-container"></div>
 
-  <!-- SCRIPT 1: Captura d'errors aïllada -->
+  <!-- SCRIPT 1: Captura d'errors aïllada (inclou promeses) -->
   <script>
-    window.addEventListener('error', function(event) {
+    function showGlobalError(msg) {
       var box = document.getElementById('global-error-box');
       if (box) {
         box.innerHTML = '<div class="max-w-4xl mx-auto mt-3 p-4 bg-red-100 border-2 border-red-400 text-red-900 rounded-xl text-xs font-mono shadow">' +
-          '<strong>⚠️ Error detectat al navegador (Línia ' + (event.lineno || '?') + '):</strong> ' + (event.message || 'Error desconegut') +
+          '<strong>⚠️ Error detectat:</strong> ' + msg +
           '</div>';
       }
+    }
+    window.addEventListener('error', function(event) {
+      showGlobalError('(Línia ' + (event.lineno || '?') + ') ' + (event.message || 'Error desconegut'));
+    });
+    window.addEventListener('unhandledrejection', function(event) {
+      var reason = event.reason ? (event.reason.message || String(event.reason)) : 'Error en promesa';
+      showGlobalError('(Async) ' + reason);
     });
   </script>
 
@@ -105,12 +112,27 @@
       measurementId: "G-7132LXLDTR"
     };
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
+    let auth = null;
+    let db = null;
+    let storage = null;
+
+    try {
+      if (typeof firebase === 'undefined') {
+        throw new Error("No s'ha pogut carregar l'SDK de Firebase. Revisa la connexió a Internet o bloquejadors d'scripts.");
+      }
+      if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+      }
+      auth = firebase.auth();
+      db = firebase.firestore();
+      storage = firebase.storage();
+    } catch (initErr) {
+      showGlobalError("Error iniciant Firebase: " + initErr.message);
+      const appEl = document.getElementById('app');
+      if (appEl) {
+        appEl.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center space-y-3"><h3 class="font-bold">Error d\'inicialització</h3><p class="text-xs">' + initErr.message + '</p></div>';
+      }
     }
-    const auth = firebase.auth();
-    const db = firebase.firestore();
-    const storage = firebase.storage();
 
     const DB_COLLECTION = "lectures";
     const FOLDERS_COLLECTION = "folders";
@@ -122,6 +144,7 @@
     let userPoints = 0;
     let userRole = 'alumne';
     let userCompletedReadings = [];
+    let userScores = {};
     let userDisplayName = "";
     let userSchool = "";
     let userTeacherUid = "";
@@ -157,6 +180,24 @@
       opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
       creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
     };
+
+    const STUDENT_RANKS_CATALOG = [
+      { min: 0, max: 99, name: "Explorador/a d'Històries", desc: "El punt de partida de tota gran aventura.", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", badgeBg: "bg-indigo-100 text-indigo-800 border-indigo-300" },
+      { min: 100, max: 299, name: "Lector/a de Bronze", desc: "Ja domines les primeres lectures i reptes!", icon: "fa-award", color: "from-amber-700 to-amber-900", badgeBg: "bg-amber-100 text-amber-900 border-amber-300" },
+      { min: 300, max: 699, name: "Lector/a d'Argent", desc: "La teva comprensió lectora brilla amb força.", icon: "fa-medal", color: "from-slate-400 to-slate-600", badgeBg: "bg-slate-200 text-slate-800 border-slate-300" },
+      { min: 700, max: 1299, name: "Lector/a d'Or", desc: "Un referent de lectura i constància al centre.", icon: "fa-trophy", color: "from-amber-300 to-amber-500", badgeBg: "bg-yellow-100 text-yellow-900 border-yellow-400" },
+      { min: 1300, max: Infinity, name: "Mestre/a de la Lectura", desc: "El màxim reconeixement de Lectura Aventura!", icon: "fa-crown", color: "from-amber-400 to-amber-600", badgeBg: "bg-amber-200 text-amber-950 border-amber-500" }
+    ];
+
+    const TEACHER_RANKS_CATALOG = [
+      { min: 0, max: 0, name: "🎒 Docent Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", color: "from-slate-400 to-indigo-500", badgeBg: "bg-slate-50 text-slate-600 border-slate-200" },
+      { min: 1, max: 2, name: "👨‍🏫 Docent Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", color: "from-slate-500 to-slate-700", badgeBg: "bg-slate-100 text-slate-800 border-slate-300" },
+      { min: 3, max: 5, name: "📝 Docent Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", color: "from-teal-500 to-emerald-700", badgeBg: "bg-teal-50 text-teal-800 border-teal-200" },
+      { min: 6, max: 9, name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", color: "from-indigo-500 to-indigo-700", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200" },
+      { min: 10, max: 14, name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", color: "from-amber-600 to-amber-800", badgeBg: "bg-amber-50 text-amber-800 border-amber-200" },
+      { min: 15, max: 19, name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", color: "from-blue-600 to-indigo-800", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300" },
+      { min: 20, max: Infinity, name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", color: "from-amber-400 to-amber-600", badgeBg: "bg-amber-100 text-amber-900 border-amber-300" }
+    ];
 
     function isUserAdminOrCreator() {
       if (!currentUser) return false;
@@ -630,32 +671,42 @@
       } else if (directReadingId) {
         renderReader(directReadingId);
       } else if (currentUser && (!userDisplayName || (userRole !== 'adult' && !userSchool))) {
-        renderUserProfileModal();
+        renderEditProfileDataModal();
         renderCatalog();
       } else {
         renderCatalog();
       }
     }
 
-    auth.onAuthStateChanged(async function(user) {
-      currentUser = user;
-      if (user) {
-        await loadUserData();
-      } else {
-        userPoints = 0;
-        userRole = 'alumne';
-        userCompletedReadings = [];
-        userDisplayName = "";
-        userSchool = "";
-        userTeacherUid = "";
-        filterMyLectures = false;
-      }
-      renderNav();
-      if (!isInitialRouteDone || user) {
-        isInitialRouteDone = true;
-        routeInitialView();
-      }
-    });
+    if (auth) {
+      auth.onAuthStateChanged(async function(user) {
+        currentUser = user;
+        if (user) {
+          await loadUserData();
+        } else {
+          userPoints = 0;
+          userRole = 'alumne';
+          userCompletedReadings = [];
+          userScores = {};
+          userDisplayName = "";
+          userSchool = "";
+          userTeacherUid = "";
+          filterMyLectures = false;
+        }
+        renderNav();
+        if (!isInitialRouteDone || user) {
+          isInitialRouteDone = true;
+          routeInitialView();
+        }
+      }, function(authErr) {
+        console.warn("Auth state warning:", authErr);
+        renderNav();
+        if (!isInitialRouteDone) {
+          isInitialRouteDone = true;
+          routeInitialView();
+        }
+      });
+    }
 
     setTimeout(function() {
       if (!isInitialRouteDone) {
@@ -663,10 +714,10 @@
         renderNav();
         routeInitialView();
       }
-    }, 2500);
+    }, 1200);
 
     async function loadUserData() {
-      if (!currentUser) return;
+      if (!currentUser || !db) return;
       try {
         const doc = await withTimeout(db.collection("users").doc(currentUser.uid).get(), 5000, "perfil d'usuari");
         if (doc.exists) {
@@ -677,6 +728,7 @@
           if (currentUser.email === ADMIN_SUPREMO_EMAIL && role === 'alumne') role = 'docent';
           userRole = role;
           userCompletedReadings = data.completedReadings || [];
+          userScores = data.scores || {};
           userDisplayName = data.displayName || "";
           userSchool = data.school || "";
           userTeacherUid = data.teacherUid || "";
@@ -727,15 +779,18 @@
         const pointsNeeded = nextRankPoints - userPoints;
 
         bannerContainer.innerHTML = `
-          <div class="bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 text-white border-b border-indigo-700/50 shadow-inner py-3 px-4">
+          <div onclick="renderReaderPassport()" title="Clica per obrir el teu Passaport Lector i veure tots els premis" class="cursor-pointer bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 hover:from-indigo-800 hover:to-indigo-950 text-white border-b border-indigo-700/50 shadow-inner py-3 px-4 transition">
             <div class="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-center md:text-left">
               <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-lg shadow-md border border-white/20">
                   <i class="fa-solid ${rank.icon}"></i>
                 </div>
                 <div>
-                  <h2 class="text-sm md:text-base font-extrabold text-white tracking-wide">
-                    Hola, <span class="text-amber-300">${displayName}</span>!
+                  <h2 class="text-sm md:text-base font-extrabold text-white tracking-wide flex items-center gap-2 justify-center md:justify-start">
+                    <span>Hola, <span class="text-amber-300">${displayName}</span>!</span>
+                    <span class="text-[10px] bg-white/15 text-amber-200 px-2 py-0.5 rounded-full font-bold border border-white/20 hidden sm:inline-flex items-center gap-1">
+                      <i class="fa-solid fa-passport"></i> Veure Passaport i Premis
+                    </span>
                   </h2>
                   <p class="text-xs text-indigo-200">
                     Rang actual: <span class="font-bold text-amber-300">${rank.name}</span>
@@ -811,8 +866,8 @@
             </button>
           ` : ''}
 
-          <div onclick="renderUserProfileModal()" title="Obrir el meu perfil" class="cursor-pointer flex items-center bg-indigo-800/80 hover:bg-indigo-800 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-indigo-500/30 space-x-3 shadow-inner transition">
-            <div class="w-8 h-8 rounded-full bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-sm shadow">
+          <div onclick="renderReaderPassport()" title="Obrir el meu Passaport Lector i Premis" class="cursor-pointer flex items-center bg-indigo-800/80 hover:bg-indigo-900 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-indigo-400/40 hover:border-amber-300/60 space-x-3 shadow-inner transition group">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-sm shadow group-hover:scale-105 transition">
               <i class="fa-solid ${rank.icon}"></i>
             </div>
 
@@ -835,10 +890,371 @@
       renderBanner();
     }
 
+    // NOVA VISTA: PASSAPORT / FITXA DE LECTOR I PREMIS
+    async function renderReaderPassport() {
+      if (!currentUser) { renderLogin(); return; }
+      stopSpeechSynthesis();
+
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      const isCreator = isUserAdminOrCreator();
+      const displayName = userDisplayName || currentUser.email.split('@')[0];
+      const rank = isCreator ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
+
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el teu Passaport Lector...</p></div>';
+
+      // Analitzem les lectures completades per desbloquejar medalles automàticament
+      let completedDocs = [];
+      let totalReadingsInCatalog = 0;
+      let hasTextFormat = false;
+      let hasVisualFormat = false;
+      let hasBookFormat = false;
+      let hasAdaptedFormat = false;
+      let distinctCategories = new Set();
+      let hasPerfectScore = false;
+
+      try {
+        const allLecturesSnap = await withTimeout(db.collection(DB_COLLECTION).get(), 6000, "catàleg per al passaport");
+        totalReadingsInCatalog = allLecturesSnap.size;
+        const lecturesMap = {};
+        allLecturesSnap.forEach(function(d) {
+          lecturesMap[d.id] = d.data() || {};
+        });
+
+        userCompletedReadings.forEach(function(rId) {
+          const rData = lecturesMap[rId];
+          if (rData) {
+            completedDocs.push(Object.assign({ id: rId }, rData));
+            if (rData.type === 'book') hasBookFormat = true;
+            else if (rData.contentFormat === 'image') hasVisualFormat = true;
+            else hasTextFormat = true;
+
+            if (rData.isAdaptedVersion) hasAdaptedFormat = true;
+            if (rData.category) distinctCategories.add(rData.category);
+
+            const qCount = rData.questionCount || 0;
+            const ptsPerQ = rData.pointsPerQuestion || 1;
+            const maxPts = qCount * ptsPerQ;
+            const earnedPts = userScores[rId] || 0;
+            if (maxPts > 0 && earnedPts >= maxPts) {
+              hasPerfectScore = true;
+            }
+          }
+        });
+      } catch (err) {
+        console.warn("No s'han pogut carregar les estadístiques detallades del passaport:", err);
+      }
+
+      const completedCount = userCompletedReadings.length;
+
+      // Càlcul de la barra de progrés cap al següent rang
+      let progressPercent = 100;
+      let progressLabel = "Nivell màxim assolit!";
+      let nextTargetLabel = "👑 Llegenda de la Lectura";
+
+      if (!isCreator) {
+        let currentFloor = 0;
+        let nextCeiling = 100;
+        let nextName = "Lector/a de Bronze";
+
+        if (userPoints >= 1300) {
+          progressPercent = 100;
+          progressLabel = "Has assolit el rang màxim (" + userPoints + " PTS)!";
+          nextTargetLabel = "Mestre/a de la Lectura";
+        } else {
+          if (userPoints >= 700) { currentFloor = 700; nextCeiling = 1300; nextName = "Mestre/a de la Lectura"; }
+          else if (userPoints >= 300) { currentFloor = 300; nextCeiling = 700; nextName = "Lector/a d'Or"; }
+          else if (userPoints >= 100) { currentFloor = 100; nextCeiling = 300; nextName = "Lector/a d'Argent"; }
+
+          const span = nextCeiling - currentFloor;
+          const gainedInTier = userPoints - currentFloor;
+          progressPercent = Math.min(100, Math.max(4, Math.round((gainedInTier / span) * 100)));
+          const missing = nextCeiling - userPoints;
+          progressLabel = userPoints + " / " + nextCeiling + " PTS (" + progressPercent + "%) — Et falten " + missing + " pts";
+          nextTargetLabel = nextName;
+        }
+      } else {
+        let currentFloor = 0;
+        let nextCeiling = 1;
+        let nextName = "Docent Novell";
+        if (userPoints >= 20) {
+          progressPercent = 100;
+          progressLabel = "Has assolit el rang màxim docent (" + userPoints + " aportacions)!";
+          nextTargetLabel = "Docent Celestial";
+        } else {
+          if (userPoints >= 15) { currentFloor = 15; nextCeiling = 20; nextName = "Docent Celestial"; }
+          else if (userPoints >= 10) { currentFloor = 10; nextCeiling = 15; nextName = "Docent de Docents"; }
+          else if (userPoints >= 6) { currentFloor = 6; nextCeiling = 10; nextName = "Savi/a de la Sala"; }
+          else if (userPoints >= 3) { currentFloor = 3; nextCeiling = 6; nextName = "Arquitecte/a Pedagògic/a"; }
+          else if (userPoints >= 1) { currentFloor = 1; nextCeiling = 3; nextName = "Docent Col·laborador/a"; }
+
+          const span = nextCeiling - currentFloor;
+          const gained = userPoints - currentFloor;
+          progressPercent = Math.min(100, Math.max(8, Math.round((gained / span) * 100)));
+          progressLabel = userPoints + " / " + nextCeiling + " lectures publicades — Falten " + (nextCeiling - userPoints);
+          nextTargetLabel = nextName;
+        }
+      }
+
+      // Llista de Rangs (Escala completa)
+      const ranksList = isCreator ? TEACHER_RANKS_CATALOG : STUDENT_RANKS_CATALOG;
+      let ranksGridHTML = '';
+
+      ranksList.forEach(function(r, idx) {
+        const isUnlocked = userPoints >= r.min;
+        const isCurrent = userPoints >= r.min && userPoints <= r.max;
+        const ptsText = isCreator
+          ? (r.min === 0 ? "0 lectures" : (r.max === Infinity ? "+" + r.min + " lectures" : r.min + " - " + r.max + " lectures"))
+          : (r.max === Infinity ? "+" + r.min + " PTS" : r.min + " - " + r.max + " PTS");
+
+        const missingPts = r.min - userPoints;
+
+        ranksGridHTML += `
+          <div class="relative p-4 rounded-2xl border-2 transition flex flex-col justify-between space-y-3 ${isCurrent ? 'bg-amber-50/70 border-amber-400 shadow-md ring-2 ring-amber-200/60' : (isUnlocked ? 'bg-white border-emerald-200 shadow-xs' : 'bg-slate-50/80 border-slate-200 opacity-75')}">
+            ${isCurrent ? '<span class="absolute -top-2.5 right-3 bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full shadow-xs uppercase tracking-wider">Rang Actual</span>' : ''}
+
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr ${isUnlocked ? r.color : 'from-slate-300 to-slate-400'} text-white flex items-center justify-center text-xl shadow shrink-0">
+                <i class="fa-solid ${isUnlocked ? r.icon : 'fa-lock'}"></i>
+              </div>
+              <div>
+                <span class="text-[10px] font-extrabold uppercase tracking-wider ${isUnlocked ? 'text-indigo-600' : 'text-slate-400'}">Nivell ${idx + 1} · ${ptsText}</span>
+                <h4 class="font-black text-sm ${isUnlocked ? 'text-slate-900' : 'text-slate-500'} leading-snug">${r.name}</h4>
+                <p class="text-xs text-slate-500 mt-0.5 leading-snug">${r.desc || r.subtext || ''}</p>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+              ${isUnlocked
+                ? '<span class="text-emerald-700 font-extrabold flex items-center gap-1"><i class="fa-solid fa-circle-check text-emerald-500"></i> Desbloquejat!</span>'
+                : '<span class="text-slate-500 font-bold flex items-center gap-1"><i class="fa-solid fa-lock text-slate-400"></i> Et falten <strong class="text-indigo-700">' + missingPts + '</strong> ' + (isCreator ? 'lectures' : 'PTS') + '</span>'
+              }
+            </div>
+          </div>
+        `;
+      });
+
+      // Medalles / Fites Especials per a Lectors
+      const achievements = [
+        {
+          id: 'first_read',
+          title: "Primera Aventura",
+          desc: "Completa la teva primera lectura i envia el qüestionari.",
+          requirement: "1 lectura completada",
+          unlocked: completedCount >= 1,
+          progress: Math.min(completedCount, 1) + "/1",
+          icon: "fa-shoe-prints",
+          color: "bg-emerald-500"
+        },
+        {
+          id: 'five_reads',
+          title: "Lector/a Constant",
+          desc: "Demostra el teu hàbit lector completant 5 lectures diferents.",
+          requirement: "5 lectures completades",
+          unlocked: completedCount >= 5,
+          progress: Math.min(completedCount, 5) + "/5",
+          icon: "fa-fire",
+          color: "bg-orange-500"
+        },
+        {
+          id: 'fifteen_reads',
+          title: "Devorador/a de Llibres",
+          desc: "Una fita reservada als lectors més apassionats de l'escola.",
+          requirement: "15 lectures completades",
+          unlocked: completedCount >= 15,
+          progress: Math.min(completedCount, 15) + "/15",
+          icon: "fa-book-journal-whills",
+          color: "bg-purple-600"
+        },
+        {
+          id: 'perfectionist',
+          title: "Ment Brillant (100%)",
+          desc: "Aconsegueix la puntuació màxima sense cap errada en una lectura.",
+          requirement: "100% d'encerts en una lectura",
+          unlocked: hasPerfectScore,
+          progress: hasPerfectScore ? "Aconseguit!" : "Pendent",
+          icon: "fa-bullseye",
+          color: "bg-rose-500"
+        },
+        {
+          id: 'multiformat',
+          title: "Explorador/a Multiformat",
+          desc: "Tasta diferents formats: lectura escrita, visual o llibre.",
+          requirement: "Completar almenys 2 formats diferents",
+          unlocked: ([hasTextFormat, hasVisualFormat, hasBookFormat].filter(Boolean).length) >= 2,
+          progress: ([hasTextFormat, hasVisualFormat, hasBookFormat].filter(Boolean).length) + "/2 formats",
+          icon: "fa-shapes",
+          color: "bg-teal-600"
+        },
+        {
+          id: 'genre_traveler',
+          title: "Viatger/a de Gèneres",
+          desc: "Llegeix històries de 3 categories diferents (Aventura, Misteri, Poesia...).",
+          requirement: "3 categories diferents llegides",
+          unlocked: distinctCategories.size >= 3,
+          progress: Math.min(distinctCategories.size, 3) + "/3 gèneres",
+          icon: "fa-map-location-dot",
+          color: "bg-indigo-600"
+        }
+      ];
+
+      let badgesGridHTML = '';
+      achievements.forEach(function(ach) {
+        badgesGridHTML += `
+          <div class="p-4 rounded-2xl border ${ach.unlocked ? 'bg-white border-indigo-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-70'} flex items-start gap-3.5 transition">
+            <div class="w-11 h-11 rounded-xl ${ach.unlocked ? ach.color + ' text-white shadow-sm' : 'bg-slate-200 text-slate-400'} flex items-center justify-center text-lg shrink-0">
+              <i class="fa-solid ${ach.icon}"></i>
+            </div>
+            <div class="flex-grow space-y-1">
+              <div class="flex items-center justify-between gap-1">
+                <h4 class="font-black text-sm ${ach.unlocked ? 'text-slate-900' : 'text-slate-600'}">${ach.title}</h4>
+                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md ${ach.unlocked ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200/70 text-slate-600'}">
+                  ${ach.unlocked ? '✅ ' + ach.progress : '⏳ ' + ach.progress}
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 leading-snug">${ach.desc}</p>
+              <span class="block text-[11px] font-bold text-indigo-700 pt-0.5">
+                <i class="fa-solid fa-flag-checkered text-indigo-400 mr-1"></i> Requisit: ${ach.requirement}
+              </span>
+            </div>
+          </div>
+        `;
+      });
+
+      const unlockedBadgesCount = achievements.filter(function(a) { return a.unlocked; }).length;
+
+      app.innerHTML = `
+        <div class="max-w-5xl mx-auto space-y-6">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+              <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+            </button>
+
+            <button onclick="renderEditProfileDataModal()" class="bg-white hover:bg-slate-100 text-slate-700 font-bold px-3.5 py-2 rounded-xl text-xs border border-slate-300 shadow-2xs flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-user-pen text-indigo-600"></i>
+              <span>Editar les meves dades (${displayName})</span>
+            </button>
+          </div>
+
+          <!-- CAPÇALERA DEL PASSAPORT LECTOR -->
+          <div class="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-lg border border-indigo-700/60 space-y-6">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div class="flex flex-col sm:flex-row items-center text-center sm:text-left gap-4">
+                <div class="w-20 h-20 rounded-3xl bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-3xl shadow-xl border-2 border-white/30 shrink-0">
+                  <i class="fa-solid ${rank.icon}"></i>
+                </div>
+                <div class="space-y-1">
+                  <div class="inline-flex items-center gap-1.5 bg-white/10 px-2.5 py-0.5 rounded-full text-[11px] font-bold text-amber-300 border border-white/15">
+                    <i class="fa-solid fa-passport"></i> Passaport Oficial de Lectura Aventura
+                  </div>
+                  <h1 class="text-2xl md:text-3xl font-black tracking-tight">${displayName}</h1>
+                  <p class="text-xs md:text-sm text-indigo-200 flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                    <span><i class="fa-solid fa-award text-amber-400 mr-1"></i> Rang: <strong class="text-white">${rank.name}</strong></span>
+                    ${userSchool ? '<span>· <i class="fa-solid fa-school text-indigo-300 mr-1"></i> ' + userSchool + '</span>' : ''}
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-2.5 w-full md:w-auto shrink-0">
+                <div class="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/15 text-center">
+                  <span class="block text-xl md:text-2xl font-black text-amber-400">${userPoints}</span>
+                  <span class="text-[10px] uppercase tracking-wider font-bold text-indigo-200">${isCreator ? 'Creacions' : 'Punts Totals'}</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/15 text-center">
+                  <span class="block text-xl md:text-2xl font-black text-emerald-300">${completedCount}</span>
+                  <span class="text-[10px] uppercase tracking-wider font-bold text-indigo-200">Lectures Fetes</span>
+                </div>
+                <div class="bg-white/10 backdrop-blur-xs p-3 rounded-2xl border border-white/15 text-center">
+                  <span class="block text-xl md:text-2xl font-black text-sky-300">${unlockedBadgesCount}/${achievements.length}</span>
+                  <span class="text-[10px] uppercase tracking-wider font-bold text-indigo-200">Medalles</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- BARRA DE PROGRÉS FINS AL SEGÜENT NIVELL -->
+            <div class="bg-indigo-950/70 p-4 rounded-2xl border border-indigo-500/30 space-y-2">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                <span class="font-bold text-indigo-200">Progrés cap a: <strong class="text-amber-300">${nextTargetLabel}</strong></span>
+                <span class="font-mono font-bold text-white">${progressLabel}</span>
+              </div>
+              <div class="w-full h-3.5 bg-indigo-950 rounded-full overflow-hidden border border-indigo-600/50 p-0.5">
+                <div class="h-full bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BLOC 1: TOTS ELS RANGS I PREMIS PER PUNTS -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-stairs text-amber-500"></i> ${isCreator ? 'Escala de Rangs Docents' : 'El Camí dels Rangs (Tots els Nivells)'}
+                </h2>
+                <p class="text-xs text-slate-500">
+                  ${isCreator ? 'Cada lectura nova que publiques suma +1 punt al teu perfil de creador/a.' : 'Acumula punts completant lectures i qüestionaris per desbloquejar tots els emblemes.'}
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${ranksGridHTML}
+            </div>
+          </div>
+
+          <!-- BLOC 2: MEDALLES I FITES ESPECIALS (PER A LECTORS) -->
+          ${!isCreator ? `
+            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-medal text-indigo-600"></i> Col·lecció de Medalles i Reptes Especials
+                  </h2>
+                  <p class="text-xs text-slate-500">Completa reptes de constància, precisió i varietat de lectures per aconseguir totes les insígnies.</p>
+                </div>
+                <span class="text-xs font-extrabold bg-indigo-50 text-indigo-800 px-3 py-1 rounded-xl border border-indigo-200 self-start sm:self-auto">
+                  ${unlockedBadgesCount} de ${achievements.length} desbloquejades
+                </span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${badgesGridHTML}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- BLOC 3: COM ES GUANYEN PUNTS? (REGLES DEL JOC) -->
+          <div class="bg-amber-50/80 p-5 rounded-2xl border border-amber-200/90 space-y-3">
+            <h3 class="text-sm font-black text-amber-950 flex items-center gap-2">
+              <i class="fa-solid fa-circle-question text-amber-600"></i> Com puc aconseguir més punts i pujar de nivell?
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-amber-950">
+              <div class="bg-white/90 p-3.5 rounded-xl border border-amber-200/70 space-y-1">
+                <span class="font-black text-indigo-700 block">1. Resol qüestionaris (+1 o +2 PTS)</span>
+                <p class="text-slate-600 leading-relaxed">Cada pregunta encertada suma <strong>1 punt</strong> (o <strong>2 punts</strong> en lectures de més dificultat).</p>
+              </div>
+              <div class="bg-white/90 p-3.5 rounded-xl border border-amber-200/70 space-y-1">
+                <span class="font-black text-emerald-700 block">2. Supera la teva marca!</span>
+                <p class="text-slate-600 leading-relaxed">Si repeteixes una lectura i treus més punts que l'última vegada, se't suma la <strong>diferència de punts</strong> al marcador.</p>
+              </div>
+              <div class="bg-white/90 p-3.5 rounded-xl border border-amber-200/70 space-y-1">
+                <span class="font-black text-purple-700 block">3. Explora tot el catàleg</span>
+                <p class="text-slate-600 leading-relaxed">Combina textos curts, lectures visuals i llibres de diferents gèneres per completar les medalles.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     async function renderCatalog() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
+      if (!db) {
+        app.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center">No hi ha connexió amb la base de dades Firestore.</div>';
+        return;
+      }
       app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant el catàleg...</p></div>';
 
       try {
@@ -1348,7 +1764,6 @@
               </select>
             </div>
 
-            <!-- SELECTOR DE FORMAT DEL CONTINGUT DINS DE LECTURES CURTES -->
             <div id="wrapper-content-format" class="bg-teal-50/60 p-4 rounded-2xl border border-teal-200/90 space-y-2">
               <label class="block text-xs font-black text-teal-950 uppercase tracking-wide flex items-center gap-1.5">
                 <i class="fa-solid fa-layer-group text-teal-600"></i> Format de la Lectura Curta *
@@ -1449,7 +1864,6 @@
               </div>
             </div>
 
-            <!-- BLOC D'IMATGE DE REFERÈNCIA (NOMÉS QUAN FORMAT = IMAGE) -->
             <div id="wrapper-reference-image" class="hidden space-y-3 bg-teal-50/70 p-4 rounded-2xl border-2 border-teal-300/80 shadow-2xs">
               <div class="flex items-center justify-between flex-wrap gap-1">
                 <label class="block text-sm font-black text-teal-950 flex items-center gap-1.5">
@@ -1477,7 +1891,6 @@
               </div>
             </div>
 
-            <!-- BLOC DE TEXT ESCRIT (O TRANSCRIPCIÓ D'ÀUDIO OPCIONAL SI ÉS IMATGE) -->
             <div id="wrapper-content">
               <div class="flex justify-between items-center mb-1">
                 <label id="label-editor-content" class="block text-sm font-bold text-slate-700">
@@ -2675,20 +3088,22 @@
       const newQuizPoints = score * pointsPerQuestion;
       const maxPossiblePoints = total * pointsPerQuestion;
 
-      let userScores = {};
+      let localScores = {};
       try {
         const userDoc = await db.collection("users").doc(currentUser.uid).get();
-        if (userDoc.exists) userScores = userDoc.data().scores || {};
+        if (userDoc.exists) localScores = userDoc.data().scores || {};
       } catch (err) {}
 
-      const previousQuizPoints = userScores[docId] || 0;
+      const previousQuizPoints = localScores[docId] || 0;
       let pointsToAdd = 0;
 
       if (newQuizPoints > previousQuizPoints) {
         pointsToAdd = newQuizPoints - previousQuizPoints;
-        userScores[docId] = newQuizPoints;
+        localScores[docId] = newQuizPoints;
         userPoints += pointsToAdd;
       }
+
+      userScores = localScores;
 
       if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
 
@@ -2696,7 +3111,7 @@
         await db.collection("users").doc(currentUser.uid).set({
           points: userPoints,
           completedReadings: userCompletedReadings,
-          scores: userScores
+          scores: localScores
         }, { merge: true });
       } catch (err) {}
 
@@ -2729,7 +3144,14 @@
             </div>
             ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+' + pointsToAdd + ' PTS</span> nous!</div>' : ''}
             <div class="space-y-2">${breakdownRows}</div>
-            <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm shadow transition">Continuar al Catàleg</button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; renderReaderPassport();" class="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-passport"></i> Veure el meu Passaport
+              </button>
+              <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow transition">
+                Continuar al Catàleg
+              </button>
+            </div>
           </div>
         </div>
       `;
@@ -2996,6 +3418,7 @@
 
     async function handleAuthSubmit(e) {
       e.preventDefault();
+      if (!auth) { alert("El servei d'autenticació no està disponible."); return; }
       const mode = document.getElementById('auth-mode').value;
       const email = document.getElementById('auth-email').value;
       const password = document.getElementById('auth-password').value;
@@ -3014,6 +3437,7 @@
             school: school,
             points: 0,
             completedReadings: [],
+            scores: {},
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         } else {
@@ -3025,251 +3449,24 @@
       }
     }
 
-    function renderUserProfileModal() {
+    function renderEditProfileDataModal() {
       if (!currentUser) return;
       const container = document.getElementById('profile-modal-container');
-      const isCreator = isUserAdminOrCreator();
-      const rank = isCreator ? getTeacherRankDetails(userPoints, currentUser.email) : getRankDetails(userPoints);
-      const nameToShow = userDisplayName || currentUser.email.split('@')[0];
-
-      const roleMetaMap = {
-        alumne: { label: '🎒 Alumne/a Lector/a', subtitle: 'Passaport d\'Aventures i Comprensió Lectora', accent: 'from-indigo-700 via-indigo-800 to-slate-900', pill: 'bg-indigo-500/30 text-indigo-100 border-indigo-400/40' },
-        adult: { label: '🧑‍💼 Lector/a Adult/a', subtitle: 'Passaport de Lectura i Reptes Culturals', accent: 'from-slate-800 via-indigo-900 to-slate-950', pill: 'bg-amber-400/20 text-amber-200 border-amber-300/40' },
-        docent: { label: '👨‍🏫 Docent', subtitle: 'Passaport Pedagògic i de Creació Educativa', accent: 'from-indigo-900 via-purple-900 to-slate-900', pill: 'bg-amber-400/20 text-amber-200 border-amber-300/40' },
-        colaborador: { label: '✍️ Col·laborador/a', subtitle: 'Passaport d\'Autoria i Aportacions Literàries', accent: 'from-teal-800 via-indigo-900 to-slate-900', pill: 'bg-teal-400/20 text-teal-100 border-teal-300/40' }
-      };
-      const currentRoleMeta = roleMetaMap[userRole] || roleMetaMap.alumne;
-
-      // Esquelet de progrés cap al següent rang actual
-      let nextGoalLabel = '';
-      let progressPct = 100;
-      if (isCreator) {
-        if (currentUser.email === ADMIN_SUPREMO_EMAIL || userPoints >= 20) {
-          nextGoalLabel = 'Nivell màxim assolit';
-          progressPct = 100;
-        } else {
-          const milestones = [1, 3, 6, 10, 15, 20];
-          const nextM = milestones.find(function(m) { return userPoints < m; }) || 20;
-          const prevM = milestones.slice().reverse().find(function(m) { return userPoints >= m; }) || 0;
-          progressPct = Math.min(100, Math.max(8, Math.round(((userPoints - prevM) / (nextM - prevM)) * 100)));
-          nextGoalLabel = 'Següent rang als ' + nextM + ' PTS';
-        }
-      } else {
-        if (userPoints >= 1300) {
-          nextGoalLabel = 'Nivell màxim assolit';
-          progressPct = 100;
-        } else {
-          const milestones = [100, 300, 700, 1300];
-          const nextM = milestones.find(function(m) { return userPoints < m; }) || 1300;
-          const prevM = milestones.slice().reverse().find(function(m) { return userPoints >= m; }) || 0;
-          progressPct = Math.min(100, Math.max(8, Math.round(((userPoints - prevM) / (nextM - prevM)) * 100)));
-          nextGoalLabel = 'Següent rang als ' + nextM + ' PTS';
-        }
-      }
-
-      // Configuració de medalles i fites per perfil
-      const completedCount = userCompletedReadings.length;
-      const medalSlots = isCreator ? [
-        { code: 'FITA 01', title: 'Espai de Medalla 1', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
-        { code: 'FITA 02', title: 'Espai de Medalla 2', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
-        { code: 'FITA 03', title: 'Espai de Medalla 3', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
-        { code: 'FITA 04', title: 'Espai de Medalla 4', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
-        { code: 'FITA 05', title: 'Espai de Medalla 5', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
-        { code: 'FITA 06', title: 'Espai de Medalla 6', desc: 'En preparació', icon: 'fa-lock', unlocked: false }
-      ] : [
-        {
-          code: 'LOGRO 01 · BRONZE I',
-          title: 'Primera Lectura',
-          desc: 'Completa la teva 1a lectura',
-          icon: 'fa-book-open',
-          unlocked: completedCount >= 1,
-          progressText: completedCount >= 1 ? 'Aconseguida!' : '0 / 1 lectura',
-          badgeGrad: 'from-amber-700 via-orange-800 to-stone-800',
-          ringClass: 'ring-amber-600/35 border-amber-400/50',
-          cardBg: 'bg-gradient-to-b from-amber-50/90 to-orange-50/40 border-amber-300/80',
-          pillClass: 'bg-amber-800/10 text-amber-900 border-amber-700/20'
-        },
-        {
-          code: 'LOGRO 02 · BRONZE II',
-          title: '5 Lectures',
-          desc: 'Completa 5 lectures diferents',
-          icon: 'fa-layer-group',
-          unlocked: completedCount >= 5,
-          progressText: completedCount >= 5 ? 'Aconseguida!' : (completedCount + ' / 5 lectures'),
-          badgeGrad: 'from-amber-600 via-amber-700 to-orange-900',
-          ringClass: 'ring-amber-500/40 border-amber-300/60',
-          cardBg: 'bg-gradient-to-b from-amber-50/95 to-orange-50/60 border-amber-400/80',
-          pillClass: 'bg-amber-800/10 text-amber-900 border-amber-700/25'
-        },
-        {
-          code: 'LOGRO 03 · BRONZE III',
-          title: '10 Lectures',
-          desc: 'Completa 10 lectures diferents',
-          icon: 'fa-meteor',
-          unlocked: completedCount >= 10,
-          progressText: completedCount >= 10 ? 'Aconseguida!' : (completedCount + ' / 10 lectures'),
-          badgeGrad: 'from-orange-500 via-amber-700 to-stone-800',
-          ringClass: 'ring-orange-500/40 border-amber-300/70',
-          cardBg: 'bg-gradient-to-b from-orange-50/90 to-amber-100/40 border-amber-400/90',
-          pillClass: 'bg-orange-800/10 text-amber-950 border-amber-700/30'
-        },
-        { code: 'LOGRO 04', title: 'Espai de Medalla 4', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true },
-        { code: 'LOGRO 05', title: 'Espai de Medalla 5', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true },
-        { code: 'LOGRO 06', title: 'Espai de Medalla 6', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true }
-      ];
-
-      const unlockedCount = medalSlots.filter(function(m) { return m.unlocked; }).length;
-
-      const slotsHTML = medalSlots.map(function(slot) {
-        if (slot.isPlaceholder || (isCreator && !slot.unlocked)) {
-          return `
-            <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-3 flex flex-col items-center text-center justify-center space-y-1.5 opacity-75">
-              <div class="w-11 h-11 rounded-full bg-slate-200/80 text-slate-400 flex items-center justify-center text-sm border border-slate-300/60">
-                <i class="fa-solid fa-lock"></i>
-              </div>
-              <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">${slot.code}</span>
-              <span class="text-xs font-bold text-slate-600 leading-tight">${slot.title}</span>
-              <span class="text-[10px] text-slate-400 italic">${slot.desc}</span>
-            </div>
-          `;
-        }
-
-        if (slot.unlocked) {
-          return `
-            <div class="${slot.cardBg} border rounded-2xl p-3 flex flex-col items-center text-center justify-between space-y-1.5 shadow-xs relative overflow-hidden">
-              <div class="w-12 h-12 rounded-full bg-gradient-to-br ${slot.badgeGrad} text-amber-100 flex items-center justify-center text-lg shadow-md ring-4 ${slot.ringClass} border">
-                <i class="fa-solid ${slot.icon}"></i>
-              </div>
-              <span class="text-[9px] font-mono font-extrabold text-amber-800/80 uppercase tracking-wider pt-0.5">${slot.code}</span>
-              <span class="text-xs font-black text-slate-800 leading-tight">${slot.title}</span>
-              <span class="text-[10px] text-slate-600 leading-snug">${slot.desc}</span>
-              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${slot.pillClass} inline-flex items-center gap-1">
-                <i class="fa-solid fa-check text-[9px]"></i> ${slot.progressText}
-              </span>
-            </div>
-          `;
-        }
-
-        return `
-          <div class="bg-slate-50/90 border border-slate-200 rounded-2xl p-3 flex flex-col items-center text-center justify-between space-y-1.5">
-            <div class="w-12 h-12 rounded-full bg-slate-200/90 text-slate-400 flex items-center justify-center text-lg border-2 border-slate-300/70 relative">
-              <i class="fa-solid ${slot.icon} opacity-55"></i>
-              <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white text-[8px] flex items-center justify-center shadow-2xs">
-                <i class="fa-solid fa-lock"></i>
-              </span>
-            </div>
-            <span class="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider pt-0.5">${slot.code}</span>
-            <span class="text-xs font-bold text-slate-600 leading-tight">${slot.title}</span>
-            <span class="text-[10px] text-slate-400 leading-snug">${slot.desc}</span>
-            <span class="text-[10px] font-semibold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
-              ${slot.progressText}
-            </span>
-          </div>
-        `;
-      }).join('');
-
       container.innerHTML = `
-        <div onclick="document.getElementById('profile-modal-container').innerHTML=''" class="fixed inset-0 bg-slate-900/65 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div onclick="event.stopPropagation()" class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-6">
-
-            <!-- CAPÇALERA DEL PASSAPORT -->
-            <div class="bg-gradient-to-r ${currentRoleMeta.accent} text-white p-6 relative">
-              <button onclick="document.getElementById('profile-modal-container').innerHTML=''" title="Tancar passaport" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-
-              <div class="flex items-center gap-2 text-[11px] font-mono uppercase tracking-widest text-amber-300/90 mb-3">
-                <i class="fa-solid fa-passport"></i>
-                <span>Lectura Aventura · Document Oficial</span>
-              </div>
-
-              <div class="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr ${rank.color} text-white flex items-center justify-center text-2xl shadow-lg border-2 border-white/25 shrink-0">
-                  <i class="fa-solid ${rank.icon}"></i>
-                </div>
-
-                <div class="flex-grow space-y-1">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <h3 class="text-xl font-black tracking-wide text-white">${escapeHtmlAttr(nameToShow)}</h3>
-                    <span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${currentRoleMeta.pill}">
-                      ${currentRoleMeta.label}
-                    </span>
-                  </div>
-                  <p class="text-xs text-slate-300">${currentRoleMeta.subtitle}</p>
-                  <div class="flex flex-wrap items-center gap-3 pt-1 text-xs text-slate-200">
-                    <span class="font-bold text-amber-300"><i class="fa-solid ${rank.icon} mr-1"></i>${rank.name}</span>
-                    ${userSchool ? '<span class="text-slate-300"><i class="fa-solid fa-school mr-1 text-slate-400"></i>' + escapeHtmlAttr(userSchool) + '</span>' : ''}
-                    ${!isCreator ? '<span class="text-slate-300"><i class="fa-solid fa-book-check mr-1 text-emerald-400"></i>' + userCompletedReadings.length + ' lectures completades</span>' : ''}
-                  </div>
-                </div>
-
-                <div class="bg-black/25 border border-white/15 rounded-2xl px-4 py-2.5 text-center shrink-0">
-                  <span class="block text-[10px] uppercase tracking-wider text-slate-300 font-bold">Punts Totals</span>
-                  <span class="text-2xl font-black text-amber-400">${userPoints}</span>
-                  <span class="text-[10px] font-bold text-amber-200 block">PTS</span>
-                </div>
-              </div>
-
-              <!-- BARRA DE PROGRÉS DEL RANG -->
-              <div class="mt-4 pt-3 border-t border-white/10 space-y-1.5">
-                <div class="flex justify-between text-[11px] font-semibold text-slate-300">
-                  <span>Progrés de rang actual</span>
-                  <span class="text-amber-300 font-bold">${nextGoalLabel}</span>
-                </div>
-                <div class="w-full h-2 bg-black/30 rounded-full overflow-hidden">
-                  <div class="h-full bg-gradient-to-r from-amber-400 to-amber-300 rounded-full transition-all duration-300" style="width: ${progressPct}%"></div>
-                </div>
-              </div>
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-md w-full space-y-4 shadow-xl">
+            <div class="flex justify-between items-center">
+              <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-user-pen text-indigo-600"></i> Editar les meves dades
+              </h3>
+              <button onclick="document.getElementById('profile-modal-container').innerHTML=''" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
             </div>
-
-            <!-- COS DEL PASSAPORT -->
-            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-
-              <!-- SECCIÓ 1: VITRINA DE MEDALLES I OBJECTIUS -->
-              <div class="space-y-3">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                  <h4 class="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-medal text-amber-600"></i>
-                    <span>Vitrina de Medalles i Objectius</span>
-                  </h4>
-                  <span class="text-[11px] font-bold ${unlockedCount > 0 ? 'text-amber-900 bg-amber-100 border border-amber-300' : 'text-slate-400 bg-slate-100'} px-2.5 py-0.5 rounded-full">
-                    ${isCreator ? 'Esquelet preparat · 0 / ' + medalSlots.length : unlockedCount + ' / ' + medalSlots.length + ' aconseguits'}
-                  </span>
-                </div>
-
-                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  ${slotsHTML}
-                </div>
-              </div>
-
-              <!-- SECCIÓ 2: DADES IDENTIFICATIVES DEL PERFIL (FUNCIONALITAT ORIGINAL INTACTA) -->
-              <div class="pt-4 border-t border-slate-200 space-y-3">
-                <h4 class="text-xs font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                  <i class="fa-solid fa-id-card text-indigo-500"></i>
-                  <span>Dades del Titular del Passaport</span>
-                </h4>
-
-                <form onsubmit="saveUserProfile(event)" class="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label>
-                      <input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                    </div>
-                    <div>
-                      <label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label>
-                      <input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
-                    </div>
-                  </div>
-                  ${userRole === 'alumne' ? '<div><label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label><input type="text" id="profile-teacher-uid" value="' + escapeHtmlAttr(userTeacherUid) + '" class="w-full p-2 bg-white border border-slate-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"></div>' : ''}
-                  <div class="flex justify-end pt-1">
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-5 py-2 rounded-xl text-xs sm:text-sm shadow-xs transition">
-                      Desar dades del passaport
-                    </button>
-                  </div>
-                </form>
-              </div>
-
-            </div>
+            <form onsubmit="saveUserProfile(event)" class="space-y-3">
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Nom / Pseudònim *</label><input type="text" id="profile-display-name" value="${escapeHtmlAttr(userDisplayName)}" required class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              <div><label class="block text-xs font-bold text-slate-700 mb-1">Escola / Centre Educatiu</label><input type="text" id="profile-school" value="${escapeHtmlAttr(userSchool)}" class="w-full p-2 border border-slate-300 rounded-lg text-sm"></div>
+              ${userRole === 'alumne' ? '<div><label class="block text-xs font-bold text-slate-700 mb-1">Codi de Mestre/a (UID Docent)</label><input type="text" id="profile-teacher-uid" value="' + escapeHtmlAttr(userTeacherUid) + '" class="w-full p-2 border border-slate-300 rounded-lg text-sm font-mono"></div>' : ''}
+              <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-sm">Desar dades de perfil</button>
+            </form>
           </div>
         </div>
       `;
@@ -3292,7 +3489,7 @@
         document.getElementById('profile-modal-container').innerHTML = '';
         await loadUserData();
         renderNav();
-        renderCatalog();
+        renderReaderPassport();
       } catch (err) {
         alert("Error en desar el perfil: " + err.message);
       }
@@ -3301,7 +3498,7 @@
     async function logout() {
       stopSpeechSynthesis();
       try {
-        await auth.signOut();
+        if (auth) await auth.signOut();
         filterMyLectures = false;
         renderNav();
         resetFiltersAndRenderCatalog();
@@ -3388,43 +3585,292 @@
       window.open(classroomUrl, "_blank", "noopener,noreferrer");
     }
 
+    /* ==========================================================================
+       PÀGINA D'HISTORIAL DE VERSIONS (v0.37.2 - FASE 2 INVERSA + FASE 1 4x3)
+       ========================================================================== */
     function renderChangelogPage() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
       if (!app) return;
 
-      app.innerHTML = `
-        <div class="max-w-3xl mx-auto space-y-6">
-          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-            <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-          </button>
+      // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
+      const phase2Versions = [
+        {
+          version: "v0.37.2",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Passaport & Medalles",
+          isCurrent: true,
+          summary: "Passaport Oficial del Lector, Vitrina de Medalles i Restauració de l'Historial.",
+          highlights: [
+            "Nou <strong>Passaport Oficial de Lectura Aventura</strong> accessible des de la capçalera i el bàner superior.",
+            "<strong>Escala completa de Rangs</strong> (lectors i docents) amb barra de progrés visual i càlcul de punts pendents.",
+            "<strong>Col·lecció de 6 Medalles i Reptes Especials</strong>: <em>Primera Aventura</em>, <em>Lector/a Constant (5)</em>, <em>Devorador/a de Llibres (15)</em>, <em>Ment Brillant (100%)</em>, <em>Explorador/a Multiformat</em> i <em>Viatger/a de Gèneres</em>.",
+            "Recuperació de l'<strong>Historial de Versions</strong> combinant la llista inversa de la Fase 2 i les 4 files de 3 blocs de la Fase 1."
+          ]
+        },
+        {
+          version: "v0.37.1",
+          date: "Novembre 2026",
+          badge: "Estabilització DUA & Visual",
+          isCurrent: false,
+          summary: "Millores en Lectures Visuals, pestanyes DUA i síntesi de veu per a transcripcions.",
+          highlights: [
+            "Suport per a <strong>Lectures Visuals</strong> amb imatge de referència (cartells, pictogrames, infografies, còmics) i modal d'ampliació amb Zoom.",
+            "<strong>Versions Adaptades / Simplificades (DUA)</strong> annexades mitjançant pestanyes dins el mateix lector.",
+            "Transcripció opcional d'àudio en lectures visuals per activar la lectura en veu alta en català.",
+            "Unificació dels nivells educatius i comptador automàtic de codis <code>#CL-00001</code>."
+          ]
+        },
+        {
+          version: "v0.37.0",
+          date: "Novembre 2026",
+          badge: "Inici Fase 2 · Motor Ampliat",
+          isCurrent: false,
+          summary: "Nou tipus de pregunta de resposta oberta, lector visual i pestanyes adaptades.",
+          highlights: [
+            "Incorporació de la <strong>6a modalitat de pregunta</strong>: <em>Resposta oberta amb detecció de paraules clau</em>.",
+            "Introducció del format de lectura visual i pestanyes multi-versió dins del lector."
+          ]
+        }
+      ];
 
-          <div class="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div>
-                <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
-                </h1>
-                <p class="text-xs text-slate-500 mt-1">Evolució i millores de Lectura Aventura</p>
-              </div>
-              <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3 py-1 rounded-xl border border-amber-300">v0.37.1</span>
-            </div>
+      // FASE 1: LES 4 FILES AMB 3 BLOCS ORIGINALS (12 FITES)
+      const phase1Rows = [
+        {
+          title: "🚀 FILA 1 — TANCAMENT DE LA FASE 1 (v0.34 – v0.36)",
+          blocks: [
+            {
+              version: "v0.36.0",
+              date: "Novembre 2026",
+              badge: "Google Classroom",
+              color: "bg-emerald-500 text-white font-bold border-emerald-600",
+              summary: "Integració directa amb Google Classroom i gestió de rols.",
+              highlights: [
+                "Botó de compartició directa de lectures cap a Google Classroom amb un sol clic.",
+                "Ampliació de permisos de gestió per a l'administració i millores de seguretat."
+              ]
+            },
+            {
+              version: "v0.35.0",
+              date: "Novembre 2026",
+              badge: "Experiència Lectora",
+              color: "bg-indigo-500 text-white font-bold border-indigo-600",
+              summary: "Optimització de filtres del catàleg i seguiment docent.",
+              highlights: [
+                "Millores en el cercador combinat per codi #CL, autor/a de l'obra, nivell i durada.",
+                "Refinament del panell 'Els meus Alumnes' amb còpia ràpida del codi UID docent."
+              ]
+            },
+            {
+              version: "v0.34.0",
+              date: "Novembre 2026",
+              badge: "Format Llibre & Pàgines",
+              color: "bg-purple-500 text-white font-bold border-purple-600",
+              summary: "Millores en fitxes de llibres i puntuació configurable.",
+              highlights: [
+                "Indicador de nombre de pàgines per a llibres de lectura i puntuació per encert (1 o 2 pts).",
+                "Consolidació de l'arquitectura de carpetes i Situacions d'Aprenentatge (SA)."
+              ]
+            }
+          ]
+        },
+        {
+          title: "⚡ FILA 2 — DARRERES VERSIONS DE LA FASE 1 (v0.31 – v0.33)",
+          blocks: [
+            {
+              version: "v0.33.0 - v0.33.2",
+              date: "Novembre 2026",
+              badge: "Clonació & Navegació 360º",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
+              highlights: [
+                "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
+                "Navegació fluida bidireccional entre la lectura mare original i qualsevol adaptació de la comunitat."
+              ]
+            },
+            {
+              version: "v0.32.0",
+              date: "Novembre 2026",
+              badge: "Àudio-Lectura Nativa",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Síntesi de veu (Web Speech API) integrada al lector.",
+              highlights: [
+                "Botó d'àudio-lectura en català natiu sense dependències externes.",
+                "Control de Pausa/Reprendre, Aturada i selector de velocitat (0.8x, 1x, 1.2x)."
+              ]
+            },
+            {
+              version: "v0.31.0 - v0.31.1",
+              date: "Novembre 2026",
+              badge: "Lectura Adaptativa",
+              color: "bg-indigo-400 text-white font-bold border-indigo-500",
+              summary: "Mode Dislèxia, mida de font, contrast i harmonització visual.",
+              highlights: [
+                "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
+                "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
+              ]
+            }
+          ]
+        },
+        {
+          title: "📚 FILA 3 — HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.30)",
+          blocks: [
+            {
+              version: "v0.30.0",
+              date: "Novembre 2026",
+              badge: "Glossari & Vocabulari",
+              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
+              summary: "Mòdul de Vocabulari Clau amb desplaçament suau.",
+              highlights: [
+                "Creació de glossaris terme-definició des de l'editor de la lectura.",
+                "Enllaços directes al text i preguntes amb scroll suau al peu de pàgina."
+              ]
+            },
+            {
+              version: "v0.29.0",
+              date: "Novembre 2026",
+              badge: "Codi Únic + Feedback",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Identificador #CL-00001 i Bústia entre Docents.",
+              highlights: [
+                "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
+                "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
+              ]
+            },
+            {
+              version: "v0.27.0 - v0.28.0",
+              date: "Novembre 2026",
+              badge: "Noves Preguntes",
+              color: "bg-teal-100 text-teal-900 border-teal-300",
+              summary: "Respostes visuals amb imatge i ordenació cronològica.",
+              highlights: [
+                "5è tipus: Selecció d'Imatges (4 URLs) i 4t tipus: Ordenació temporal (▲/▼).",
+                "Reordenació dinàmica de preguntes i doble botó UX a l'editor."
+              ]
+            }
+          ]
+        },
+        {
+          title: "🏛️ FILA 4 — ORÍGENS I INFRAESTRUCTURA BASE (v0.1 – v0.26)",
+          blocks: [
+            {
+              version: "v0.20.0 - v0.26.3",
+              date: "Tardor 2026",
+              badge: "Taxonomia & Carpetes",
+              color: "bg-purple-100 text-purple-900 border-purple-300",
+              summary: "Taxonomies en 5 nivells cognitius i carpetes SA.",
+              highlights: [
+                "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
+                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA)."
+              ]
+            },
+            {
+              version: "v0.16.0 - v0.19.0",
+              date: "Inici 2026",
+              badge: "Comunitat & Rols",
+              color: "bg-slate-100 text-slate-800 border-slate-300",
+              summary: "Gestió d'Usuaris, 4 Rols i Rànquing en 3 Nivells.",
+              highlights: [
+                "Inici de sessió amb selecció entre Alumne, Adult, Docent i Col·laborador.",
+                "Panell 'Els meus Alumnes' i Classificació per Grup, Centre i Global."
+              ]
+            },
+            {
+              version: "v0.1.0 - v0.15.0",
+              date: "2025",
+              badge: "Gènesi del Projecte",
+              color: "bg-slate-50 text-slate-600 border-slate-200",
+              summary: "Primera versió del lector, qüestionaris bàsics i Firebase.",
+              highlights: [
+                "Motor de lectures curtes integrades i llibres amb coberta.",
+                "Connexió inicial en temps real amb Firebase Firestore."
+              ]
+            }
+          ]
+        }
+      ];
 
-            <div class="space-y-4 text-sm">
-              <div class="p-4 rounded-xl bg-indigo-50/70 border border-indigo-200 space-y-1.5">
-                <div class="flex items-center justify-between">
-                  <span class="font-black text-indigo-950">v0.37.1 — Fase 2 (Estabilització i Lectures Visuals)</span>
-                  <span class="text-[11px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">Actual</span>
-                </div>
-                <ul class="list-disc list-inside text-xs text-slate-700 space-y-1">
-                  <li>Suport per a <strong>Lectures Visuals</strong> (imatges de referència, cartells, infografies i zoom).</li>
-                  <li>Versions adaptades (DUA) annexades en pestanyes dins del mateix lector.</li>
-                  <li>Motor de preguntes ampliat: opció única, múltiple, ordenació cronològica, selecció d'imatge i resposta oberta.</li>
-                  <li>Eines d'accessibilitat: font OpenDyslexic, mida de lletra, mode sèpia/fosc i lectura en veu alta.</li>
-                </ul>
-              </div>
+      // RENDERITZAT DE LA FASE 2 (LLISTA INVERSA)
+      const phase2HTML = phase2Versions.map(v => `
+        <div class="p-5 rounded-2xl ${v.isCurrent ? 'bg-indigo-50/90 border-2 border-indigo-400 shadow-sm' : 'bg-white border border-slate-200 shadow-2xs'} space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <span class="font-mono text-xs font-black px-2.5 py-1 rounded-lg ${v.isCurrent ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-amber-300'}">${v.version}</span>
+              <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${v.isCurrent ? 'bg-amber-300 text-slate-950' : 'bg-indigo-100 text-indigo-800'}">${v.badge}</span>
             </div>
+            <span class="text-xs font-mono text-slate-400 font-semibold">${v.date}</span>
           </div>
+          <p class="text-sm font-black text-slate-900">${v.summary}</p>
+          <ul class="list-disc list-inside text-xs text-slate-700 space-y-1">
+            ${v.highlights.map(h => `<li>${h}</li>`).join('')}
+          </ul>
+        </div>
+      `).join('');
+
+      // RENDERITZAT DE LA FASE 1 (4 FILES AMB 3 BLOCS)
+      const phase1HTML = phase1Rows.map(row => `
+        <div class="space-y-3">
+          <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <span>${row.title}</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${row.blocks.map(b => `
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-3">
+                <div class="space-y-2.5">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-lg border ${b.color}">${b.badge}</span>
+                    <span class="text-[11px] font-mono text-slate-400">${b.date}</span>
+                  </div>
+                  <div class="font-mono text-xs font-black text-indigo-700">${b.version}</div>
+                  <h4 class="font-bold text-slate-800 text-sm leading-snug">${b.summary}</h4>
+                  <ul class="list-disc list-inside text-xs text-slate-600 space-y-1">
+                    ${b.highlights.map(h => `<li>${h}</li>`).join('')}
+                  </ul>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      app.innerHTML = `
+        <div class="max-w-6xl mx-auto space-y-8 pb-8">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <div>
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center mb-2">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+              </button>
+              <h1 class="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-2.5">
+                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
+              </h1>
+              <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
+            </div>
+            <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
+              Versió Actual: v0.37.2
+            </span>
+          </div>
+
+          <!-- BLOC SUPERIOR: FASE 2 (ORDRE INVERS - LA MÉS RECENT A DALT) -->
+          <section class="space-y-4">
+            <div class="flex items-center gap-2.5">
+              <span class="bg-indigo-600 text-white text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg shadow-2xs">Fase 2</span>
+              <h2 class="text-lg font-black text-slate-800">Noves Funcionalitats, DUA i Passaport Lector (Ordre invers)</h2>
+            </div>
+            <div class="space-y-3">
+              ${phase2HTML}
+            </div>
+          </section>
+
+          <!-- BLOC INFERIOR: FASE 1 (4 FILES AMB BLOCS DE 3) -->
+          <section class="space-y-6 pt-6 border-t-2 border-slate-200">
+            <div class="flex items-center gap-2.5">
+              <span class="bg-slate-800 text-amber-300 text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg shadow-2xs">Fase 1</span>
+              <h2 class="text-lg font-black text-slate-800">Fonaments i Evolució Històrica (4 files × 3 blocs)</h2>
+            </div>
+            <div class="space-y-6">
+              ${phase1HTML}
+            </div>
+          </section>
         </div>
       `;
     }
