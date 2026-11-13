@@ -3067,32 +3067,103 @@
         }
       }
 
-      // Esquelet dels espais reservats per a futures medalles i fites (sense lògica encara)
-      const placeholderSlots = isCreator ? [
-        { code: 'FITA 01', title: 'Espai de Medalla 1', hint: 'En preparació' },
-        { code: 'FITA 02', title: 'Espai de Medalla 2', hint: 'En preparació' },
-        { code: 'FITA 03', title: 'Espai de Medalla 3', hint: 'En preparació' },
-        { code: 'FITA 04', title: 'Espai de Medalla 4', hint: 'En preparació' },
-        { code: 'FITA 05', title: 'Espai de Medalla 5', hint: 'En preparació' },
-        { code: 'FITA 06', title: 'Espai de Medalla 6', hint: 'En preparació' }
+      // Configuració de medalles i fites per perfil
+      const completedCount = userCompletedReadings.length;
+      const medalSlots = isCreator ? [
+        { code: 'FITA 01', title: 'Espai de Medalla 1', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
+        { code: 'FITA 02', title: 'Espai de Medalla 2', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
+        { code: 'FITA 03', title: 'Espai de Medalla 3', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
+        { code: 'FITA 04', title: 'Espai de Medalla 4', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
+        { code: 'FITA 05', title: 'Espai de Medalla 5', desc: 'En preparació', icon: 'fa-lock', unlocked: false },
+        { code: 'FITA 06', title: 'Espai de Medalla 6', desc: 'En preparació', icon: 'fa-lock', unlocked: false }
       ] : [
-        { code: 'LOGRO 01', title: 'Espai de Medalla 1', hint: 'En preparació' },
-        { code: 'LOGRO 02', title: 'Espai de Medalla 2', hint: 'En preparació' },
-        { code: 'LOGRO 03', title: 'Espai de Medalla 3', hint: 'En preparació' },
-        { code: 'LOGRO 04', title: 'Espai de Medalla 4', hint: 'En preparació' },
-        { code: 'LOGRO 05', title: 'Espai de Medalla 5', hint: 'En preparació' },
-        { code: 'LOGRO 06', title: 'Espai de Medalla 6', hint: 'En preparació' }
+        {
+          code: 'LOGRO 01 · BRONZE I',
+          title: 'Primera Lectura',
+          desc: 'Completa la teva 1a lectura',
+          icon: 'fa-book-open',
+          unlocked: completedCount >= 1,
+          progressText: completedCount >= 1 ? 'Aconseguida!' : '0 / 1 lectura',
+          badgeGrad: 'from-amber-700 via-orange-800 to-stone-800',
+          ringClass: 'ring-amber-600/35 border-amber-400/50',
+          cardBg: 'bg-gradient-to-b from-amber-50/90 to-orange-50/40 border-amber-300/80',
+          pillClass: 'bg-amber-800/10 text-amber-900 border-amber-700/20'
+        },
+        {
+          code: 'LOGRO 02 · BRONZE II',
+          title: '5 Lectures',
+          desc: 'Completa 5 lectures diferents',
+          icon: 'fa-layer-group',
+          unlocked: completedCount >= 5,
+          progressText: completedCount >= 5 ? 'Aconseguida!' : (completedCount + ' / 5 lectures'),
+          badgeGrad: 'from-amber-600 via-amber-700 to-orange-900',
+          ringClass: 'ring-amber-500/40 border-amber-300/60',
+          cardBg: 'bg-gradient-to-b from-amber-50/95 to-orange-50/60 border-amber-400/80',
+          pillClass: 'bg-amber-800/10 text-amber-900 border-amber-700/25'
+        },
+        {
+          code: 'LOGRO 03 · BRONZE III',
+          title: '10 Lectures',
+          desc: 'Completa 10 lectures diferents',
+          icon: 'fa-meteor',
+          unlocked: completedCount >= 10,
+          progressText: completedCount >= 10 ? 'Aconseguida!' : (completedCount + ' / 10 lectures'),
+          badgeGrad: 'from-orange-500 via-amber-700 to-stone-800',
+          ringClass: 'ring-orange-500/40 border-amber-300/70',
+          cardBg: 'bg-gradient-to-b from-orange-50/90 to-amber-100/40 border-amber-400/90',
+          pillClass: 'bg-orange-800/10 text-amber-950 border-amber-700/30'
+        },
+        { code: 'LOGRO 04', title: 'Espai de Medalla 4', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true },
+        { code: 'LOGRO 05', title: 'Espai de Medalla 5', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true },
+        { code: 'LOGRO 06', title: 'Espai de Medalla 6', desc: 'En preparació', icon: 'fa-lock', unlocked: false, isPlaceholder: true }
       ];
 
-      const slotsHTML = placeholderSlots.map(function(slot) {
-        return `
-          <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-3 flex flex-col items-center text-center justify-center space-y-1.5 opacity-80">
-            <div class="w-10 h-10 rounded-full bg-slate-200/80 text-slate-400 flex items-center justify-center text-sm border border-slate-300/60">
-              <i class="fa-solid fa-lock"></i>
+      const unlockedCount = medalSlots.filter(function(m) { return m.unlocked; }).length;
+
+      const slotsHTML = medalSlots.map(function(slot) {
+        if (slot.isPlaceholder || (isCreator && !slot.unlocked)) {
+          return `
+            <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-3 flex flex-col items-center text-center justify-center space-y-1.5 opacity-75">
+              <div class="w-11 h-11 rounded-full bg-slate-200/80 text-slate-400 flex items-center justify-center text-sm border border-slate-300/60">
+                <i class="fa-solid fa-lock"></i>
+              </div>
+              <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">${slot.code}</span>
+              <span class="text-xs font-bold text-slate-600 leading-tight">${slot.title}</span>
+              <span class="text-[10px] text-slate-400 italic">${slot.desc}</span>
             </div>
-            <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">${slot.code}</span>
+          `;
+        }
+
+        if (slot.unlocked) {
+          return `
+            <div class="${slot.cardBg} border rounded-2xl p-3 flex flex-col items-center text-center justify-between space-y-1.5 shadow-xs relative overflow-hidden">
+              <div class="w-12 h-12 rounded-full bg-gradient-to-br ${slot.badgeGrad} text-amber-100 flex items-center justify-center text-lg shadow-md ring-4 ${slot.ringClass} border">
+                <i class="fa-solid ${slot.icon}"></i>
+              </div>
+              <span class="text-[9px] font-mono font-extrabold text-amber-800/80 uppercase tracking-wider pt-0.5">${slot.code}</span>
+              <span class="text-xs font-black text-slate-800 leading-tight">${slot.title}</span>
+              <span class="text-[10px] text-slate-600 leading-snug">${slot.desc}</span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${slot.pillClass} inline-flex items-center gap-1">
+                <i class="fa-solid fa-check text-[9px]"></i> ${slot.progressText}
+              </span>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="bg-slate-50/90 border border-slate-200 rounded-2xl p-3 flex flex-col items-center text-center justify-between space-y-1.5">
+            <div class="w-12 h-12 rounded-full bg-slate-200/90 text-slate-400 flex items-center justify-center text-lg border-2 border-slate-300/70 relative">
+              <i class="fa-solid ${slot.icon} opacity-55"></i>
+              <span class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-600 text-white text-[8px] flex items-center justify-center shadow-2xs">
+                <i class="fa-solid fa-lock"></i>
+              </span>
+            </div>
+            <span class="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider pt-0.5">${slot.code}</span>
             <span class="text-xs font-bold text-slate-600 leading-tight">${slot.title}</span>
-            <span class="text-[10px] text-slate-400 italic">${slot.hint}</span>
+            <span class="text-[10px] text-slate-400 leading-snug">${slot.desc}</span>
+            <span class="text-[10px] font-semibold text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded-full">
+              ${slot.progressText}
+            </span>
           </div>
         `;
       }).join('');
@@ -3154,15 +3225,15 @@
             <!-- COS DEL PASSAPORT -->
             <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
 
-              <!-- SECCIÓ 1: VITRINA DE MEDALLES I OBJECTIUS (ESQUELET) -->
+              <!-- SECCIÓ 1: VITRINA DE MEDALLES I OBJECTIUS -->
               <div class="space-y-3">
                 <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                   <h4 class="text-sm font-black text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-medal text-amber-500"></i>
+                    <i class="fa-solid fa-medal text-amber-600"></i>
                     <span>Vitrina de Medalles i Objectius</span>
                   </h4>
-                  <span class="text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-0.5 rounded-full">
-                    Esquelet preparat · 0 / ${placeholderSlots.length}
+                  <span class="text-[11px] font-bold ${unlockedCount > 0 ? 'text-amber-900 bg-amber-100 border border-amber-300' : 'text-slate-400 bg-slate-100'} px-2.5 py-0.5 rounded-full">
+                    ${isCreator ? 'Esquelet preparat · 0 / ' + medalSlots.length : unlockedCount + ' / ' + medalSlots.length + ' aconseguits'}
                   </span>
                 </div>
 
