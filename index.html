@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.38.1</title>
+  <title>Lectura Aventura - v0.39.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.38.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.38.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.38.1 — Historial de versions</span>
+        <span>v0.39.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -139,6 +139,168 @@
     const SUB_COLLECTION = "questions";
     const FEEDBACK_COLLECTION = "teacher_feedback";
     const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
+    const AI_RUBRIC_ENDPOINT_STORAGE_KEY = "lectura_aventura_ai_endpoint_v39";
+    // Pots configurar la URL de la teva Firebase Cloud Function aquí o des de l'editor docent:
+    const DEFAULT_AI_RUBRIC_ENDPOINT = "https://europe-west1-lectura-aventura.cloudfunctions.net/evaluateOpenAnswer";
+
+    function getAiRubricEndpoint() {
+      try {
+        const custom = localStorage.getItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY);
+        if (custom && custom.trim()) return custom.trim();
+      } catch (e) {}
+      return DEFAULT_AI_RUBRIC_ENDPOINT;
+    }
+
+    function configureAiRubricEndpoint() {
+      const current = getAiRubricEndpoint();
+      const url = prompt(
+        "Introdueix la URL de la teva Firebase Cloud Function per a la correcció amb IA (Gemini):\n(Deixa-ho tal com està si ja utilitzes la funció per defecte del projecte lectura-aventura)",
+        current
+      );
+      if (url === null) return;
+      try {
+        if (url.trim()) localStorage.setItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY, url.trim());
+        else localStorage.removeItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY);
+        alert("✅ Endpoint de Rúbrica IA desat correctament!");
+      } catch (e) {
+        alert("No s'ha pogut desar al navegador: " + e.message);
+      }
+    }
+
+    // Distància de Levenshtein per a tolerància ortogràfica intel·ligent en mode paraules clau / fallback
+    function levenshteinDistance(a, b) {
+      if (!a.length) return b.length;
+      if (!b.length) return a.length;
+      const matrix = [];
+      for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+      for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            );
+          }
+        }
+      }
+      return matrix[b.length][a.length];
+    }
+
+    function matchesKeywordFuzzy(rawUserText, keyword) {
+      const normKw = normalizeText(keyword);
+      if (!normKw) return false;
+      const normFull = normalizeText(rawUserText);
+      if (normFull.includes(normKw)) return true;
+      if (normKw.length < 4) return false;
+      const maxDist = normKw.length >= 7 ? 2 : 1;
+      const words = (rawUserText || '').split(/\s+/);
+      for (let i = 0; i < words.length; i++) {
+        const w = normalizeText(words[i]);
+        if (Math.abs(w.length - normKw.length) <= maxDist) {
+          if (levenshteinDistance(w, normKw) <= maxDist) return true;
+        }
+      }
+      return false;
+    }
+
+    function evaluateKeywordsFallback(userText, qData) {
+      let keywords = [];
+      if (Array.isArray(qData.keywords)) keywords = qData.keywords;
+      else if (typeof qData.keywords === 'string') keywords = qData.keywords.split(',').map(function(k) { return k.trim(); }).filter(Boolean);
+      else if (qData.correctAnswerText) keywords = [qData.correctAnswerText];
+
+      const cleanWords = (userText || '').trim().split(/\s+/).filter(Boolean);
+      if (cleanWords.length === 0) {
+        return {
+          status: 'incorrect',
+          multiplier: 0,
+          feedback: "No has escrit cap resposta.",
+          usedFallback: true
+        };
+      }
+
+      if (keywords.length === 0) {
+        const isLongEnough = cleanWords.length >= 3;
+        return {
+          status: isLongEnough ? 'correct' : 'partial',
+          multiplier: isLongEnough ? 1.0 : 0.5,
+          feedback: isLongEnough
+            ? "Resposta enregistrada correctament!"
+            : "Has escrit una resposta molt breu. Intenta explicar-ho amb una frase més completa!",
+          usedFallback: true
+        };
+      }
+
+      const matched = keywords.filter(function(kw) { return matchesKeywordFuzzy(userText, kw); });
+      if (matched.length > 0) {
+        return {
+          status: 'correct',
+          multiplier: 1.0,
+          feedback: "Molt bé! La teva resposta inclou els conceptes clau esperats (" + matched.join(", ") + ").",
+          usedFallback: true
+        };
+      }
+      return {
+        status: 'incorrect',
+        multiplier: 0,
+        feedback: "Revisa el text i assegura't d'incloure la idea principal que es demana a la pregunta.",
+        usedFallback: true
+      };
+    }
+
+    async function evaluateOpenAnswerWithAI(params) {
+      const endpoint = getAiRubricEndpoint();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(function() { controller.abort(); }, 9500);
+
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            readingTitle: params.readingTitle || '',
+            textFragment: (params.textFragment || '').slice(0, 6000),
+            readingLevel: params.readingLevel || 'Primària',
+            question: params.question || '',
+            taxonomyType: params.taxonomyType || 'opinion',
+            rubricPrompt: params.rubricPrompt || '',
+            studentAnswer: params.studentAnswer || ''
+          })
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+        const data = await response.json();
+        if (!data || !data.status) {
+          throw new Error("Resposta JSON invàlida de la IA");
+        }
+
+        let mult = 0;
+        if (data.status === 'correct') mult = 1.0;
+        else if (data.status === 'partial') mult = 0.5;
+        else mult = typeof data.scoreMultiplier === 'number' ? data.scoreMultiplier : 0;
+
+        return {
+          status: data.status,
+          multiplier: mult,
+          feedback: data.feedback || (data.status === 'correct' ? "Molt ben argumentat!" : "Revisa el text i completa la teva reflexió."),
+          usedFallback: false
+        };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn("Fallback automàtic activat per a la pregunta oberta:", err);
+        const fb = evaluateKeywordsFallback(params.studentAnswer, params.qData);
+        fb.feedback = "⚡ (Correcció automàtica local) " + fb.feedback;
+        return fb;
+      }
+    }
 
     let currentUser = null;
     let userPoints = 0;
@@ -484,7 +646,12 @@
           const modeLabel = imgMode === 'multiple' ? '☑️ Múltiple' : (imgMode === 'opinion' ? '💬 Opinió' : '');
           badgeHTML = '<span class="text-[11px] font-bold text-teal-800 bg-teal-100 border border-teal-300 px-2 py-0.5 rounded-md shrink-0">🖼️ Imatges ' + modeLabel + '</span>';
         }
-        else if (type === 'text_input') badgeHTML = '<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>';
+        else if (type === 'text_input') {
+          const isAiRubric = qData.evaluationMode === 'ai_rubric';
+          badgeHTML = isAiRubric
+            ? '<span class="text-[11px] font-bold text-indigo-800 bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-md shrink-0 inline-flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> Resposta Oberta (Rúbrica IA)</span>'
+            : '<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>';
+        }
 
         const taxBadge = '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ' + taxConfig.color + '">' +
           '<i class="fa-solid ' + taxConfig.icon + '"></i> ' + taxConfig.label + '</span>';
@@ -492,12 +659,17 @@
         let optionsHTML = '';
 
         if (type === 'text_input') {
+          const isAiRubric = qData.evaluationMode === 'ai_rubric';
           optionsHTML = `
-            <div class="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-200/80 space-y-2">
-              <label class="block text-xs font-bold text-emerald-900 flex items-center gap-1.5">
-                <i class="fa-solid fa-pen-fancy text-emerald-600"></i> Escriu la teva resposta a continuació:
-              </label>
-              <textarea name="q_${qDocId}" rows="3" required placeholder="Escriu aquí la teva explicació o resposta..." class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+            <div class="${isAiRubric ? 'bg-indigo-50/50 border-indigo-200/80' : 'bg-emerald-50/50 border-emerald-200/80'} p-3.5 rounded-xl border space-y-2">
+              <div class="flex items-center justify-between flex-wrap gap-1">
+                <label class="block text-xs font-bold ${isAiRubric ? 'text-indigo-950' : 'text-emerald-900'} flex items-center gap-1.5">
+                  <i class="fa-solid ${isAiRubric ? 'fa-robot text-indigo-600' : 'fa-pen-fancy text-emerald-600'}"></i>
+                  ${isAiRubric ? 'Explica la teva reflexió o opinió amb les teves paraules:' : 'Escriu la teva resposta a continuació:'}
+                </label>
+                ${isAiRubric ? '<span class="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">✨ Correcció intel·ligent amb feedback</span>' : ''}
+              </div>
+              <textarea name="q_${qDocId}" rows="3" required placeholder="${isAiRubric ? 'Argumenta la teva resposta basant-te en la lectura (no et preocupis per petites faltes, importa la teva idea!)...' : 'Escriu aquí la teva explicació o resposta...'}" class="w-full p-2.5 bg-white border border-slate-300 rounded-xl text-sm focus:ring-2 ${isAiRubric ? 'focus:ring-indigo-500' : 'focus:ring-emerald-500'} outline-none"></textarea>
             </div>
           `;
         } else if (type === 'image_single') {
@@ -603,40 +775,77 @@
         `;
       },
 
-      evaluate: function(qData, qDocId, formData) {
+      evaluate: async function(qData, qDocId, formData, readingContext) {
         const type = qData.questionType || 'single';
         const imgMode = qData.imageSelectionMode || 'single';
+        readingContext = readingContext || {};
 
         if (type === 'text_input') {
-          const userText = formData.get('q_' + qDocId) || '';
-          const normUser = normalizeText(userText);
-          if (!normUser) return false;
+          const userText = (formData.get('q_' + qDocId) || '').trim();
+          if (!userText) {
+            return {
+              multiplier: 0,
+              status: 'incorrect',
+              feedback: "No has escrit cap resposta.",
+              studentAnswer: '',
+              isOpenQuestion: true,
+              evaluationMode: qData.evaluationMode || 'keywords'
+            };
+          }
 
-          let keywords = [];
-          if (Array.isArray(qData.keywords)) keywords = qData.keywords;
-          else if (typeof qData.keywords === 'string') keywords = qData.keywords.split(',').map(function(k) { return k.trim(); });
-          else if (qData.correctAnswerText) keywords = [qData.correctAnswerText];
-
-          if (keywords.length === 0) return true;
-          return keywords.some(function(kw) { return normUser.includes(normalizeText(kw)); });
+          if (qData.evaluationMode === 'ai_rubric') {
+            const aiResult = await evaluateOpenAnswerWithAI({
+              readingTitle: readingContext.title || '',
+              textFragment: readingContext.content || '',
+              readingLevel: readingContext.level || 'Primària',
+              question: qData.questionText || qData.pregunta || '',
+              taxonomyType: qData.taxonomyType || 'opinion',
+              rubricPrompt: qData.rubricPrompt || '',
+              studentAnswer: userText,
+              qData: qData
+            });
+            return {
+              multiplier: aiResult.multiplier,
+              status: aiResult.status,
+              feedback: aiResult.feedback,
+              studentAnswer: userText,
+              isOpenQuestion: true,
+              evaluationMode: 'ai_rubric',
+              usedFallback: !!aiResult.usedFallback
+            };
+          } else {
+            const kwResult = evaluateKeywordsFallback(userText, qData);
+            return {
+              multiplier: kwResult.multiplier,
+              status: kwResult.status,
+              feedback: kwResult.feedback,
+              studentAnswer: userText,
+              isOpenQuestion: true,
+              evaluationMode: 'keywords'
+            };
+          }
         } else if (type === 'ordering') {
           const val = formData.get('q_' + qDocId);
-          if (!val) return false;
+          if (!val) return { multiplier: 0, status: 'incorrect' };
           const userSequence = val.split(',').map(function(v) { return parseInt(v); });
-          return userSequence.every(function(v, idx) { return v === idx; });
+          const ok = userSequence.every(function(v, idx) { return v === idx; });
+          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
         } else if (type === 'opinion' || (type === 'image_single' && imgMode === 'opinion')) {
           const selected = formData.get('q_' + qDocId);
-          return selected !== null && selected !== undefined;
+          const ok = selected !== null && selected !== undefined;
+          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
         } else if (type === 'multiple' || (type === 'image_single' && imgMode === 'multiple')) {
           const selectedVals = formData.getAll('q_' + qDocId).map(function(v) { return parseInt(v); }).sort();
           let correctVals = [];
           if (Array.isArray(qData.correctAnswers)) correctVals = qData.correctAnswers.map(function(v) { return parseInt(v); }).sort();
           else if (qData.correctAnswer !== undefined) correctVals = [parseInt(qData.correctAnswer)];
-          return selectedVals.length === correctVals.length && selectedVals.every(function(val, idx) { return val === correctVals[idx]; });
+          const ok = selectedVals.length === correctVals.length && selectedVals.every(function(val, idx) { return val === correctVals[idx]; });
+          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
         } else {
           const selected = parseInt(formData.get('q_' + qDocId));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
-          return selected === correct;
+          const ok = selected === correct;
+          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
         }
       }
     };
@@ -2161,6 +2370,8 @@
         else if (typeof data.keywords === 'string') qKeywords = data.keywords;
         else if (data.correctAnswerText) qKeywords = data.correctAnswerText;
       }
+      const qEvalMode = data && data.evaluationMode ? data.evaluationMode : ((qTaxonomy === 'opinion' || qTaxonomy === 'creative' || qTaxonomy === 'inferential') ? 'ai_rubric' : 'keywords');
+      const qRubricPrompt = data && data.rubricPrompt ? data.rubricPrompt : '';
 
       let correctSingleIdx = 0;
       let correctMultipleArr = [0];
@@ -2192,7 +2403,7 @@
               <option value="opinion" ${qType === 'opinion' ? 'selected' : ''}>💬 Reflexió / Opinió (Totes vàlides)</option>
               <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
               <option value="image_single" ${qType === 'image_single' ? 'selected' : ''}>🖼️ Selecció d'Imatge (Respostes visuals)</option>
-              <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>✍️ Resposta Oberta (Text/Paraules clau)</option>
+              <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>✍️ Resposta Oberta (Rúbrica IA / Paraules clau)</option>
             </select>
 
             <select class="q-img-mode-select hidden p-1 text-xs border border-teal-300 rounded-md font-bold text-teal-900 bg-teal-50 outline-none" onchange="toggleQuestionAnswerType(this)">
@@ -2201,7 +2412,7 @@
               <option value="opinion" ${imgMode === 'opinion' ? 'selected' : ''}>💬 Opinió (Totes vàlides)</option>
             </select>
 
-            <select class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
+            <select onchange="onQuestionTaxonomyChange(this)" class="q-taxonomy-select p-1 text-xs border border-indigo-200 rounded-md font-bold text-indigo-800 bg-indigo-50/60 outline-none">
               <option value="literal" ${qTaxonomy === 'literal' ? 'selected' : ''}>🟢 Literal (Explícita)</option>
               <option value="inferential" ${qTaxonomy === 'inferential' ? 'selected' : ''}>🔵 Inferencial (Implícita)</option>
               <option value="figurative" ${qTaxonomy === 'figurative' ? 'selected' : ''}>🟣 Sentit Figurat (Dites/Dobles)</option>
@@ -2307,12 +2518,42 @@
           </div>
         </div>
 
-        <div class="q-text-input-box hidden p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
-          <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-            <i class="fa-solid fa-key text-emerald-600"></i>
-            <span>Paraules Clau per a l'Autocorrecció (separades per comes):</span>
+        <div class="q-text-input-box hidden p-3.5 bg-emerald-50/70 rounded-xl border border-emerald-200 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-200/80 pb-2">
+            <span class="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+              <i class="fa-solid fa-sliders text-emerald-600"></i> Mètode de Correcció de la Pregunta Oberta:
+            </span>
+            <div class="flex items-center gap-2">
+              <select onchange="toggleOpenEvalMode(this)" class="q-open-eval-mode p-1.5 text-xs font-extrabold rounded-lg border border-indigo-300 bg-white text-indigo-900 outline-none cursor-pointer">
+                <option value="ai_rubric" ${qEvalMode === 'ai_rubric' ? 'selected' : ''}>✨ Rúbrica IA (Reflexió / Opinió / Creativa)</option>
+                <option value="keywords" ${qEvalMode === 'keywords' ? 'selected' : ''}>🔑 Paraules Clau (Literal / Ràpida)</option>
+              </select>
+              <button type="button" onclick="configureAiRubricEndpoint()" title="Configurar URL Cloud Function IA" class="text-[11px] bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-lg font-bold">
+                <i class="fa-solid fa-gear"></i>
+              </button>
+            </div>
           </div>
-          <input type="text" value="${escapeHtmlAttr(qKeywords)}" placeholder="Ex: amistat, lleialtat, bosc" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
+
+          <div class="q-rubric-ai-panel ${qEvalMode === 'ai_rubric' ? '' : 'hidden'} space-y-2 bg-indigo-50/90 p-3 rounded-xl border border-indigo-200">
+            <div class="flex items-center justify-between gap-1 flex-wrap">
+              <label class="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> Guia / Rúbrica per a la IA (Criteris de validesa):
+              </label>
+              <span class="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200">Invisible per a l'alumne</span>
+            </div>
+            <textarea rows="3" placeholder="Ex: Valida la resposta si l'alumne explica amb les seves paraules que el protagonista actua per por o per protegir el seu germà, i ho justifica amb algun fet del text. Tolera faltes d'ortografia." class="q-rubric-prompt-input w-full p-2.5 bg-white border border-indigo-300 rounded-lg text-xs text-slate-800 outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtmlAttr(qRubricPrompt)}</textarea>
+            <p class="text-[11px] text-indigo-800 leading-snug">
+              <i class="fa-solid fa-circle-info text-indigo-500 mr-1"></i> La IA avaluarà el sentit i la coherència de la resposta donant <strong>100% (correcta)</strong>, <strong>50% (parcial)</strong> o <strong>0%</strong> amb un feedback formatiu personalitzat en català.
+            </p>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+              <i class="fa-solid fa-key text-emerald-600"></i>
+              <span class="q-keywords-label">${qEvalMode === 'ai_rubric' ? 'Paraules Clau de suport / Fallback offline (opcional, separades per comes):' : "Paraules Clau per a l'Autocorrecció (separades per comes):"}</span>
+            </div>
+            <input type="text" value="${escapeHtmlAttr(qKeywords)}" placeholder="Ex: amistat, lleialtat, bosc (accepta petites faltes d'ortografia)" class="q-keywords-input w-full p-2 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-slate-800 outline-none">
+          </div>
         </div>
 
         <div class="q-opinion-box hidden p-2.5 bg-blue-50 rounded-lg border border-blue-200 flex items-center space-x-2 text-xs font-bold text-blue-900">
@@ -2400,6 +2641,37 @@
       });
       const badge = document.getElementById('question-count-badge');
       if (badge) badge.innerText = blocks.length;
+    }
+
+    function toggleOpenEvalMode(selectElem) {
+      const block = selectElem.closest('.q-block');
+      if (!block) return;
+      const mode = selectElem.value;
+      const aiPanel = block.querySelector('.q-rubric-ai-panel');
+      const kwLabel = block.querySelector('.q-keywords-label');
+      if (mode === 'ai_rubric') {
+        if (aiPanel) aiPanel.classList.remove('hidden');
+        if (kwLabel) kwLabel.innerText = "Paraules Clau de suport / Fallback offline (opcional, separades per comes):";
+      } else {
+        if (aiPanel) aiPanel.classList.add('hidden');
+        if (kwLabel) kwLabel.innerText = "Paraules Clau per a l'Autocorrecció (separades per comes):";
+      }
+    }
+
+    function onQuestionTaxonomyChange(selectElem) {
+      const block = selectElem.closest('.q-block');
+      if (!block) return;
+      const qType = block.querySelector('.q-type-select').value;
+      if (qType !== 'text_input') return;
+      const evalSelect = block.querySelector('.q-open-eval-mode');
+      if (!evalSelect) return;
+      const tax = selectElem.value;
+      if (tax === 'opinion' || tax === 'creative' || tax === 'inferential') {
+        evalSelect.value = 'ai_rubric';
+      } else {
+        evalSelect.value = 'keywords';
+      }
+      toggleOpenEvalMode(evalSelect);
     }
 
     function toggleQuestionAnswerType(elem) {
@@ -2590,8 +2862,17 @@
           const taxonomyType = block.querySelector('.q-taxonomy-select').value || 'literal';
 
           if (qType === 'text_input') {
+            const evalModeEl = block.querySelector('.q-open-eval-mode');
+            const evaluationMode = evalModeEl ? evalModeEl.value : 'keywords';
+            const rubricEl = block.querySelector('.q-rubric-prompt-input');
+            const rubricPrompt = rubricEl ? rubricEl.value.trim() : '';
             const rawKw = block.querySelector('.q-keywords-input').value || '';
             const keywordsArr = rawKw.split(',').map(function(k) { return k.trim(); }).filter(function(k) { return k.length > 0; });
+
+            if (evaluationMode === 'ai_rubric' && !rubricPrompt && keywordsArr.length === 0) {
+              alert("⚠️ La pregunta oberta "" + qText + "" té activada la Rúbrica IA però no has escrit cap criteri de correcció ni paraules clau de suport.");
+              return;
+            }
 
             if (qText) {
               await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
@@ -2599,6 +2880,8 @@
                 options: [],
                 questionType: 'text_input',
                 taxonomyType: taxonomyType,
+                evaluationMode: evaluationMode,
+                rubricPrompt: rubricPrompt,
                 keywords: keywordsArr,
                 orderIndex: orderIndex
               });
@@ -3124,6 +3407,26 @@
 
       const form = e.target;
       const formData = new FormData(form);
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const originalBtnHTML = submitBtn ? submitBtn.innerHTML : '';
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles fa-spin mr-2"></i> Avaluant les teves respostes...';
+      }
+
+      let readingContext = { title: '', content: '', level: 'Primària' };
+      try {
+        const rSnap = await db.collection(DB_COLLECTION).doc(docId).get();
+        if (rSnap.exists) {
+          const rData = rSnap.data() || {};
+          readingContext = {
+            title: rData.title || '',
+            content: rData.content || '',
+            level: rData.level || 'Primària'
+          };
+        }
+      } catch (ctxErr) {}
 
       let questionsSnap;
       try {
@@ -3141,19 +3444,49 @@
         opinion: { correct: 0, total: 0 },
         creative: { correct: 0, total: 0 }
       };
+      const openFeedbackItems = [];
 
-      questionsSnap.forEach(function(qDoc) {
-        const q = qDoc.data() || {};
-        const taxKey = q.taxonomyType || 'literal';
-        if (!stats[taxKey]) stats[taxKey] = { correct: 0, total: 0 };
-        stats[taxKey].total++;
-        if (QuestionEngine.evaluate(q, qDoc.id, formData)) {
-          score++;
-          stats[taxKey].correct++;
+      const qDocsArray = [];
+      questionsSnap.forEach(function(qDoc) { qDocsArray.push(qDoc); });
+
+      try {
+        for (let idx = 0; idx < qDocsArray.length; idx++) {
+          const qDoc = qDocsArray[idx];
+          const q = qDoc.data() || {};
+          const taxKey = q.taxonomyType || 'literal';
+          if (!stats[taxKey]) stats[taxKey] = { correct: 0, total: 0 };
+          stats[taxKey].total++;
+
+          const evalRes = await QuestionEngine.evaluate(q, qDoc.id, formData, readingContext);
+          const mult = typeof evalRes === 'object' ? (evalRes.multiplier || 0) : (evalRes ? 1 : 0);
+
+          score += mult;
+          if (mult >= 0.5) {
+            stats[taxKey].correct += mult;
+          }
+
+          if (evalRes && evalRes.isOpenQuestion) {
+            openFeedbackItems.push({
+              questionNumber: idx + 1,
+              questionText: q.questionText || q.pregunta || ('Pregunta ' + (idx + 1)),
+              studentAnswer: evalRes.studentAnswer || '',
+              status: evalRes.status || 'incorrect',
+              multiplier: mult,
+              feedback: evalRes.feedback || '',
+              evaluationMode: evalRes.evaluationMode || 'keywords'
+            });
+          }
         }
-      });
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHTML;
+        }
+      }
 
-      const newQuizPoints = score * pointsPerQuestion;
+      // Arrodonim a 1 decimal en cas de mitjos punts (0.5)
+      score = Math.round(score * 10) / 10;
+      const newQuizPoints = Math.round(score * pointsPerQuestion * 10) / 10;
       const maxPossiblePoints = total * pointsPerQuestion;
 
       let localScores = {};
@@ -3211,12 +3544,13 @@
 
       await loadUserData();
       renderNav();
-      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats);
+      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, openFeedbackItems);
     }
 
-    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats) {
+    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, openFeedbackItems) {
       const container = document.getElementById('feedback-modal-container');
       if (!container) return;
+      openFeedbackItems = openFeedbackItems || [];
 
       let breakdownRows = '';
       Object.keys(stats).forEach(function(taxKey) {
@@ -3228,17 +3562,48 @@
         }
       });
 
+      let openFeedbackHTML = '';
+      if (openFeedbackItems.length > 0) {
+        openFeedbackHTML = '<div class="space-y-2.5 pt-2 border-t border-slate-200"><h4 class="text-xs font-black text-indigo-950 uppercase tracking-wide flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> Valoració de les Preguntes Obertes</h4>';
+        openFeedbackItems.forEach(function(item) {
+          const isOk = item.status === 'correct';
+          const isPartial = item.status === 'partial';
+          const cardBg = isOk ? 'bg-emerald-50/90 border-emerald-300' : (isPartial ? 'bg-amber-50/90 border-amber-300' : 'bg-rose-50/90 border-rose-300');
+          const badgeHtml = isOk
+            ? '<span class="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md">✅ Correcta (100%)</span>'
+            : (isPartial
+              ? '<span class="text-[10px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">🌓 Parcial (50%)</span>'
+              : '<span class="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-md">💡 A millorar (0%)</span>');
+
+          openFeedbackHTML += `
+            <div class="p-3.5 rounded-xl border ${cardBg} space-y-1.5 text-xs">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <span class="font-black text-slate-800">Pregunta ${item.questionNumber}: ${escapeHtmlAttr(item.questionText)}</span>
+                ${badgeHtml}
+              </div>
+              <p class="text-[11px] text-slate-600 italic bg-white/80 p-2 rounded-lg border border-slate-200/80">«${escapeHtmlAttr(item.studentAnswer)}»</p>
+              <p class="text-xs font-semibold text-slate-800 leading-relaxed flex items-start gap-1.5">
+                <i class="fa-solid fa-comment-dots text-indigo-600 mt-0.5 shrink-0"></i>
+                <span>${escapeHtmlAttr(item.feedback)}</span>
+              </p>
+            </div>
+          `;
+        });
+        openFeedbackHTML += '</div>';
+      }
+
       container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-5 shadow-2xl">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div class="bg-white p-6 rounded-2xl max-w-xl w-full space-y-5 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
             <div class="text-center space-y-1">
               <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner border border-amber-200"><i class="fa-solid fa-trophy"></i></div>
               <h3 class="text-xl font-black text-slate-800">Resultat de la Lectura</h3>
-              <p class="text-xs text-slate-500">Has encertat <strong>${score} de ${total}</strong> preguntes (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
+              <p class="text-xs text-slate-500">Has aconseguit <strong>${score} de ${total}</strong> punts d'encert (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
             </div>
             ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+' + pointsToAdd + ' PTS</span> nous!</div>' : ''}
             <div class="space-y-2">${breakdownRows}</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${openFeedbackHTML}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
               <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; renderReaderPassport();" class="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow transition flex items-center justify-center gap-1.5">
                 <i class="fa-solid fa-passport"></i> Veure el meu Passaport
               </button>
@@ -4062,10 +4427,22 @@
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.39.0",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Rúbrica IA en Preguntes Obertes",
+          isCurrent: true,
+          summary: "Correcció intel·ligent amb Rúbrica IA per a preguntes obertes de reflexió, opinió i creatives.",
+          highlights: [
+            "<strong>Doble mode d'avaluació en preguntes obertes:</strong> Els docents poden triar entre <em>Rúbrica IA (Reflexió / Opinió / Creativa)</em> amb criteris personalitzats o <em>Paraules Clau</em> amb tolerància ortogràfica (distància de Levenshtein).",
+            "<strong>Puntuació gradual i feedback formatiu:</strong> La IA valora la coherència i el significat de la resposta de l'alumne atorgant <strong>100% (Correcta)</strong>, <strong>50% (Parcial)</strong> o <strong>0%</strong> amb un missatge educatiu personalitzat en català.",
+            "<strong>Fallback automàtic garantit:</strong> Si no hi ha connexió o s'esgota el temps d'espera de l'endpoint IA, el sistema passa automàticament a la correcció local per paraules clau de suport."
+          ]
+        },
+        {
           version: "v0.38.1",
           date: "Novembre 2026",
-          badge: "Versió Actual · Correcció d'Estabilitat",
-          isCurrent: true,
+          badge: "Correcció d'Estabilitat",
+          isCurrent: false,
           summary: "Correcció d'un error de sintaxi als desplegables d'assignació d'aules.",
           highlights: [
             "<strong>Estabilitat del panell docent:</strong> Escapat correcte dels apòstrofs a les opcions <em>Pendent d'assignar</em> dins de <code>renderStudentTrackingPanel()</code>."
@@ -4348,7 +4725,7 @@
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.38.1
+              Versió Actual: v0.39.0
             </span>
           </div>
 
