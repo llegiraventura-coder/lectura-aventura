@@ -4149,7 +4149,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         });
 
         // Opcions per als desplegables d'assignació
-        let groupSelectOptionsHTML = '<option value="">⏳ Pendent d'assignar</option>';
+        let groupSelectOptionsHTML = '<option value="">⏳ Pendent d\'assignar</option>';
         allGroupsList.forEach(function(gName) {
           groupSelectOptionsHTML += '<option value="' + escapeHtmlAttr(gName) + '">🏫 ' + escapeHtmlAttr(gName) + '</option>';
         });
@@ -4162,7 +4162,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const completedCount = (u.completedReadings || []).length;
           const currentGrp = (u.classGroup || '').trim();
 
-          let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d'assignar</option>';
+          let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d\'assignar</option>';
           allGroupsList.forEach(function(gName) {
             rowSelectOptions += '<option value="' + escapeHtmlAttr(gName) + '" ' + (currentGrp === gName ? 'selected' : '') + '>🏫 ' + escapeHtmlAttr(gName) + '</option>';
           });
