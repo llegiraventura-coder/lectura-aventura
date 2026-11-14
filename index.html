@@ -3985,166 +3985,323 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const app = document.getElementById('app');
       if (!app) return;
 
-      const versions = [
+      // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
+      const phase2Versions = [
         {
-          version: "v0.39.0",
+          version: "v0.39.0 - v0.39.1",
           date: "Novembre 2026",
-          badge: "Avaluació IA amb Rúbrica",
-          badgeColor: "bg-indigo-100 text-indigo-900 border-indigo-300",
-          isLatest: true,
-          title: "Correcció Intel·ligent de Preguntes Obertes amb Gemini 2.5 Flash",
-          items: [
-            "Rúbrica docent personalitzada en preguntas de resposta oberta: el docent defineix els criteris de validesa invisibles per a l'alumne i rep una avaluació semàntica amb 3 nivells (100% Correcta, 50% Parcial o 0% A millorar).",
-            "Feedback formatiu personalitzat en català adreçat directament a l'alumne després de completar la lectura, explicant què ha argumentat bé o què pot millorar.",
-            "Configuració centralitzada per a tot l'alumnat: el docent enganxa la seva API Key gratuïta de Google AI Studio i es desa automàticament al núvol per a tota la classe.",
-            "Doble xarxa de seguretat (Fallback intel·ligent): si no hi ha connexió o clau configurada, el sistema passa automàticament al motor local de paraules clau amb tolerància ortogràfica."
+          badge: "Versió Actual · Avaluació IA amb Rúbrica",
+          isCurrent: true,
+          summary: "Correcció Intel·ligent de Preguntes Obertes amb Gemini 2.5 Flash i Rúbrica Docent.",
+          highlights: [
+            "<strong>Rúbrica docent personalitzada en preguntes de resposta oberta:</strong> El docent defineix els criteris de validesa invisibles per a l'alumne i rep una avaluació semàntica amb 3 nivells (<em>100% Correcta</em>, <em>50% Parcial</em> o <em>0% A millorar</em>).",
+            "<strong>Feedback formatiu personalitzat en català:</strong> Missatge adreçat directament a l'alumne després de completar la lectura explicant què ha argumentat bé o què pot millorar.",
+            "<strong>Configuració centralitzada per a tot l'alumnat:</strong> El docent enganxa la seva API Key gratuïta de Google AI Studio i es desa automàticament al núvol per a tota la classe.",
+            "<strong>Doble xarxa de seguretat (Fallback intel·ligent):</strong> Si no hi ha connexió o clau configurada, el sistema passa automàticament al motor local de paraules clau amb tolerància ortogràfica."
           ]
         },
         {
           version: "v0.38.0",
           date: "Novembre 2026",
-          badge: "Novetat Pedagogia i Inclusió",
-          badgeColor: "bg-emerald-100 text-emerald-900 border-emerald-300",
-          isLatest: false,
-          title: "Lectures Visuals (Imatge de Referència) i Versió Adaptada DUA",
-          items: [
-            "Nou format de Lectura Curta amb Imatge de Referència: puja directament un cartell, pictogrames, còmic, entrada o infografia com a element central de la lectura, amb visor ampliable en pantalla completa (Zoom) i transcripció d'àudio opcional.",
-            "Mode Versió Adaptada / Simplificada (DUA): qualsevol lectura es pot adaptar amb un text més curt i senzill o amb suport visual, quedant annexada a la lectura original mitjançant una pestanya canviable.",
-            "Guia visual de les 5 taxonomies cognitives integrada a l'editor docent (Literal, Inferencial, Sentit Figurat, D'Opinió i Creativa) amb selector ràpid per pregunta.",
-            "Noves medalles i fites cognitives al Passaport Lector (Detectiu de Pistes, Mestre del Doble Sentit i Ment Creativa i Crítica) i nou filtre al catàleg per localitzar lectures amb versió adaptada."
+          badge: "Gestió d'Aules i Grups Classe",
+          isCurrent: false,
+          summary: "Nou gestor d'aules, nivells i classes dins el panell docent 'Els meus Alumnes'.",
+          highlights: [
+            "<strong>Creació i gestió d'Aules / Grups:</strong> Els docents poden crear aules personalitzades (ex. <em>4t A</em>, <em>5è B</em>, <em>Grup Reforç</em>), canviar-ne el nom o eliminar-les amb seguretat.",
+            "<strong>Assignació individual i massiva:</strong> Desplegable ràpid a cada alumne i selecció múltiple amb checkboxes per assignar tot un grup de cop.",
+            "<strong>Filtres per aula i mètriques:</strong> Pestanyes per aula amb comptador, vista de <em>Pendents d'assignar</em> i càlcul de mitjana de punts per classe.",
+            "<strong>Classificació per classe real:</strong> La pestanya <em>El meu Grup</em> del rànquing d'alumnes filtra automàticament pels companys de la mateixa aula assignada."
+          ]
+        },
+        {
+          version: "v0.37.4",
+          date: "Novembre 2026",
+          badge: "Passaport Blindat · 11 Medalles Funcionals",
+          isCurrent: false,
+          summary: "Ampliació del Passaport Lector amb 5 noves medalles funcionals de superació, taxonomies cognitives i llibres.",
+          highlights: [
+            "<strong>El Fènix Lector:</strong> Nova medalla que premia la resiliència quan un lector repeteix una lectura i millora la seva puntuació anterior.",
+            "<strong>Devorador/a de Capítols:</strong> Reconeixement per completar qüestionaris de fitxes de <em>Llibre de lectura</em>.",
+            "<strong>3 Medalles d'Especialització Cognitiva:</strong> <em>Detectiu de Pistes</em> (10 encerts inferencials), <em>Mestre/a del Doble Sentit</em> (5 encerts de sentit figurat) i <em>Ment Creativa i Crítica</em> (5 respostes d'opinió o creatives).",
+            "Registre automàtic al núvol de l'historial d'encerts per taxonomia i millora de marques personals."
+          ]
+        },
+        {
+          version: "v0.37.2",
+          date: "Novembre 2026",
+          badge: "Passaport & Medalles Base",
+          isCurrent: false,
+          summary: "Passaport Oficial del Lector, Vitrina de Medalles i Restauració de l'Historial.",
+          highlights: [
+            "Nou <strong>Passaport Oficial de Lectura Aventura</strong> accessible des de la capçalera i el bàner superior.",
+            "<strong>Escala completa de Rangs</strong> (lectors i docents) amb barra de progrés visual i càlcul de punts pendents.",
+            "<strong>Col·lecció de 6 Medalles i Reptes Especials</strong>: <em>Primera Aventura</em>, <em>Lector/a Constant (5)</em>, <em>Devorador/a de Llibres (15)</em>, <em>Ment Brillant (100%)</em>, <em>Explorador/a Multiformat</em> i <em>Viatger/a de Gèneres</em>.",
+            "Recuperació de l'<strong>Historial de Versions</strong> combinant la llista inversa de la Fase 2 i les 4 files de 3 blocs de la Fase 1."
           ]
         },
         {
           version: "v0.37.1",
           date: "Novembre 2026",
-          badge: "Millora d'Experiència",
-          badgeColor: "bg-amber-100 text-amber-900 border-amber-300",
-          isLatest: false,
-          title: "Passaport Lector Interactiu i Escala Completa de Rangs",
-          items: [
-            "Nova vista de Passaport Lector en clicar sobre el perfil o la barra superior de benvinguda.",
-            "Visualització de tots els 5 nivells de rang lector (des d'Explorador/a d'Històries fins a Mestre/a de la Lectura) amb barra de progrés dinàmica i punts pendents.",
-            "Sistema de 8 medalles col·leccionables per constància, precisió (100% d'encerts), millora de marca personal (El Fènix Lector) i exploració de gèneres.",
-            "Guia visual amb les regles de puntuació per motivar l'alumnat."
+          badge: "Estabilització DUA & Visual",
+          isCurrent: false,
+          summary: "Millores en Lectures Visuals, pestanyes DUA i síntesi de veu per a transcripcions.",
+          highlights: [
+            "Suport per a <strong>Lectures Visuals</strong> amb imatge de referència (cartells, pictogrames, infografies, còmics) i modal d'ampliació amb Zoom.",
+            "<strong>Versions Adaptades / Simplificades (DUA)</strong> annexades mitjançant pestanyes dins el mateix lector.",
+            "Transcripció opcional d'àudio en lectures visuals per activar la lectura en veu alta en català.",
+            "Unificació dels nivells educatius i comptador automàtic de codis <code>#CL-00001</code>."
           ]
         },
         {
           version: "v0.37.0",
           date: "Novembre 2026",
-          badge: "Estabilitat i Rendiment",
-          badgeColor: "bg-indigo-100 text-indigo-800 border-indigo-300",
-          isLatest: false,
-          title: "Blindatge de Càrrega i Gestió de Timeouts",
-          items: [
-            "Protecció contra bloquejos de xarxa mitjançant temporitzadors automàtics (withTimeout) a totes les consultes de Firestore.",
-            "Captura global d'errors síncrons i promeses asíncrones per facilitar el diagnòstic immediat.",
-            "Càrrega alternativa del catàleg en cas d'absència d'índexs compostos a la base de dades."
-          ]
-        },
-        {
-          version: "v0.36.0",
-          date: "Octubre 2026",
-          badge: "Novetat Pedagogia",
-          badgeColor: "bg-teal-100 text-teal-800 border-teal-300",
-          isLatest: false,
-          title: "Glossari Interactiu i NiveIls de Formació d'Adults",
-          items: [
-            "Suport per a glossari de vocabulari integrat: les paraules clau s'enllacen automàticament dins el text i les preguntes.",
-            "Incorporació del nivell educatiu Formació d'Adults / CFA i nou rol Lector Adult.",
-            "Bústia de suggeriments docents per reportar millores o errades directament a l'autor de cada lectura."
-          ]
-        },
-        {
-          version: "v0.35.0",
-          date: "Octubre 2026",
-          badge: "Accessibilitat DUA",
-          badgeColor: "bg-emerald-100 text-emerald-800 border-emerald-300",
-          isLatest: false,
-          title: "Eines d'Accessibilitat i Síntesi de Veu en Català",
-          items: [
-            "Lector en veu alta integrat (Web Speech API en català) amb control de reproducció, pausa i velocitat (0.8x, 1.0x, 1.2x).",
-            "Mode tipografia OpenDyslexic activable amb un clic, control de mida de lletra (A- / A+) i temes de lectura (Estàndard, Sèpia i Contrast Fosc)."
-          ]
-        },
-        {
-          version: "v0.34.0",
-          date: "Setembre 2026",
-          badge: "Avaluació Competencial",
-          badgeColor: "bg-purple-100 text-purple-800 border-purple-300",
-          isLatest: false,
-          title: "Motor Multi-pregunta i Taxonomia de Comprensió Lectora",
-          items: [
-            "6 tipologies de pregunta: Opció Única, Opció Múltiple, Reflexió/Opinió, Ordenació Cronològica, Selecció d'Imatges (fins a 6 opcions) i Resposta Oberta.",
-            "Etiquetatge taxonòmic per pregunta (Literal, Inferencial, Sentit Figurat, D'Opinió i Creativa) amb desglossament d'encerts al modal de resultats."
-          ]
-        },
-        {
-          version: "v0.32.0",
-          date: "Setembre 2026",
-          badge: "Gestió d'Aula",
-          badgeColor: "bg-blue-100 text-blue-800 border-blue-300",
-          isLatest: false,
-          title: "Carpetes / Situacions d'Aprenentatge, Classroom i Clonació",
-          items: [
-            "Creació de Carpetes i Situacions d'Aprenentatge (SA) compartibles mitjançant enllaç directe.",
-            "Botó d'enviament directe a Google Classroom tant des del catàleg com des del lector.",
-            "Clonació de lectures per crear bateries de preguntes adaptades mantenint l'atribució a l'obra original."
-          ]
-        },
-        {
-          version: "v0.30.0",
-          date: "Agost 2026",
-          badge: "Base del Sistema",
-          badgeColor: "bg-slate-200 text-slate-800 border-slate-300",
-          isLatest: false,
-          title: "Panell Docent, Classificació i Catàleg Filtrable",
-          items: [
-            "Vinculació d'alumnes amb docents mitjançant codi d'aula i gestió de grups-classe.",
-            "Classificació gamificada per Grup, Centre Educatiu i Global.",
-            "Catàleg amb cerca per títol, codi #CL, autor/a de l'obra, nivell, gènere i durada estimada."
+          badge: "Inici Fase 2 · Motor Ampliat",
+          isCurrent: false,
+          summary: "Nou tipus de pregunta de resposta oberta, lector visual i pestanyes adaptades.",
+          highlights: [
+            "Incorporació de la <strong>6a modalitat de pregunta</strong>: <em>Resposta oberta amb detecció de paraules clau</em>.",
+            "Introducció del format de lectura visual i pestanyes multi-versió dins del lector."
           ]
         }
       ];
 
-      let timelineHTML = '';
-      versions.forEach(function(v) {
-        timelineHTML += `
-          <div class="relative pl-6 sm:pl-8 pb-8 border-l-2 ${v.isLatest ? 'border-amber-400' : 'border-slate-200'} last:pb-0">
-            <div class="absolute -left-[9px] top-1 w-4 h-4 rounded-full ${v.isLatest ? 'bg-amber-400 ring-4 ring-amber-100' : 'bg-indigo-500 ring-4 ring-white'}"></div>
-            <div class="bg-white p-5 rounded-2xl border ${v.isLatest ? 'border-amber-300 shadow-md' : 'border-slate-200 shadow-xs'} space-y-2.5">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <div class="flex items-center gap-2">
-                  <span class="font-mono font-black text-sm px-2.5 py-0.5 rounded-lg ${v.isLatest ? 'bg-amber-400 text-slate-950' : 'bg-indigo-50 text-indigo-800 border border-indigo-200'}">${v.version}</span>
-                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-md border ${v.badgeColor}">${v.badge}</span>
-                </div>
-                <span class="text-xs font-semibold text-slate-400">${v.date}</span>
-              </div>
-              <h3 class="font-black text-slate-800 text-base">${v.title}</h3>
-              <ul class="space-y-1.5 text-xs text-slate-600 list-disc pl-4 leading-relaxed">
-                ${v.items.map(function(item) { return '<li>' + item + '</li>'; }).join('')}
-              </ul>
+      // FASE 1: LES 4 FILES AMB 3 BLOCS ORIGINALS (12 FITES)
+      const phase1Rows = [
+        {
+          title: "🚀 TANCAMENT DE LA FASE 1 (v0.34 – v0.36)",
+          blocks: [
+            {
+              version: "v0.36.0",
+              date: "Novembre 2026",
+              badge: "Google Classroom",
+              color: "bg-emerald-500 text-white font-bold border-emerald-600",
+              summary: "Integració directa amb Google Classroom i gestió de rols.",
+              highlights: [
+                "Botó de compartició directa de lectures cap a Google Classroom amb un sol clic.",
+                "Ampliació de permisos de gestió per a l'administració i millores de seguretat."
+              ]
+            },
+            {
+              version: "v0.35.0",
+              date: "Novembre 2026",
+              badge: "Experiència Lectora",
+              color: "bg-indigo-500 text-white font-bold border-indigo-600",
+              summary: "Optimització de filtres del catàleg i seguiment docent.",
+              highlights: [
+                "Millores en el cercador combinat per codi #CL, autor/a de l'obra, nivell i durada.",
+                "Refinament del panell 'Els meus Alumnes' amb còpia ràpida del codi UID docent."
+              ]
+            },
+            {
+              version: "v0.34.0",
+              date: "Novembre 2026",
+              badge: "Format Llibre & Pàgines",
+              color: "bg-purple-500 text-white font-bold border-purple-600",
+              summary: "Millores en fitxes de llibres i puntuació configurable.",
+              highlights: [
+                "Indicador de nombre de pàgines per a llibres de lectura i puntuació per encert (1 o 2 pts).",
+                "Consolidació de l'arquitectura de carpetes i Situacions d'Aprenentatge (SA)."
+              ]
+            }
+          ]
+        },
+        {
+          title: "⚡ DARRERES VERSIONS DE LA FASE 1 (v0.31 – v0.33)",
+          blocks: [
+            {
+              version: "v0.33.0 - v0.33.2",
+              date: "Novembre 2026",
+              badge: "Clonació & Navegació 360º",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Mòdul de Clonació i Navegació Bidireccional de Bateries.",
+              highlights: [
+                "Botó '🌱 Adaptar Preguntes' des del Lector per a duplicar i adaptar qüestionaris.",
+                "Navegació fluida bidireccional entre la lectura mare original i qualsevol adaptació de la comunitat."
+              ]
+            },
+            {
+              version: "v0.32.0",
+              date: "Novembre 2026",
+              badge: "Àudio-Lectura Nativa",
+              color: "bg-indigo-600 text-white font-bold border-indigo-700",
+              summary: "Síntesi de veu (Web Speech API) integrada al lector.",
+              highlights: [
+                "Botó d'àudio-lectura en català natiu sense dependències externes.",
+                "Control de Pausa/Reprendre, Aturada i selector de velocitat (0.8x, 1x, 1.2x)."
+              ]
+            },
+            {
+              version: "v0.31.0 - v0.31.1",
+              date: "Novembre 2026",
+              badge: "Lectura Adaptativa",
+              color: "bg-indigo-400 text-white font-bold border-indigo-500",
+              summary: "Mode Dislèxia, mida de font, contrast i harmonització visual.",
+              highlights: [
+                "Font OpenDyslexic i major espaiat de lletres commutables des del lector.",
+                "Ajust de mida de font (A-/A+), modes Sèpia/Fosc i requadre #CL harmonitzat."
+              ]
+            }
+          ]
+        },
+        {
+          title: "📚 HISTORIAL D'AVANÇOS RECENT (v0.27 – v0.30)",
+          blocks: [
+            {
+              version: "v0.30.0",
+              date: "Novembre 2026",
+              badge: "Glossari & Vocabulari",
+              color: "bg-teal-400 text-slate-900 font-bold border-teal-500",
+              summary: "Mòdul de Vocabulari Clau amb desplaçament suau.",
+              highlights: [
+                "Creació de glossaris terme-definició des de l'editor de la lectura.",
+                "Enllaços directes al text i preguntes amb scroll suau al peu de pàgina."
+              ]
+            },
+            {
+              version: "v0.29.0",
+              date: "Novembre 2026",
+              badge: "Codi Únic + Feedback",
+              color: "bg-amber-400 text-slate-900 font-bold border-amber-500",
+              summary: "Identificador #CL-00001 i Bústia entre Docents.",
+              highlights: [
+                "Generació automàtica de matrícula numèrica en format #CL-XXXXX.",
+                "Bústia de suggeriments i millores en línia entre docents per a fer comunitat."
+              ]
+            },
+            {
+              version: "v0.27.0 - v0.28.0",
+              date: "Novembre 2026",
+              badge: "Noves Preguntes",
+              color: "bg-teal-100 text-teal-900 border-teal-300",
+              summary: "Respostes visuals amb imatge i ordenació cronològica.",
+              highlights: [
+                "5è tipus: Selecció d'Imatges (4 URLs) i 4t tipus: Ordenació temporal (▲/▼).",
+                "Reordenació dinàmica de preguntes i doble botó UX a l'editor."
+              ]
+            }
+          ]
+        },
+        {
+          title: "🏛️ ORÍGENS I INFRAESTRUCTURA BASE (v0.1 – v0.26)",
+          blocks: [
+            {
+              version: "v0.20.0 - v0.26.3",
+              date: "Tardor 2026",
+              badge: "Taxonomia & Carpetes",
+              color: "bg-purple-100 text-purple-900 border-purple-300",
+              summary: "Taxonomies en 5 nivells cognitius i carpetes SA.",
+              highlights: [
+                "Classificació cognitiva (Literal, Inferencial, Figurat, Opinió, Creativa).",
+                "Creació i agrupació real de lectures en Situacions d'Aprenentatge (SA)."
+              ]
+            },
+            {
+              version: "v0.16.0 - v0.19.0",
+              date: "Inici 2026",
+              badge: "Comunitat & Rols",
+              color: "bg-slate-100 text-slate-800 border-slate-300",
+              summary: "Gestió d'Usuaris, 4 Rols i Rànquing en 3 Nivells.",
+              highlights: [
+                "Inici de sessió amb selecció entre Alumne, Adult, Docent i Col·laborador.",
+                "Panell 'Els meus Alumnes' i Classificació per Grup, Centre i Global."
+              ]
+            },
+            {
+              version: "v0.1.0 - v0.15.0",
+              date: "2025",
+              badge: "Gènesi del Projecte",
+              color: "bg-slate-50 text-slate-600 border-slate-200",
+              summary: "Primera versió del lector, qüestionaris bàsics i Firebase.",
+              highlights: [
+                "Motor de lectures curtes integrades i llibres amb coberta.",
+                "Connexió inicial en temps real amb Firebase Firestore."
+              ]
+            }
+          ]
+        }
+      ];
+
+      // RENDERITZAT DE LA FASE 2 (LLISTA INVERSA)
+      const phase2HTML = phase2Versions.map(v => `
+        <div class="p-5 rounded-2xl ${v.isCurrent ? 'bg-indigo-50/90 border-2 border-indigo-400 shadow-sm' : 'bg-white border border-slate-200 shadow-2xs'} space-y-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <span class="font-mono text-xs font-black px-2.5 py-1 rounded-lg ${v.isCurrent ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-amber-300'}">${v.version}</span>
+              <span class="text-xs font-bold px-2.5 py-0.5 rounded-full ${v.isCurrent ? 'bg-amber-300 text-slate-950' : 'bg-indigo-100 text-indigo-800'}">${v.badge}</span>
             </div>
+            <span class="text-xs font-mono text-slate-400 font-semibold">${v.date}</span>
           </div>
-        `;
-      });
+          <p class="text-sm font-black text-slate-900">${v.summary}</p>
+          <ul class="list-disc list-inside text-xs text-slate-700 space-y-1">
+            ${v.highlights.map(h => `<li>${h}</li>`).join('')}
+          </ul>
+        </div>
+      `).join('');
+
+      // RENDERITZAT DE LA FASE 1 (4 FILES AMB 3 BLOCS)
+      const phase1HTML = phase1Rows.map(row => `
+        <div class="space-y-3">
+          <h3 class="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-2">
+            <span>${row.title}</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            ${row.blocks.map(b => `
+              <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:shadow-md transition flex flex-col justify-between space-y-3">
+                <div class="space-y-2.5">
+                  <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-lg border ${b.color}">${b.badge}</span>
+                    <span class="text-[11px] font-mono text-slate-400">${b.date}</span>
+                  </div>
+                  <div class="font-mono text-xs font-black text-indigo-700">${b.version}</div>
+                  <h4 class="font-bold text-slate-800 text-sm leading-snug">${b.summary}</h4>
+                  <ul class="list-disc list-inside text-xs text-slate-600 space-y-1">
+                    ${b.highlights.map(h => `<li>${h}</li>`).join('')}
+                  </ul>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
 
       app.innerHTML = `
-        <div class="max-w-3xl mx-auto space-y-6">
-          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
-            <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
-          </button>
-
-          <div class="bg-gradient-to-r from-indigo-900 to-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-md space-y-2">
-            <div class="inline-flex items-center gap-1.5 bg-white/10 px-3 py-1 rounded-full text-xs font-mono font-bold text-amber-300 border border-white/15">
-              <i class="fa-solid fa-code-branch"></i> Registre d'Evolució · Actual: v0.39.1
+        <div class="max-w-6xl mx-auto space-y-8 pb-8">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
+            <div>
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center mb-2">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+              </button>
+              <h1 class="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-2.5">
+                <i class="fa-solid fa-code-branch text-indigo-600"></i> Historial de Versions
+              </h1>
+              <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
-            <h1 class="text-2xl md:text-3xl font-black">Historial de Versions</h1>
-            <p class="text-xs md:text-sm text-indigo-200">Consulta totes les millores pedagògiques, d'accessibilitat i tècniques incorporades a Lectura Aventura.</p>
+            <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
+              Versió Actual: v0.39.1
+            </span>
           </div>
 
-          <div class="pt-2">
-            ${timelineHTML}
-          </div>
+          <!-- BLOC SUPERIOR: FASE 2 (ORDRE INVERS - LA MÉS RECENT A DALT) -->
+          <section class="space-y-4">
+            <div class="flex items-center gap-2.5">
+              <span class="bg-indigo-600 text-white text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg shadow-2xs">Fase 2</span>
+              <h2 class="text-lg font-black text-slate-800">Noves Funcionalitats, DUA, Passaport Lector i IA (Ordre invers)</h2>
+            </div>
+            <div class="space-y-3">
+              ${phase2HTML}
+            </div>
+          </section>
+
+          <!-- BLOC INFERIOR: FASE 1 (4 FILES AMB BLOCS DE 3) -->
+          <section class="space-y-6 pt-6 border-t-2 border-slate-200">
+            <div class="flex items-center gap-2.5">
+              <span class="bg-slate-800 text-amber-300 text-xs font-black uppercase tracking-wider px-3 py-1 rounded-lg shadow-2xs">Fase 1</span>
+              <h2 class="text-lg font-black text-slate-800">Fonaments i Evolució Històrica</h2>
+            </div>
+            <div class="space-y-6">
+              ${phase1HTML}
+            </div>
+          </section>
         </div>
       `;
     }
