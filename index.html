@@ -139,31 +139,55 @@
     const SUB_COLLECTION = "questions";
     const FEEDBACK_COLLECTION = "teacher_feedback";
     const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
-    const AI_RUBRIC_ENDPOINT_STORAGE_KEY = "lectura_aventura_ai_endpoint_v39";
-    // Pots configurar la URL de la teva Firebase Cloud Function aquí o des de l'editor docent:
-    const DEFAULT_AI_RUBRIC_ENDPOINT = "https://europe-west1-lectura-aventura.cloudfunctions.net/evaluateOpenAnswer";
+    const GEMINI_API_KEY_STORAGE = "lectura_aventura_gemini_key_v39";
 
-    function getAiRubricEndpoint() {
+    function getCachedGeminiKey() {
       try {
-        const custom = localStorage.getItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY);
-        if (custom && custom.trim()) return custom.trim();
-      } catch (e) {}
-      return DEFAULT_AI_RUBRIC_ENDPOINT;
+        return (localStorage.getItem(GEMINI_API_KEY_STORAGE) || '').trim();
+      } catch (e) {
+        return '';
+      }
     }
 
-    function configureAiRubricEndpoint() {
-      const current = getAiRubricEndpoint();
-      const url = prompt(
-        "Introdueix la URL de la teva Firebase Cloud Function per a la correcció amb IA (Gemini):\n(Deixa-ho tal com està si ja utilitzes la funció per defecte del projecte lectura-aventura)",
+    async function fetchGlobalGeminiKey() {
+      const localKey = getCachedGeminiKey();
+      if (localKey) return localKey;
+      if (!db) return '';
+      try {
+        const cfgDoc = await withTimeout(db.collection("app_config").doc("ai_settings").get(), 4000, "configuració IA");
+        if (cfgDoc.exists && cfgDoc.data().geminiApiKey) {
+          const remoteKey = cfgDoc.data().geminiApiKey.trim();
+          try { localStorage.setItem(GEMINI_API_KEY_STORAGE, remoteKey); } catch (e) {}
+          return remoteKey;
+        }
+      } catch (e) {
+        console.warn("No s'ha pogut llegir la clau IA global:", e);
+      }
+      return '';
+    }
+
+    async function configureAiRubricEndpoint() {
+      const current = await fetchGlobalGeminiKey();
+      const key = prompt(
+        "Enganxa aquí la teva API Key gratuïta de Google AI Studio:\n(Es desarà a Firebase perquè tots els teus alumnes la puguin utilitzar automàticament)",
         current
       );
-      if (url === null) return;
+      if (key === null) return;
+      const cleanKey = key.trim();
       try {
-        if (url.trim()) localStorage.setItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY, url.trim());
-        else localStorage.removeItem(AI_RUBRIC_ENDPOINT_STORAGE_KEY);
-        alert("✅ Endpoint de Rúbrica IA desat correctament!");
+        if (cleanKey) localStorage.setItem(GEMINI_API_KEY_STORAGE, cleanKey);
+        else localStorage.removeItem(GEMINI_API_KEY_STORAGE);
+
+        if (db && currentUser) {
+          await db.collection("app_config").doc("ai_settings").set({
+            geminiApiKey: cleanKey,
+            updatedBy: currentUser.email,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+        }
+        alert("✅ Clau de Gemini desada correctament! Ja pots avaluar preguntes obertes amb IA.");
       } catch (e) {
-        alert("No s'ha pogut desar al navegador: " + e.message);
+        alert("⚠️ Desada al navegador, però error en pujar-la a Firestore (revisa les regles): " + e.message);
       }
     }
 
@@ -253,23 +277,54 @@
     }
 
     async function evaluateOpenAnswerWithAI(params) {
-      const endpoint = getAiRubricEndpoint();
+      const apiKey = await fetchGlobalGeminiKey();
+      if (!apiKey) {
+        console.warn("Falta la clau de Gemini; s'activa el fallback local.");
+        const fb = evaluateKeywordsFallback(params.studentAnswer, params.qData);
+        fb.feedback = "⚡ (Mode paraules clau) " + fb.feedback;
+        return fb;
+      }
+
       const controller = new AbortController();
-      const timeoutId = setTimeout(function() { controller.abort(); }, 9500);
+      const timeoutId = setTimeout(function() { controller.abort(); }, 10000);
+
+      const promptText = `Ets un docent expert en comprensió lectora en llengua catalana per a alumnat de ${params.readingLevel || 'Primària'}.
+Avalua la resposta oberta d'un alumne basant-te en el text i la rúbrica docent.
+
+TÍTOL DE LA LECTURA: ${params.readingTitle || ''}
+TEXT DE REFERÈNCIA:
+"""
+${(params.textFragment || '').slice(0, 5000)}
+"""
+
+PREGUNTA (${params.taxonomyType || 'opinió'}): ${params.question || ''}
+CRITERI / RÚBRICA DEL DOCENT: ${params.rubricPrompt || 'Valora que la resposta sigui coherent amb el text i estigui ben argumentada.'}
+
+RESPOSTA DE L'ALUMNE: "${params.studentAnswer || ''}"
+
+INSTRUCCIONS D'AVALUACIÓ:
+- No penalitzis petites faltes d'ortografia o accents si la idea s'entén clarament.
+- Classifica la resposta en un d'aquests tres estats:
+  * "correct" (si compleix bé el criteri i s'explica amb coherència).
+  * "partial" (si té part de raó però li falta argumentar-ho o és massa incompleta).
+  * "incorrect" (si no té relació amb el text, contradiu la lectura o no respon la pregunta).
+- Escriu un "feedback" breu (1-2 frases), proper, motivador i en català adreçat directament a l'alumne (tractant-lo de "tu").
+
+Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
+{"status": "correct" | "partial" | "incorrect", "feedback": "text del feedback"}`;
 
       try {
-        const response = await fetch(endpoint, {
+        const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
           body: JSON.stringify({
-            readingTitle: params.readingTitle || '',
-            textFragment: (params.textFragment || '').slice(0, 6000),
-            readingLevel: params.readingLevel || 'Primària',
-            question: params.question || '',
-            taxonomyType: params.taxonomyType || 'opinion',
-            rubricPrompt: params.rubricPrompt || '',
-            studentAnswer: params.studentAnswer || ''
+            contents: [{ parts: [{ text: promptText }] }],
+            generationConfig: {
+              temperature: 0.2,
+              responseMimeType: "application/json"
+            }
           })
         });
         clearTimeout(timeoutId);
@@ -277,18 +332,17 @@
         if (!response.ok) {
           throw new Error("HTTP " + response.status);
         }
-        const data = await response.json();
-        if (!data || !data.status) {
-          throw new Error("Resposta JSON invàlida de la IA");
-        }
+
+        const rawJson = await response.json();
+        const textResponse = rawJson.candidates[0].content.parts[0].text;
+        const data = JSON.parse(textResponse);
 
         let mult = 0;
         if (data.status === 'correct') mult = 1.0;
         else if (data.status === 'partial') mult = 0.5;
-        else mult = typeof data.scoreMultiplier === 'number' ? data.scoreMultiplier : 0;
 
         return {
-          status: data.status,
+          status: data.status || 'incorrect',
           multiplier: mult,
           feedback: data.feedback || (data.status === 'correct' ? "Molt ben argumentat!" : "Revisa el text i completa la teva reflexió."),
           usedFallback: false
@@ -2528,7 +2582,7 @@
                 <option value="ai_rubric" ${qEvalMode === 'ai_rubric' ? 'selected' : ''}>✨ Rúbrica IA (Reflexió / Opinió / Creativa)</option>
                 <option value="keywords" ${qEvalMode === 'keywords' ? 'selected' : ''}>🔑 Paraules Clau (Literal / Ràpida)</option>
               </select>
-              <button type="button" onclick="configureAiRubricEndpoint()" title="Configurar URL Cloud Function IA" class="text-[11px] bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-lg font-bold">
+              <button type="button" onclick="configureAiRubricEndpoint()" title="Configurar API Key de Gemini (Google AI Studio)" class="text-[11px] bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-1 rounded-lg font-bold">
                 <i class="fa-solid fa-gear"></i>
               </button>
             </div>
