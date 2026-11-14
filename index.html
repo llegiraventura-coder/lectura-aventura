@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.39.2</title>
+  <title>Lectura Aventura - v0.39.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.2</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.2...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.3...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.39.2 — Historial de versions</span>
+        <span>v0.39.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -3624,6 +3624,29 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         }
       });
 
+      let localReadingHistory = {};
+      try {
+        const userDocHist = await db.collection("users").doc(currentUser.uid).get();
+        if (userDocHist.exists && userDocHist.data().readingHistory) {
+          localReadingHistory = Object.assign({}, userDocHist.data().readingHistory);
+        }
+      } catch (err) {}
+
+      const prevHist = localReadingHistory[docId];
+      const shouldUpdateHistory = !prevHist || newQuizPoints >= (prevHist.points || 0);
+      if (shouldUpdateHistory) {
+        localReadingHistory[docId] = {
+          title: readingContext.title || '',
+          score: score,
+          total: total,
+          points: newQuizPoints,
+          maxPoints: maxPossiblePoints,
+          percentage: total > 0 ? Math.round((score / total) * 100) : 0,
+          stats: stats,
+          completedAt: new Date().toISOString()
+        };
+      }
+
       userScores = localScores;
       userTaxonomyStats = localTaxStats;
       userHasImprovedScore = localHasImproved;
@@ -3636,7 +3659,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           completedReadings: userCompletedReadings,
           scores: localScores,
           taxonomyStats: localTaxStats,
-          hasImprovedScore: localHasImproved
+          hasImprovedScore: localHasImproved,
+          readingHistory: localReadingHistory
         }, { merge: true });
       } catch (err) {}
 
@@ -4179,13 +4203,46 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       }
     }
 
+    function toggleStudentReadingsAccordion(studentUid) {
+      const detailRow = document.getElementById('student-readings-row-' + studentUid);
+      const chevron = document.getElementById('student-readings-chevron-' + studentUid);
+      if (!detailRow) return;
+      const isHidden = detailRow.classList.contains('hidden');
+      if (isHidden) {
+        detailRow.classList.remove('hidden');
+        if (chevron) chevron.classList.add('rotate-180');
+      } else {
+        detailRow.classList.add('hidden');
+        if (chevron) chevron.classList.remove('rotate-180');
+      }
+    }
+
     async function renderStudentTrackingPanel() {
       if (!currentUser) return;
       const app = document.getElementById('app');
       app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant els teus alumnes i aules...</p></div>';
 
       try {
-        const snap = await db.collection("users").where('teacherUid', '==', currentUser.uid).get();
+        const [snap, lecturesSnap] = await Promise.all([
+          db.collection("users").where('teacherUid', '==', currentUser.uid).get(),
+          db.collection(DB_COLLECTION).get()
+        ]);
+
+        const readingsCatalogMap = {};
+        const totalCatalogDocs = lecturesSnap.size;
+        let idxCat = 0;
+        lecturesSnap.forEach(function(lDoc) {
+          const lData = lDoc.data() || {};
+          const rNum = lData.readingNumber || (totalCatalogDocs - idxCat);
+          readingsCatalogMap[lDoc.id] = {
+            title: lData.title || 'Lectura sense títol',
+            code: formatReadingCode(rNum),
+            questionCount: lData.questionCount || 0,
+            pointsPerQuestion: lData.pointsPerQuestion || 1
+          };
+          idxCat++;
+        });
+
         let students = [];
         const discoveredGroups = new Set(userTeacherGroups);
 
@@ -4263,13 +4320,88 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         visibleStudents.forEach(function(u) {
           const pts = u.points || 0;
           const rank = getRankDetails(pts);
-          const completedCount = (u.completedReadings || []).length;
+          const completedList = Array.isArray(u.completedReadings) ? u.completedReadings : [];
+          const completedCount = completedList.length;
           const currentGrp = (u.classGroup || '').trim();
+          const uScores = u.scores || {};
+          const uHistory = u.readingHistory || {};
 
           let rowSelectOptions = '<option value="" ' + (!currentGrp ? 'selected' : '') + '>⏳ Pendent d\'assignar</option>';
           allGroupsList.forEach(function(gName) {
             rowSelectOptions += '<option value="' + escapeHtmlAttr(gName) + '" ' + (currentGrp === gName ? 'selected' : '') + '>🏫 ' + escapeHtmlAttr(gName) + '</option>';
           });
+
+          // Construcció del desplegable de lectures d'aquest alumne
+          let readingsDetailHTML = '';
+          if (completedCount === 0) {
+            readingsDetailHTML = '<p class="text-xs text-slate-500 italic py-2">Aquest alumne encara no ha completat cap lectura.</p>';
+          } else {
+            readingsDetailHTML = '<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">';
+            completedList.forEach(function(rId) {
+              const catInfo = readingsCatalogMap[rId] || null;
+              const histInfo = uHistory[rId] || null;
+              const rTitle = (histInfo && histInfo.title) || (catInfo && catInfo.title) || ('Lectura (' + rId.slice(0, 6) + '...)');
+              const rCode = catInfo ? catInfo.code : '';
+
+              let scoreBadgeHTML = '';
+              let taxonomyPillsHTML = '';
+
+              if (histInfo && histInfo.total > 0) {
+                const pct = histInfo.percentage !== undefined ? histInfo.percentage : Math.round((histInfo.score / histInfo.total) * 100);
+                const badgeTone = pct >= 75
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  : (pct >= 50 ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-rose-100 text-rose-800 border-rose-300');
+
+                scoreBadgeHTML = '<span class="text-[11px] font-black px-2 py-0.5 rounded-md border ' + badgeTone + '">' +
+                  histInfo.score + '/' + histInfo.total + ' encerts (' + pct + '%) · ' + histInfo.points + ' PTS</span>';
+
+                if (histInfo.stats) {
+                  const taxKeysOrder = ['literal', 'inferential', 'figurative', 'opinion', 'creative'];
+                  let pills = '';
+                  taxKeysOrder.forEach(function(tKey) {
+                    const st = histInfo.stats[tKey];
+                    if (st && st.total > 0) {
+                      const tCfg = TAXONOMY_CONFIG[tKey] || TAXONOMY_CONFIG.literal;
+                      const correctDisplay = Math.round(st.correct * 10) / 10;
+                      pills += '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border ' + tCfg.color + ' inline-flex items-center gap-1">' +
+                        '<i class="fa-solid ' + tCfg.icon + '"></i> ' + tCfg.label + ': <strong>' + correctDisplay + '/' + st.total + '</strong></span>';
+                    }
+                  });
+                  taxonomyPillsHTML = pills ? ('<div class="flex flex-wrap gap-1.5 pt-1">' + pills + '</div>') : '';
+                }
+              } else {
+                const savedPts = uScores[rId] !== undefined ? uScores[rId] : 0;
+                const estMax = catInfo && catInfo.questionCount > 0 ? (catInfo.questionCount * (catInfo.pointsPerQuestion || 1)) : 0;
+                const ptsText = estMax > 0 ? (savedPts + '/' + estMax + ' PTS') : (savedPts + ' PTS');
+                scoreBadgeHTML = '<span class="text-[11px] font-black px-2 py-0.5 rounded-md border bg-indigo-50 text-indigo-800 border-indigo-200">' + ptsText + '</span>';
+                taxonomyPillsHTML = '<p class="text-[10px] text-slate-400 italic pt-0.5">Lectura completada abans de la v0.39.3 (el desglossament per tipologia es registrarà quan la torni a fer).</p>';
+              }
+
+              readingsDetailHTML += `
+                <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-between gap-1.5">
+                  <div class="flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                      ${rCode ? '<span class="text-[10px] font-mono font-bold text-indigo-600 mr-1.5">' + rCode + '</span>' : ''}
+                      <button type="button" onclick="renderReader('${rId}')" title="Obrir aquesta lectura" class="text-xs font-extrabold text-slate-800 hover:text-indigo-600 text-left transition">
+                        ${escapeHtmlAttr(rTitle)}
+                      </button>
+                    </div>
+                    <div class="shrink-0">${scoreBadgeHTML}</div>
+                  </div>
+                  ${taxonomyPillsHTML}
+                </div>
+              `;
+            });
+            readingsDetailHTML += '</div>';
+          }
+
+          const lecturesBtnHTML = completedCount > 0
+            ? `<button type="button" onclick="toggleStudentReadingsAccordion('${u.id}')" title="Clica per desplegar les lectures i puntuacions" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-extrabold transition shadow-2xs">
+                <i class="fa-solid fa-book-open text-[11px]"></i>
+                <span>${completedCount}</span>
+                <i id="student-readings-chevron-${u.id}" class="fa-solid fa-chevron-down text-[10px] transition-transform duration-200"></i>
+              </button>`
+            : `<span class="text-xs font-bold text-slate-400">0</span>`;
 
           rows += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/90 transition">
@@ -4290,8 +4422,24 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   <i class="fa-solid ${rank.icon} text-amber-600"></i> ${rank.name}
                 </span>
               </td>
-              <td class="p-3 text-xs text-center font-extrabold text-indigo-600">${completedCount}</td>
+              <td class="p-3 text-center">${lecturesBtnHTML}</td>
               <td class="p-3 text-sm text-right font-black text-amber-600">${pts} PTS</td>
+            </tr>
+            <tr id="student-readings-row-${u.id}" class="hidden bg-indigo-50/40 border-b border-indigo-100">
+              <td colspan="6" class="p-3.5 sm:p-4">
+                <div class="space-y-2.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                      <i class="fa-solid fa-chart-column text-indigo-600"></i>
+                      Desglossament de lectures de ${escapeHtmlAttr(u.displayName || 'Alumne/a')} (${completedCount})
+                    </span>
+                    <button type="button" onclick="toggleStudentReadingsAccordion('${u.id}')" class="text-[11px] font-bold text-slate-500 hover:text-slate-800">
+                      <i class="fa-solid fa-xmark mr-0.5"></i> Tancar detall
+                    </button>
+                  </div>
+                  ${readingsDetailHTML}
+                </div>
+              </td>
             </tr>
           `;
         });
@@ -4434,10 +4582,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.39.3",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Desglossament Docent per Alumne",
+          isCurrent: true,
+          summary: "Desplegable interactiu al panell 'Els meus Alumnes' amb les lectures fetes, puntuació i desglossament per taxonomia.",
+          highlights: [
+            "<strong>Comptador desplegable per alumne:</strong> En clicar sobre el nombre de lectures d'un alumne a <em>Els meus Alumnes</em>, s'obre un panell amb totes les seves lectures completades.",
+            "<strong>Puntuació global i per tipologia cognitiva:</strong> Mostra la nota d'encerts i punts de cada lectura juntament amb el detall per taxonomia (<em>Literal</em>, <em>Inferencial</em>, <em>Sentit Figurat</em>, <em>Opinió</em> i <em>Creativa</em>).",
+            "<strong>Registre històric per lectura (<code>readingHistory</code>):</strong> Cada qüestionari enviat desa automàticament el rendiment detallat de l'alumne mantenint compatibilitat total amb les lectures anteriors."
+          ]
+        },
+        {
           version: "v0.39.2",
           date: "Novembre 2026",
-          badge: "Versió Actual · Revisió Detallada per Pregunta",
-          isCurrent: true,
+          badge: "Revisió Detallada per Pregunta",
+          isCurrent: false,
           summary: "Feedback formatiu complet pregunta per pregunta en acabar el qüestionari.",
           highlights: [
             "<strong>Revisió numerada de totes les preguntes (1, 2, 3...):</strong> En acabar la lectura, l'alumne veu cada pregunta amb el seu estat (<em>Correcte</em>, <em>Parcial 50%</em> o <em>Incorrecte</em>).",
@@ -4446,7 +4606,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           ]
         },
         {
-          version: "v0.39.0 - v0.39.2",
+          version: "v0.39.0 - v0.39.3",
           date: "Novembre 2026",
           badge: "Avaluació IA amb Rúbrica",
           isCurrent: false,
@@ -4735,7 +4895,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.39.2
+              Versió Actual: v0.39.3
             </span>
           </div>
 
