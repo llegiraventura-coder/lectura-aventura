@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.39.3</title>
+  <title>Lectura Aventura - v0.40.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.3</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.40.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.3...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.40.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.39.3 — Historial de versions</span>
+        <span>v0.40.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -378,6 +378,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     let isDyslexicMode = false;
     let readerFontSize = 18;
     let readerTheme = 'default';
+    let isClassroomProjectionMode = false;
+    let classroomStepMode = 'all'; // 'all' | 'single'
+    let classroomCurrentQuestionIndex = 0;
 
     let speechUtterance = null;
     let isSpeaking = false;
@@ -814,16 +817,65 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
         const progressIndicator = totalQuestions > 0 ? '<span class="text-xs text-indigo-600 font-extrabold bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">Pregunta ' + (qIndex + 1) + ' de ' + totalQuestions + '</span>' : '';
 
+        // Pista / Resposta correcta per revelar opcionalment a la PDI en Mode Aula
+        let classroomRevealHTML = '';
+        if (isClassroomProjectionMode) {
+          const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
+          let revealText = '';
+          if (type === 'text_input') {
+            if (qData.rubricPrompt) {
+              revealText = 'Criteri docent: ' + escapeHtmlAttr(qData.rubricPrompt);
+            } else if (Array.isArray(qData.keywords) && qData.keywords.length > 0) {
+              revealText = 'Paraules clau esperades: ' + escapeHtmlAttr(qData.keywords.join(', '));
+            } else {
+              revealText = 'Pregunta de resposta oberta per debatre i redactar entre tots.';
+            }
+          } else if (type === 'ordering') {
+            revealText = 'Ordre correcte: ' + options.map(function(o, i) { return (i + 1) + '. ' + o; }).join(' → ');
+          } else if (type === 'opinion' || (type === 'image_single' && imgMode === 'opinion')) {
+            revealText = 'Pregunta de debat i opinió: qualsevol opció argumentada és vàlida.';
+          } else if (type === 'multiple' || (type === 'image_single' && imgMode === 'multiple')) {
+            let cVals = Array.isArray(qData.correctAnswers) ? qData.correctAnswers.map(function(v) { return parseInt(v); }) : [parseInt(qData.correctAnswer || 0)];
+            revealText = 'Respostes correctes: ' + cVals.map(function(i) {
+              return type === 'image_single' ? ('Opció ' + (letterLabels[i] || '')) : ((letterLabels[i] ? letterLabels[i] + ') ' : '') + (options[i] || ''));
+            }).join(' · ');
+          } else {
+            const cIdx = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
+            revealText = 'Resposta correcta: ' + (type === 'image_single' ? ('Opció ' + (letterLabels[cIdx] || '')) : ((letterLabels[cIdx] ? letterLabels[cIdx] + ') ' : '') + (options[cIdx] || '')));
+          }
+
+          classroomRevealHTML = `
+            <div class="pt-2 border-t border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <button type="button" onclick="toggleClassroomRevealAnswer('${qDocId}')" class="self-start text-xs font-extrabold px-3 py-1.5 rounded-lg bg-sky-100 hover:bg-sky-200 text-sky-900 border border-sky-300 transition inline-flex items-center gap-1.5">
+                <i class="fa-solid fa-eye"></i>
+                <span id="classroom-reveal-btn-label-${qDocId}">Revelar solució a la PDI</span>
+              </button>
+              <div id="classroom-reveal-box-${qDocId}" class="hidden text-xs sm:text-sm font-bold text-emerald-950 bg-emerald-100/90 border border-emerald-300 px-3.5 py-2 rounded-xl">
+                <i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i>${revealText}
+              </div>
+            </div>
+          `;
+        }
+
+        const isSingleSlideHidden = isClassroomProjectionMode && classroomStepMode === 'single' && qIndex !== classroomCurrentQuestionIndex;
+        const cardClasses = isClassroomProjectionMode
+          ? ('classroom-q-card mb-6 bg-white p-5 sm:p-6 rounded-2xl border-2 border-sky-200 shadow-sm space-y-4 ' + (isSingleSlideHidden ? 'hidden' : ''))
+          : 'mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3';
+        const titleClasses = isClassroomProjectionMode
+          ? 'font-extrabold text-slate-900 text-lg md:text-xl leading-snug'
+          : 'font-bold text-slate-800 text-sm md:text-base';
+
         return `
-          <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-              <div class="flex items-center gap-2">
-                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-extrabold text-xs flex items-center justify-center shrink-0 shadow-xs">${qIndex + 1}</span>
-                <div class="font-bold text-slate-800 text-sm md:text-base">${text}</div>
+          <div class="${cardClasses}" data-q-index="${qIndex}">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div class="flex items-center gap-2.5">
+                <span class="${isClassroomProjectionMode ? 'w-9 h-9 text-sm bg-sky-600' : 'w-7 h-7 text-xs bg-indigo-600'} rounded-xl text-white font-extrabold flex items-center justify-center shrink-0 shadow-xs">${qIndex + 1}</span>
+                <div class="${titleClasses}">${text}</div>
               </div>
               <div class="flex items-center gap-1.5 flex-wrap justify-end">${progressIndicator} ${taxBadge} ${badgeHTML}</div>
             </div>
-            <div class="space-y-2">${optionsHTML}</div>
+            <div class="space-y-2.5 ${isClassroomProjectionMode ? 'text-base' : ''}">${optionsHTML}</div>
+            ${classroomRevealHTML}
           </div>
         `;
       },
@@ -3109,6 +3161,85 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       return processed;
     }
 
+    function toggleClassroomProjectionMode(docId) {
+      isClassroomProjectionMode = !isClassroomProjectionMode;
+      classroomStepMode = 'all';
+      classroomCurrentQuestionIndex = 0;
+      if (isClassroomProjectionMode && readerFontSize < 22) {
+        readerFontSize = 22;
+      } else if (!isClassroomProjectionMode && readerFontSize === 22) {
+        readerFontSize = 18;
+      }
+      renderReader(docId);
+    }
+
+    function setClassroomStepMode(mode, totalQuestions) {
+      classroomStepMode = mode;
+      classroomCurrentQuestionIndex = 0;
+      updateClassroomStepVisibility(totalQuestions);
+    }
+
+    function navigateClassroomQuestion(delta, totalQuestions) {
+      const nextIdx = classroomCurrentQuestionIndex + delta;
+      if (nextIdx < 0 || nextIdx >= totalQuestions) return;
+      classroomCurrentQuestionIndex = nextIdx;
+      updateClassroomStepVisibility(totalQuestions);
+    }
+
+    function updateClassroomStepVisibility(totalQuestions) {
+      const cards = document.querySelectorAll('#quiz-form .classroom-q-card');
+      cards.forEach(function(card, idx) {
+        if (classroomStepMode === 'all') {
+          card.classList.remove('hidden');
+        } else {
+          if (idx === classroomCurrentQuestionIndex) card.classList.remove('hidden');
+          else card.classList.add('hidden');
+        }
+      });
+
+      const navBar = document.getElementById('classroom-step-nav-bar');
+      const counterSpan = document.getElementById('classroom-step-counter');
+      const prevBtn = document.getElementById('classroom-step-prev');
+      const nextBtn = document.getElementById('classroom-step-next');
+      const btnModeAll = document.getElementById('btn-classroom-mode-all');
+      const btnModeSingle = document.getElementById('btn-classroom-mode-single');
+
+      if (btnModeAll && btnModeSingle) {
+        if (classroomStepMode === 'all') {
+          btnModeAll.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-sky-600 text-white shadow-2xs transition';
+          btnModeSingle.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-sky-900 hover:bg-sky-200/70 transition';
+        } else {
+          btnModeSingle.className = 'px-3 py-1.5 rounded-lg text-xs font-extrabold bg-sky-600 text-white shadow-2xs transition';
+          btnModeAll.className = 'px-3 py-1.5 rounded-lg text-xs font-bold text-sky-900 hover:bg-sky-200/70 transition';
+        }
+      }
+
+      if (navBar) {
+        if (classroomStepMode === 'single' && totalQuestions > 1) {
+          navBar.classList.remove('hidden');
+          if (counterSpan) counterSpan.innerText = 'Pregunta ' + (classroomCurrentQuestionIndex + 1) + ' de ' + totalQuestions;
+          if (prevBtn) prevBtn.disabled = classroomCurrentQuestionIndex === 0;
+          if (nextBtn) nextBtn.disabled = classroomCurrentQuestionIndex >= totalQuestions - 1;
+        } else {
+          navBar.classList.add('hidden');
+        }
+      }
+    }
+
+    function toggleClassroomRevealAnswer(qDocId) {
+      const box = document.getElementById('classroom-reveal-box-' + qDocId);
+      const label = document.getElementById('classroom-reveal-btn-label-' + qDocId);
+      if (!box) return;
+      const isHidden = box.classList.contains('hidden');
+      if (isHidden) {
+        box.classList.remove('hidden');
+        if (label) label.innerText = 'Ocultar solució';
+      } else {
+        box.classList.add('hidden');
+        if (label) label.innerText = 'Revelar solució a la PDI';
+      }
+    }
+
     async function renderReader(docId) {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -3215,11 +3346,36 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const totalQuestions = questionsSnap.size;
           const maxPoints = totalQuestions * ptsPerQuestion;
 
+          const classroomViewControlsHTML = (isClassroomProjectionMode && totalQuestions > 1) ? `
+            <div class="mb-4 bg-sky-50 border border-sky-200 p-3 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div class="flex items-center gap-1.5 bg-sky-100/80 p-1 rounded-xl border border-sky-200">
+                <button type="button" id="btn-classroom-mode-all" onclick="setClassroomStepMode('all', ${totalQuestions})" class="px-3 py-1.5 rounded-lg text-xs font-extrabold ${classroomStepMode === 'all' ? 'bg-sky-600 text-white shadow-2xs' : 'text-sky-900 hover:bg-sky-200/70'} transition">
+                  <i class="fa-solid fa-list mr-1"></i> Totes les preguntes
+                </button>
+                <button type="button" id="btn-classroom-mode-single" onclick="setClassroomStepMode('single', ${totalQuestions})" class="px-3 py-1.5 rounded-lg text-xs font-extrabold ${classroomStepMode === 'single' ? 'bg-sky-600 text-white shadow-2xs' : 'text-sky-900 hover:bg-sky-200/70'} transition">
+                  <i class="fa-solid fa-display mr-1"></i> Una a una (Diapositives PDI)
+                </button>
+              </div>
+
+              <div id="classroom-step-nav-bar" class="${classroomStepMode === 'single' ? '' : 'hidden'} flex items-center gap-2">
+                <button type="button" id="classroom-step-prev" onclick="navigateClassroomQuestion(-1, ${totalQuestions})" ${classroomCurrentQuestionIndex === 0 ? 'disabled' : ''} class="px-3 py-1.5 rounded-xl bg-white hover:bg-sky-100 disabled:opacity-40 text-sky-950 font-extrabold text-xs border border-sky-300 shadow-2xs transition">
+                  <i class="fa-solid fa-chevron-left mr-1"></i> Anterior
+                </button>
+                <span id="classroom-step-counter" class="text-xs font-black text-sky-950 px-2">
+                  Pregunta ${classroomCurrentQuestionIndex + 1} de ${totalQuestions}
+                </span>
+                <button type="button" id="classroom-step-next" onclick="navigateClassroomQuestion(1, ${totalQuestions})" ${classroomCurrentQuestionIndex >= totalQuestions - 1 ? 'disabled' : ''} class="px-3 py-1.5 rounded-xl bg-white hover:bg-sky-100 disabled:opacity-40 text-sky-950 font-extrabold text-xs border border-sky-300 shadow-2xs transition">
+                  Següent <i class="fa-solid fa-chevron-right ml-1"></i>
+                </button>
+              </div>
+            </div>
+          ` : '';
+
           questionsHTML = `
             <form id="quiz-form" onsubmit="submitQuiz(event, '${docId}', ${ptsPerQuestion})" class="mt-8 pt-6 border-t border-slate-200">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <h2 class="text-xl font-bold text-slate-800 flex items-center">
-                  <i class="fa-solid fa-list-check text-indigo-600 mr-2"></i> Preguntes de Comprensió (${totalQuestions})
+                  <i class="fa-solid fa-list-check ${isClassroomProjectionMode ? 'text-sky-600' : 'text-indigo-600'} mr-2"></i> Preguntes de Comprensió (${totalQuestions})
                 </h2>
 
                 ${hasBatteryOptions ? `
@@ -3235,10 +3391,18 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   </div>
                 ` : ''}
 
-                <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg shrink-0">
-                  🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
-                </span>
+                ${isClassroomProjectionMode ? `
+                  <span class="text-xs bg-sky-100 text-sky-950 border border-sky-300 font-extrabold px-3 py-1 rounded-lg shrink-0 inline-flex items-center gap-1.5">
+                    <i class="fa-solid fa-chalkboard-user text-sky-600"></i> Sessió col·lectiva a l'aula (Sense punts)
+                  </span>
+                ` : `
+                  <span class="text-xs bg-amber-100 text-amber-900 border border-amber-300 font-extrabold px-3 py-1 rounded-lg shrink-0">
+                    🏆 ${ptsPerQuestion} ${ptsPerQuestion === 1 ? 'pt' : 'pts'} per encert (Màx: ${maxPoints} PTS)
+                  </span>
+                `}
               </div>
+
+              ${classroomViewControlsHTML}
           `;
 
           let qIndex = 0;
@@ -3248,7 +3412,13 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             qIndex++;
           });
 
-          questionsHTML += `
+          questionsHTML += isClassroomProjectionMode ? `
+              <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-3.5 rounded-2xl shadow-md transition text-base md:text-lg flex items-center justify-center gap-2">
+                <i class="fa-solid fa-users-viewfinder"></i>
+                <span>Corregir entre tots a l'aula (Sense sumar punts)</span>
+              </button>
+            </form>
+          ` : `
               <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl shadow transition text-base">
                 Enviar respostes i obtenir punts
               </button>
@@ -3388,14 +3558,37 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           `;
         }
 
+        const readerContainerClasses = isClassroomProjectionMode
+          ? 'max-w-5xl mx-auto bg-white p-6 md:p-10 rounded-3xl shadow-lg border-2 border-sky-400 transition-all'
+          : 'max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200 transition-all';
+
+        const classroomBannerHTML = isClassroomProjectionMode ? `
+          <div class="mb-5 bg-gradient-to-r from-sky-700 via-sky-600 to-indigo-700 text-white p-3.5 sm:p-4 rounded-2xl shadow-md flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center gap-3 text-center sm:text-left">
+              <div class="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center text-lg shrink-0">
+                <i class="fa-solid fa-display text-amber-300"></i>
+              </div>
+              <div>
+                <span class="block text-xs sm:text-sm font-black tracking-wide">🖥️ Mode Projecció a l'Aula (Panell Digital)</span>
+                <span class="block text-[11px] text-sky-100">Comprensió lectora col·lectiva: lletra ampliada, revisió en grup i <strong>sense sumar punts</strong> al compte docent.</span>
+              </div>
+            </div>
+            <button type="button" onclick="toggleClassroomProjectionMode('${docId}')" class="shrink-0 bg-white/15 hover:bg-white/25 text-white border border-white/30 font-extrabold text-xs px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+              <i class="fa-solid fa-compress"></i> Sortir del Mode Aula
+            </button>
+          </div>
+        ` : '';
+
         app.innerHTML = `
-          <div id="reader-top-anchor" class="max-w-3xl mx-auto bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+          <div id="reader-top-anchor" class="${readerContainerClasses}">
             <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+              <button onclick="isClassroomProjectionMode=false; resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
                 <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
               </button>
 
               <div class="flex items-center gap-2 flex-wrap">
+                ${isDocentOrCollab ? '<button type="button" onclick="toggleClassroomProjectionMode(\'' + docId + '\')" title="Projectar al panell digital per resoldre entre tots sense sumar punts" class="' + (isClassroomProjectionMode ? 'bg-sky-600 hover:bg-sky-700 text-white ring-2 ring-sky-300' : 'bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-300') + ' font-extrabold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-display ' + (isClassroomProjectionMode ? 'text-amber-300' : 'text-sky-600') + '"></i><span>' + (isClassroomProjectionMode ? 'Mode Aula Actiu' : 'Projectar a l\'Aula') + '</span></button>' : ''}
+
                 ${isDocentOrCollab ? '<button onclick="openCloneReadingModal(\'' + rootParentId + '\', decodeURIComponent(\'' + encodedRootTitle + '\'), ' + (isAuthor || isAdmin) + ')" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5"><i class="fa-solid fa-seedling"></i><span>🌱 ' + ((isAuthor || isAdmin) ? 'Crear Versió Adaptada' : 'Adaptar (DUA / Preguntes)') + '</span></button>' : ''}
 
                 <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedDocTitle}'))" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition shadow-xs flex items-center gap-1.5">
@@ -3409,6 +3602,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </div>
             </div>
 
+            ${classroomBannerHTML}
             ${dualVersionTabsHTML}
 
             <h1 class="text-3xl font-bold text-slate-900 mb-4">${data.title || 'Lectura'}</h1>
@@ -3587,6 +3781,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       score = Math.round(score * 10) / 10;
       const newQuizPoints = Math.round(score * pointsPerQuestion * 10) / 10;
       const maxPossiblePoints = total * pointsPerQuestion;
+
+      // En Mode Projecció a l'Aula no s'escriu res a Firestore ni se sumen punts al perfil docent
+      if (isClassroomProjectionMode) {
+        renderClassroomFeedbackModal(docId, readingContext.title || 'Lectura', score, total, stats, allQuestionFeedbackItems);
+        return;
+      }
 
       let localScores = {};
       let localTaxStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
@@ -3783,6 +3983,146 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </button>
               <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow transition">
                 Continuar al Catàleg
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function resetClassroomSessionAndReopen(docId) {
+      const container = document.getElementById('feedback-modal-container');
+      if (container) container.innerHTML = '';
+      classroomCurrentQuestionIndex = 0;
+      renderReader(docId);
+    }
+
+    function renderClassroomFeedbackModal(docId, readingTitle, score, total, stats, questionFeedbackItems) {
+      const container = document.getElementById('feedback-modal-container');
+      if (!container) return;
+      questionFeedbackItems = questionFeedbackItems || [];
+      const pctGlobal = total > 0 ? Math.round((score / total) * 100) : 0;
+
+      let breakdownRows = '';
+      Object.keys(stats).forEach(function(taxKey) {
+        const item = stats[taxKey];
+        if (item.total > 0) {
+          const cfg = TAXONOMY_CONFIG[taxKey] || TAXONOMY_CONFIG.literal;
+          const pct = Math.round((item.correct / item.total) * 100);
+          breakdownRows += '<div class="px-3.5 py-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"><span class="text-xs font-bold px-2.5 py-0.5 rounded-md border ' + cfg.color + ' inline-flex items-center gap-1.5"><i class="fa-solid ' + cfg.icon + '"></i> ' + cfg.label + '</span><div><span class="text-sm font-black text-slate-800">' + item.correct + '/' + item.total + '</span><span class="text-xs font-bold ml-1.5 text-sky-700">(' + pct + '%)</span></div></div>';
+        }
+      });
+
+      let questionsListHTML = '';
+      if (questionFeedbackItems.length > 0) {
+        questionsListHTML = '<div class="space-y-3 pt-3 border-t border-slate-200"><h4 class="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5"><i class="fa-solid fa-comments text-sky-600"></i> Revisió col·lectiva per comentar a la PDI</h4>';
+
+        questionFeedbackItems.forEach(function(item) {
+          const isOk = item.status === 'correct';
+          const isPartial = item.status === 'partial';
+          const taxCfg = TAXONOMY_CONFIG[item.taxonomyType] || TAXONOMY_CONFIG.literal;
+
+          const cardBg = isOk
+            ? 'bg-emerald-50/80 border-emerald-300'
+            : (isPartial ? 'bg-amber-50/80 border-amber-300' : 'bg-rose-50/80 border-rose-300');
+
+          const numBadgeBg = isOk
+            ? 'bg-emerald-600 text-white'
+            : (isPartial ? 'bg-amber-500 text-slate-950' : 'bg-rose-600 text-white');
+
+          const statusBadge = isOk
+            ? '<span class="text-xs font-black bg-emerald-600 text-white px-3 py-0.5 rounded-full shrink-0">✓ Encertada</span>'
+            : (isPartial
+              ? '<span class="text-xs font-black bg-amber-500 text-slate-950 px-3 py-0.5 rounded-full shrink-0">◐ Parcial (50%)</span>'
+              : '<span class="text-xs font-black bg-rose-600 text-white px-3 py-0.5 rounded-full shrink-0">✕ A revisar</span>');
+
+          let detailBodyHTML = '';
+          if (item.isOpenQuestion) {
+            const aiTag = item.isAiEvaluated
+              ? '<span class="inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md"><i class="fa-solid fa-wand-magic-sparkles"></i> Valoració IA</span>'
+              : '<span class="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-md"><i class="fa-solid fa-spell-check"></i> Valoració automàtica</span>';
+
+            detailBodyHTML = `
+              <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Resposta de la classe:</span>
+                  ${aiTag}
+                </div>
+                <p class="text-sm text-slate-800 italic">«${escapeHtmlAttr(item.studentAnswer || 'Sense resposta')}»</p>
+              </div>
+              ${item.feedback ? `
+                <div class="p-3 rounded-xl ${isOk ? 'bg-emerald-100/80 text-emerald-950 border border-emerald-200' : (isPartial ? 'bg-amber-100/80 text-amber-950 border border-amber-200' : 'bg-sky-50 text-sky-950 border border-sky-200')} text-xs sm:text-sm font-semibold leading-relaxed flex items-start gap-2">
+                  <i class="fa-solid ${item.isAiEvaluated ? 'fa-robot text-indigo-600' : 'fa-comment-dots text-sky-600'} mt-0.5 shrink-0"></i>
+                  <span>${escapeHtmlAttr(item.feedback)}</span>
+                </div>
+              ` : ''}
+            `;
+          } else {
+            detailBodyHTML = `
+              <div class="bg-white p-3 rounded-xl border border-slate-200 text-xs sm:text-sm space-y-1.5">
+                <p class="text-slate-700">
+                  <span class="font-bold text-slate-500">Resposta marcada a la pissarra:</span>
+                  <span class="font-bold ${isOk ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtmlAttr(item.studentAnswer)}</span>
+                </p>
+                ${(!isOk && item.correctAnswerText) ? `
+                  <p class="text-emerald-800 pt-1.5 border-t border-slate-100">
+                    <span class="font-bold"><i class="fa-solid fa-check-circle text-emerald-600 mr-1"></i>Resposta correcta:</span>
+                    <span class="font-bold">${escapeHtmlAttr(item.correctAnswerText)}</span>
+                  </p>
+                ` : ''}
+              </div>
+            `;
+          }
+
+          questionsListHTML += `
+            <div class="p-4 rounded-2xl border ${cardBg} space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start gap-2.5">
+                  <span class="w-7 h-7 rounded-lg ${numBadgeBg} font-black text-xs flex items-center justify-center shrink-0 mt-0.5">${item.questionNumber}</span>
+                  <div class="space-y-1">
+                    <p class="text-sm sm:text-base font-bold text-slate-900 leading-snug">${escapeHtmlAttr(item.questionText)}</p>
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded border ${taxCfg.color} inline-flex items-center gap-1"><i class="fa-solid ${taxCfg.icon}"></i> ${taxCfg.label}</span>
+                  </div>
+                </div>
+                ${statusBadge}
+              </div>
+              ${detailBodyHTML}
+            </div>
+          `;
+        });
+
+        questionsListHTML += '</div>';
+      }
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div class="bg-white p-6 sm:p-8 rounded-3xl max-w-4xl w-full space-y-5 shadow-2xl my-4 max-h-[92vh] overflow-y-auto border-2 border-sky-300">
+            <div class="text-center space-y-1.5">
+              <div class="inline-flex items-center gap-1.5 bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-3 py-1 rounded-full">
+                <i class="fa-solid fa-display text-sky-600"></i> Mode Projecció a l'Aula · Sessió sense puntuació
+              </div>
+              <h3 class="text-2xl font-black text-slate-900">Resultat Col·lectiu de la Classe</h3>
+              <p class="text-sm text-slate-600">
+                <strong>${escapeHtmlAttr(readingTitle)}</strong> — Hem encertat <strong class="text-sky-700">${score} de ${total}</strong> preguntes (<strong class="text-emerald-700">${pctGlobal}%</strong>)
+              </p>
+            </div>
+
+            <div class="bg-sky-50 border border-sky-200 p-3 rounded-xl text-center text-sky-950 text-xs font-semibold">
+              <i class="fa-solid fa-shield-halved text-sky-600 mr-1"></i> Aquesta sessió és d'ús pedagògic a l'aula: <strong>no ha sumat punts</strong> ni ha modificat les estadístiques del perfil docent.
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">${breakdownRows}</div>
+            ${questionsListHTML}
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 sticky bottom-0 bg-white pb-1 border-t border-slate-100">
+              <button type="button" onclick="document.getElementById('feedback-modal-container').innerHTML=''" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-3 rounded-xl text-xs sm:text-sm transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-eye"></i> Tornar a la lectura
+              </button>
+              <button type="button" onclick="resetClassroomSessionAndReopen('${docId}')" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-extrabold py-3 rounded-xl text-xs sm:text-sm shadow transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-rotate-right"></i> Reiniciar per a un altre grup
+              </button>
+              <button type="button" onclick="document.getElementById('feedback-modal-container').innerHTML=''; isClassroomProjectionMode=false; resetFiltersAndRenderCatalog();" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl text-xs sm:text-sm shadow transition">
+                Sortir al Catàleg
               </button>
             </div>
           </div>
@@ -4374,7 +4714,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 const estMax = catInfo && catInfo.questionCount > 0 ? (catInfo.questionCount * (catInfo.pointsPerQuestion || 1)) : 0;
                 const ptsText = estMax > 0 ? (savedPts + '/' + estMax + ' PTS') : (savedPts + ' PTS');
                 scoreBadgeHTML = '<span class="text-[11px] font-black px-2 py-0.5 rounded-md border bg-indigo-50 text-indigo-800 border-indigo-200">' + ptsText + '</span>';
-                taxonomyPillsHTML = '<p class="text-[10px] text-slate-400 italic pt-0.5">Lectura completada abans de la v0.39.3 (el desglossament per tipologia es registrarà quan la torni a fer).</p>';
+                taxonomyPillsHTML = '<p class="text-[10px] text-slate-400 italic pt-0.5">Lectura completada abans de la v0.40.0 (el desglossament per tipologia es registrarà quan la torni a fer).</p>';
               }
 
               readingsDetailHTML += `
@@ -4582,10 +4922,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.40.0",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Mode Projecció a l'Aula (PDI)",
+          isCurrent: true,
+          summary: "Nou Mode Projecció per al Panell Digital Interactiu per fer comprensions lectores col·lectives a l'aula sense sumar punts.",
+          highlights: [
+            "<strong>Botó «🖥️ Projectar a l'Aula» a totes les lectures:</strong> Disponible per a docents dins del lector per treballar la lectura en gran grup.",
+            "<strong>Format optimitzat per a pissarra digital:</strong> Lletra ampliada automàticament, vista de totes les preguntes o <em>una a una (diapositives PDI)</em> i botó opcional per <em>revelar la solució</em> en directe.",
+            "<strong>Feedback col·lectiu sense puntuació:</strong> Corregeix entre tots (inclosa l'avaluació IA de preguntes obertes) i mostra el resultat de la classe sense alterar els punts ni l'historial del compte docent, amb reinici ràpid per repetir-ho amb un altre grup."
+          ]
+        },
+        {
           version: "v0.39.3",
           date: "Novembre 2026",
-          badge: "Versió Actual · Desglossament Docent per Alumne",
-          isCurrent: true,
+          badge: "Desglossament Docent per Alumne",
+          isCurrent: false,
           summary: "Desplegable interactiu al panell 'Els meus Alumnes' amb les lectures fetes, puntuació i desglossament per taxonomia.",
           highlights: [
             "<strong>Comptador desplegable per alumne:</strong> En clicar sobre el nombre de lectures d'un alumne a <em>Els meus Alumnes</em>, s'obre un panell amb totes les seves lectures completades.",
@@ -4606,7 +4958,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           ]
         },
         {
-          version: "v0.39.0 - v0.39.3",
+          version: "v0.39.0 - v0.40.0",
           date: "Novembre 2026",
           badge: "Avaluació IA amb Rúbrica",
           isCurrent: false,
@@ -4895,7 +5247,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.39.3
+              Versió Actual: v0.40.0
             </span>
           </div>
 
