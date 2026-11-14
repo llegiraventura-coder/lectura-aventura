@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.39.1</title>
+  <title>Lectura Aventura - v0.39.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.39.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.39.2...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.39.1 — Historial de versions</span>
+        <span>v0.39.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -831,6 +831,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       evaluate: async function(qData, qDocId, formData, readingContext) {
         const type = qData.questionType || 'single';
         const imgMode = qData.imageSelectionMode || 'single';
+        const options = (qData.options || qData.opcions || []).filter(function(o) { return o !== null && o !== undefined && o !== ''; });
+        const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
         readingContext = readingContext || {};
 
         if (type === 'text_input') {
@@ -842,6 +844,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               feedback: "No has escrit cap resposta.",
               studentAnswer: '',
               isOpenQuestion: true,
+              isAiEvaluated: false,
               evaluationMode: qData.evaluationMode || 'keywords'
             };
           }
@@ -863,6 +866,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               feedback: aiResult.feedback,
               studentAnswer: userText,
               isOpenQuestion: true,
+              isAiEvaluated: !aiResult.usedFallback,
               evaluationMode: 'ai_rubric',
               usedFallback: !!aiResult.usedFallback
             };
@@ -874,31 +878,76 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               feedback: kwResult.feedback,
               studentAnswer: userText,
               isOpenQuestion: true,
+              isAiEvaluated: false,
               evaluationMode: 'keywords'
             };
           }
         } else if (type === 'ordering') {
           const val = formData.get('q_' + qDocId);
-          if (!val) return { multiplier: 0, status: 'incorrect' };
+          const correctSeqText = options.map(function(o, i) { return (i + 1) + '. ' + o; }).join(' → ');
+          if (!val) {
+            return { multiplier: 0, status: 'incorrect', studentAnswerText: 'Sense ordenar', correctAnswerText: correctSeqText };
+          }
           const userSequence = val.split(',').map(function(v) { return parseInt(v); });
           const ok = userSequence.every(function(v, idx) { return v === idx; });
-          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
+          const userSeqText = userSequence.map(function(origIdx, pos) { return (pos + 1) + '. ' + (options[origIdx] || ''); }).join(' → ');
+          return {
+            multiplier: ok ? 1 : 0,
+            status: ok ? 'correct' : 'incorrect',
+            studentAnswerText: userSeqText,
+            correctAnswerText: correctSeqText
+          };
         } else if (type === 'opinion' || (type === 'image_single' && imgMode === 'opinion')) {
           const selected = formData.get('q_' + qDocId);
           const ok = selected !== null && selected !== undefined;
-          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
+          const selIdx = parseInt(selected);
+          const selLabel = type === 'image_single'
+            ? ('Opció ' + (letterLabels[selIdx] || ''))
+            : ((letterLabels[selIdx] ? letterLabels[selIdx] + ') ' : '') + (options[selIdx] || ''));
+          return {
+            multiplier: ok ? 1 : 0,
+            status: ok ? 'correct' : 'incorrect',
+            studentAnswerText: ok ? selLabel : 'Cap opció seleccionada',
+            correctAnswerText: 'Resposta d’opinió lliure (vàlida)'
+          };
         } else if (type === 'multiple' || (type === 'image_single' && imgMode === 'multiple')) {
           const selectedVals = formData.getAll('q_' + qDocId).map(function(v) { return parseInt(v); }).sort();
           let correctVals = [];
           if (Array.isArray(qData.correctAnswers)) correctVals = qData.correctAnswers.map(function(v) { return parseInt(v); }).sort();
           else if (qData.correctAnswer !== undefined) correctVals = [parseInt(qData.correctAnswer)];
           const ok = selectedVals.length === correctVals.length && selectedVals.every(function(val, idx) { return val === correctVals[idx]; });
-          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
+
+          const formatList = function(indices) {
+            if (!indices.length) return 'Cap seleccionada';
+            return indices.map(function(i) {
+              return type === 'image_single'
+                ? ('Opció ' + (letterLabels[i] || ''))
+                : ((letterLabels[i] ? letterLabels[i] + ') ' : '') + (options[i] || ''));
+            }).join(' · ');
+          };
+
+          return {
+            multiplier: ok ? 1 : 0,
+            status: ok ? 'correct' : 'incorrect',
+            studentAnswerText: formatList(selectedVals),
+            correctAnswerText: formatList(correctVals)
+          };
         } else {
           const selected = parseInt(formData.get('q_' + qDocId));
           const correct = qData.correctAnswer !== undefined ? parseInt(qData.correctAnswer) : 0;
           const ok = selected === correct;
-          return { multiplier: ok ? 1 : 0, status: ok ? 'correct' : 'incorrect' };
+          const formatSingle = function(idx) {
+            if (isNaN(idx)) return 'Cap opció seleccionada';
+            return type === 'image_single'
+              ? ('Opció ' + (letterLabels[idx] || ''))
+              : ((letterLabels[idx] ? letterLabels[idx] + ') ' : '') + (options[idx] || ''));
+          };
+          return {
+            multiplier: ok ? 1 : 0,
+            status: ok ? 'correct' : 'incorrect',
+            studentAnswerText: formatSingle(selected),
+            correctAnswerText: formatSingle(correct)
+          };
         }
       }
     };
@@ -3492,7 +3541,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         opinion: { correct: 0, total: 0 },
         creative: { correct: 0, total: 0 }
       };
-      const openFeedbackItems = [];
+      const allQuestionFeedbackItems = [];
 
       const qDocsArray = [];
       questionsSnap.forEach(function(qDoc) { qDocsArray.push(qDoc); });
@@ -3513,17 +3562,20 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             stats[taxKey].correct += mult;
           }
 
-          if (evalRes && evalRes.isOpenQuestion) {
-            openFeedbackItems.push({
-              questionNumber: idx + 1,
-              questionText: q.questionText || q.pregunta || ('Pregunta ' + (idx + 1)),
-              studentAnswer: evalRes.studentAnswer || '',
-              status: evalRes.status || 'incorrect',
-              multiplier: mult,
-              feedback: evalRes.feedback || '',
-              evaluationMode: evalRes.evaluationMode || 'keywords'
-            });
-          }
+          allQuestionFeedbackItems.push({
+            questionNumber: idx + 1,
+            questionText: q.questionText || q.pregunta || ('Pregunta ' + (idx + 1)),
+            taxonomyType: taxKey,
+            questionType: q.questionType || 'single',
+            status: (evalRes && evalRes.status) ? evalRes.status : (mult >= 1 ? 'correct' : (mult >= 0.5 ? 'partial' : 'incorrect')),
+            multiplier: mult,
+            isOpenQuestion: !!(evalRes && evalRes.isOpenQuestion),
+            isAiEvaluated: !!(evalRes && evalRes.isAiEvaluated),
+            evaluationMode: (evalRes && evalRes.evaluationMode) || '',
+            studentAnswer: (evalRes && (evalRes.studentAnswer || evalRes.studentAnswerText)) || '',
+            correctAnswerText: (evalRes && evalRes.correctAnswerText) || '',
+            feedback: (evalRes && evalRes.feedback) || ''
+          });
         }
       } finally {
         if (submitBtn) {
@@ -3590,13 +3642,13 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
       await loadUserData();
       renderNav();
-      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, openFeedbackItems);
+      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, allQuestionFeedbackItems);
     }
 
-    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, openFeedbackItems) {
+    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, questionFeedbackItems) {
       const container = document.getElementById('feedback-modal-container');
       if (!container) return;
-      openFeedbackItems = openFeedbackItems || [];
+      questionFeedbackItems = questionFeedbackItems || [];
 
       let breakdownRows = '';
       Object.keys(stats).forEach(function(taxKey) {
@@ -3604,52 +3656,104 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         if (item.total > 0) {
           const cfg = TAXONOMY_CONFIG[taxKey] || TAXONOMY_CONFIG.literal;
           const pct = Math.round((item.correct / item.total) * 100);
-          breakdownRows += '<div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"><div class="flex items-center space-x-2"><span class="text-xs font-bold px-2 py-0.5 rounded-md border ' + cfg.color + ' inline-flex items-center gap-1"><i class="fa-solid ' + cfg.icon + '"></i> ' + cfg.label + '</span></div><div class="text-right"><span class="text-sm font-black text-slate-800">' + item.correct + ' / ' + item.total + '</span><span class="text-xs font-bold ml-1.5 text-emerald-600">(' + pct + '%)</span></div></div>';
+          breakdownRows += '<div class="px-3 py-2 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between"><span class="text-[11px] font-bold px-2 py-0.5 rounded-md border ' + cfg.color + ' inline-flex items-center gap-1"><i class="fa-solid ' + cfg.icon + '"></i> ' + cfg.label + '</span><div><span class="text-xs font-black text-slate-800">' + item.correct + '/' + item.total + '</span><span class="text-[11px] font-bold ml-1 text-emerald-600">(' + pct + '%)</span></div></div>';
         }
       });
 
-      let openFeedbackHTML = '';
-      if (openFeedbackItems.length > 0) {
-        openFeedbackHTML = '<div class="space-y-2.5 pt-2 border-t border-slate-200"><h4 class="text-xs font-black text-indigo-950 uppercase tracking-wide flex items-center gap-1.5"><i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> Valoració de les Preguntes Obertes</h4>';
-        openFeedbackItems.forEach(function(item) {
+      let questionsListHTML = '';
+      if (questionFeedbackItems.length > 0) {
+        questionsListHTML = '<div class="space-y-2.5 pt-3 border-t border-slate-200"><h4 class="text-xs font-black text-slate-800 uppercase tracking-wide flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i> Revisió detallada de cada pregunta</h4>';
+
+        questionFeedbackItems.forEach(function(item) {
           const isOk = item.status === 'correct';
           const isPartial = item.status === 'partial';
-          const cardBg = isOk ? 'bg-emerald-50/90 border-emerald-300' : (isPartial ? 'bg-amber-50/90 border-amber-300' : 'bg-rose-50/90 border-rose-300');
-          const badgeHtml = isOk
-            ? '<span class="text-[10px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded-md">✅ Correcta (100%)</span>'
-            : (isPartial
-              ? '<span class="text-[10px] font-black bg-amber-500 text-slate-950 px-2 py-0.5 rounded-md">🌓 Parcial (50%)</span>'
-              : '<span class="text-[10px] font-black bg-rose-600 text-white px-2 py-0.5 rounded-md">💡 A millorar (0%)</span>');
+          const taxCfg = TAXONOMY_CONFIG[item.taxonomyType] || TAXONOMY_CONFIG.literal;
 
-          openFeedbackHTML += `
-            <div class="p-3.5 rounded-xl border ${cardBg} space-y-1.5 text-xs">
-              <div class="flex items-center justify-between gap-2 flex-wrap">
-                <span class="font-black text-slate-800">Pregunta ${item.questionNumber}: ${escapeHtmlAttr(item.questionText)}</span>
-                ${badgeHtml}
+          const cardBg = isOk
+            ? 'bg-emerald-50/70 border-emerald-300'
+            : (isPartial ? 'bg-amber-50/80 border-amber-300' : 'bg-rose-50/70 border-rose-300');
+
+          const numBadgeBg = isOk
+            ? 'bg-emerald-600 text-white'
+            : (isPartial ? 'bg-amber-500 text-slate-950' : 'bg-rose-600 text-white');
+
+          const statusBadge = isOk
+            ? '<span class="text-[11px] font-black bg-emerald-600 text-white px-2.5 py-0.5 rounded-full shrink-0">✓ Correcte</span>'
+            : (isPartial
+              ? '<span class="text-[11px] font-black bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-full shrink-0">◐ Parcial (50%)</span>'
+              : '<span class="text-[11px] font-black bg-rose-600 text-white px-2.5 py-0.5 rounded-full shrink-0">✕ Incorrecte</span>');
+
+          let detailBodyHTML = '';
+
+          if (item.isOpenQuestion) {
+            const aiTag = item.isAiEvaluated
+              ? '<span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md"><i class="fa-solid fa-wand-magic-sparkles"></i> Correcció amb IA</span>'
+              : '<span class="inline-flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-200/80 px-2 py-0.5 rounded-md"><i class="fa-solid fa-spell-check"></i> Correcció automàtica</span>';
+
+            detailBodyHTML = `
+              <div class="bg-white/90 p-2.5 rounded-lg border border-slate-200/80 space-y-1.5">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">La teva resposta:</span>
+                  ${aiTag}
+                </div>
+                <p class="text-xs text-slate-700 italic">«${escapeHtmlAttr(item.studentAnswer || 'Sense resposta')}»</p>
               </div>
-              <p class="text-[11px] text-slate-600 italic bg-white/80 p-2 rounded-lg border border-slate-200/80">«${escapeHtmlAttr(item.studentAnswer)}»</p>
-              <p class="text-xs font-semibold text-slate-800 leading-relaxed flex items-start gap-1.5">
-                <i class="fa-solid fa-comment-dots text-indigo-600 mt-0.5 shrink-0"></i>
-                <span>${escapeHtmlAttr(item.feedback)}</span>
-              </p>
+              ${item.feedback ? `
+                <div class="p-2.5 rounded-lg ${isOk ? 'bg-emerald-100/70 text-emerald-950 border border-emerald-200' : (isPartial ? 'bg-amber-100/70 text-amber-950 border border-amber-200' : 'bg-indigo-50 text-indigo-950 border border-indigo-200')} text-xs font-semibold leading-relaxed flex items-start gap-2">
+                  <i class="fa-solid ${item.isAiEvaluated ? 'fa-robot text-indigo-600' : 'fa-comment-dots text-slate-600'} mt-0.5 shrink-0"></i>
+                  <span>${escapeHtmlAttr(item.feedback)}</span>
+                </div>
+              ` : ''}
+            `;
+          } else {
+            detailBodyHTML = `
+              <div class="bg-white/90 p-2.5 rounded-lg border border-slate-200/80 text-xs space-y-1">
+                <p class="text-slate-700">
+                  <span class="font-bold text-slate-500">La teva resposta:</span>
+                  <span class="font-semibold ${isOk ? 'text-emerald-700' : 'text-rose-700'}">${escapeHtmlAttr(item.studentAnswer)}</span>
+                </p>
+                ${(!isOk && item.correctAnswerText) ? `
+                  <p class="text-emerald-800 pt-1 border-t border-slate-100">
+                    <span class="font-bold"><i class="fa-solid fa-check-circle text-emerald-600 mr-1"></i>Resposta correcta:</span>
+                    <span class="font-semibold">${escapeHtmlAttr(item.correctAnswerText)}</span>
+                  </p>
+                ` : ''}
+              </div>
+            `;
+          }
+
+          questionsListHTML += `
+            <div class="p-3.5 rounded-xl border ${cardBg} space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start gap-2">
+                  <span class="w-6 h-6 rounded-lg ${numBadgeBg} font-black text-xs flex items-center justify-center shrink-0 mt-0.5">${item.questionNumber}</span>
+                  <div class="space-y-1">
+                    <p class="text-xs sm:text-sm font-bold text-slate-800 leading-snug">${escapeHtmlAttr(item.questionText)}</p>
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${taxCfg.color} inline-flex items-center gap-1"><i class="fa-solid ${taxCfg.icon}"></i> ${taxCfg.label}</span>
+                  </div>
+                </div>
+                ${statusBadge}
+              </div>
+              ${detailBodyHTML}
             </div>
           `;
         });
-        openFeedbackHTML += '</div>';
+
+        questionsListHTML += '</div>';
       }
 
       container.innerHTML = `
-        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div class="bg-white p-6 rounded-2xl max-w-xl w-full space-y-5 shadow-2xl my-8 max-h-[90vh] overflow-y-auto">
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div class="bg-white p-5 sm:p-6 rounded-2xl max-w-2xl w-full space-y-4 shadow-2xl my-4 max-h-[92vh] overflow-y-auto">
             <div class="text-center space-y-1">
-              <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto shadow-inner border border-amber-200"><i class="fa-solid fa-trophy"></i></div>
+              <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-xl mx-auto shadow-inner border border-amber-200"><i class="fa-solid fa-trophy"></i></div>
               <h3 class="text-xl font-black text-slate-800">Resultat de la Lectura</h3>
               <p class="text-xs text-slate-500">Has aconseguit <strong>${score} de ${total}</strong> punts d'encert (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
             </div>
-            ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-center text-emerald-800 text-xs font-bold">🎉 Felicitats! Has aconseguit <span class="text-base text-emerald-700">+' + pointsToAdd + ' PTS</span> nous!</div>' : ''}
-            <div class="space-y-2">${breakdownRows}</div>
-            ${openFeedbackHTML}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+            ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-center text-emerald-800 text-xs font-bold">🎉 Felicitats! Has aconseguit <span class="text-sm text-emerald-700">+' + pointsToAdd + ' PTS</span> nous!</div>' : ''}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${breakdownRows}</div>
+            ${questionsListHTML}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 sticky bottom-0 bg-white pb-1">
               <button onclick="document.getElementById('feedback-modal-container').innerHTML=''; renderReaderPassport();" class="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold py-2.5 rounded-xl text-xs sm:text-sm shadow transition flex items-center justify-center gap-1.5">
                 <i class="fa-solid fa-passport"></i> Veure el meu Passaport
               </button>
@@ -4330,10 +4434,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
-          version: "v0.39.0 - v0.39.1",
+          version: "v0.39.2",
           date: "Novembre 2026",
-          badge: "Versió Actual · Avaluació IA amb Rúbrica",
+          badge: "Versió Actual · Revisió Detallada per Pregunta",
           isCurrent: true,
+          summary: "Feedback formatiu complet pregunta per pregunta en acabar el qüestionari.",
+          highlights: [
+            "<strong>Revisió numerada de totes les preguntes (1, 2, 3...):</strong> En acabar la lectura, l'alumne veu cada pregunta amb el seu estat (<em>Correcte</em>, <em>Parcial 50%</em> o <em>Incorrecte</em>).",
+            "<strong>Comparativa de respostes en preguntes tancades:</strong> Mostra què havia seleccionat l'alumne i quina era l'opció o seqüència correcta en cas d'errada.",
+            "<strong>Feedback coherent amb IA en preguntes obertes:</strong> Quan s'ha corregit amb Gemini, es mostra l'etiqueta <em>Correcció amb IA</em> i una frase explicativa adaptada a l'alumne."
+          ]
+        },
+        {
+          version: "v0.39.0 - v0.39.2",
+          date: "Novembre 2026",
+          badge: "Avaluació IA amb Rúbrica",
+          isCurrent: false,
           summary: "Correcció Intel·ligent de Preguntes Obertes amb Gemini 2.5 Flash i Rúbrica Docent.",
           highlights: [
             "<strong>Rúbrica docent personalitzada en preguntes de resposta oberta:</strong> El docent defineix els criteris de validesa invisibles per a l'alumne i rep una avaluació semàntica amb 3 nivells (<em>100% Correcta</em>, <em>50% Parcial</em> o <em>0% A millorar</em>).",
@@ -4619,7 +4735,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.39.1
+              Versió Actual: v0.39.2
             </span>
           </div>
 
