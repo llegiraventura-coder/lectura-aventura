@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.40.2</title>
+  <title>Lectura Aventura - v0.40.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.40.2</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.40.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.40.2...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.40.3...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.40.2 — Historial de versions</span>
+        <span>v0.40.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -1228,9 +1228,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <span class="hidden md:inline">Carpetes / SA</span>
             </button>
 
-            <button onclick="renderTeacherFeedbackInbox()" class="bg-indigo-700 hover:bg-indigo-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
+            <button id="nav-feedback-btn" onclick="renderTeacherFeedbackInbox()" class="relative bg-indigo-700 hover:bg-indigo-800 text-white font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
               <i class="fa-solid fa-comments text-amber-300"></i>
               <span class="hidden md:inline">Suggeriments</span>
+              <span id="nav-feedback-unread-badge" class="hidden bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full border border-white/40 shadow-xs">0</span>
             </button>
 
             <button onclick="renderStudentTrackingPanel()" class="bg-indigo-700 hover:bg-indigo-800 text-amber-300 font-bold px-3 py-1.5 rounded-xl text-xs md:text-sm transition flex items-center gap-1.5 shadow-sm">
@@ -1264,6 +1265,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </button>
           </div>
         `;
+        updateUnreadFeedbackBadge();
       } else {
         nav.innerHTML = '<button onclick="renderLogin()" class="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold px-4 py-2 rounded-xl text-sm transition shadow">Inicia Sessió</button>';
       }
@@ -4237,6 +4239,511 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       `;
     }
 
+
+    // =========================================================================
+    // MISSATGERIA I SUGGERIMENTS DE MILLORA ENTRE DOCENTS (v0.40.3)
+    // =========================================================================
+    let currentFeedbackTab = 'received';
+
+    async function updateUnreadFeedbackBadge() {
+      if (!currentUser || !db || !isUserAdminOrCreator()) return;
+      const badge = document.getElementById('nav-feedback-unread-badge');
+      if (!badge) return;
+      try {
+        const snap = await db.collection(FEEDBACK_COLLECTION)
+          .where('recipientUid', '==', currentUser.uid)
+          .get();
+        let unreadCount = 0;
+        snap.forEach(function(d) {
+          const data = d.data() || {};
+          if (!data.isRead && (data.status || 'pending') === 'pending') {
+            unreadCount++;
+          }
+        });
+        if (unreadCount > 0) {
+          badge.innerText = unreadCount > 99 ? '99+' : String(unreadCount);
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      } catch (e) {
+        console.warn("No s'ha pogut comprovar el comptador de suggeriments:", e);
+      }
+    }
+
+    async function openTeacherFeedbackModal(readingId, readingTitle, prefillRecipientUid, prefillRecipientName, prefillCategory, prefillSubject) {
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+      if (!isUserAdminOrCreator()) {
+        alert("Aquesta funció és exclusiva per a perfils docents i col·laboradors.");
+        return;
+      }
+
+      const container = document.getElementById('feedback-modal-container');
+      if (!container) return;
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div class="bg-white p-6 rounded-2xl max-w-lg w-full text-center space-y-3 shadow-xl">
+            <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
+            <p class="text-xs font-bold text-slate-600">Preparant el formulari de suggeriments...</p>
+          </div>
+        </div>
+      `;
+
+      let recipientUid = prefillRecipientUid || '';
+      let recipientName = prefillRecipientName || '';
+      let recipientEmail = '';
+      let readingCode = '';
+      let resolvedTitle = readingTitle || 'Lectura';
+
+      try {
+        if (readingId) {
+          const rDoc = await withTimeout(db.collection(DB_COLLECTION).doc(readingId).get(), 6000, "dades de la lectura");
+          if (rDoc.exists) {
+            const rData = rDoc.data() || {};
+            resolvedTitle = rData.title || resolvedTitle;
+            if (rData.readingNumber) readingCode = formatReadingCode(rData.readingNumber);
+            if (!recipientUid) recipientUid = rData.authorUid || '';
+            if (!recipientName) recipientName = rData.authorDisplayName || 'Autor/a de la lectura';
+            recipientEmail = rData.authorEmail || '';
+          }
+        }
+      } catch (err) {
+        console.warn("No s'han pogut obtenir dades de l'autor de la lectura:", err);
+      }
+
+      // Si no té authorUid (p. ex. lectura antiga sense autor assignat), enviem a l'administració
+      if (!recipientUid) {
+        try {
+          const adminSnap = await db.collection("users").where("email", "==", ADMIN_SUPREMO_EMAIL).limit(1).get();
+          if (!adminSnap.empty) {
+            recipientUid = adminSnap.docs[0].id;
+            recipientName = adminSnap.docs[0].data().displayName || "Coordinació Lectura Aventura";
+          }
+        } catch (e) {}
+      }
+
+      const isSelfMessage = recipientUid && recipientUid === currentUser.uid;
+      const selectedCat = prefillCategory || 'millora_pedagogica';
+
+      container.innerHTML = `
+        <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div class="bg-white p-6 rounded-2xl max-w-lg w-full space-y-4 shadow-2xl border border-slate-200 my-4">
+            <div class="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <span class="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200 inline-flex items-center gap-1">
+                  <i class="fa-solid fa-paper-plane"></i> Missatgeria entre Docents
+                </span>
+                <h3 class="text-lg font-black text-slate-800 mt-1">Enviar Proposta de Millora</h3>
+              </div>
+              <button type="button" onclick="closeTeacherFeedbackModal()" class="text-slate-400 hover:text-slate-700 p-1 rounded-lg">
+                <i class="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-1 text-xs">
+              <div class="flex items-center justify-between gap-2">
+                <span class="text-slate-500 font-semibold">Lectura de referència:</span>
+                ${readingCode ? '<span class="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">' + readingCode + '</span>' : ''}
+              </div>
+              <p class="font-black text-slate-800 text-sm">${escapeHtmlAttr(resolvedTitle)}</p>
+              <p class="text-slate-600 pt-1 border-t border-slate-200/70 flex items-center gap-1.5">
+                <i class="fa-solid fa-user-tie text-indigo-500"></i>
+                <span>Destinatari/ària: <strong class="text-slate-900">${escapeHtmlAttr(recipientName || 'Autor/a de la lectura')}</strong></span>
+              </p>
+            </div>
+
+            ${isSelfMessage ? `
+              <div class="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-xl text-xs font-semibold flex items-start gap-2">
+                <i class="fa-solid fa-circle-info text-amber-600 mt-0.5"></i>
+                <span>Aquesta lectura és teva. Si envies el missatge, quedarà desat a la teva bústia com a nota de revisió personal.</span>
+              </div>
+            ` : ''}
+
+            <form onsubmit="submitTeacherFeedback(event)" class="space-y-3.5">
+              <input type="hidden" id="tf-reading-id" value="${escapeHtmlAttr(readingId || '')}">
+              <input type="hidden" id="tf-reading-title" value="${escapeHtmlAttr(resolvedTitle)}">
+              <input type="hidden" id="tf-reading-code" value="${escapeHtmlAttr(readingCode)}">
+              <input type="hidden" id="tf-recipient-uid" value="${escapeHtmlAttr(recipientUid)}">
+              <input type="hidden" id="tf-recipient-name" value="${escapeHtmlAttr(recipientName)}">
+              <input type="hidden" id="tf-recipient-email" value="${escapeHtmlAttr(recipientEmail)}">
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Tipus de proposta / suggeriment *</label>
+                <select id="tf-category" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-800 bg-white focus:ring-2 focus:ring-indigo-500 outline-none">
+                  <option value="millora_pedagogica" ${selectedCat === 'millora_pedagogica' ? 'selected' : ''}>💡 Proposta de millora pedagògica / preguntes</option>
+                  <option value="adaptacio_dua" ${selectedCat === 'adaptacio_dua' ? 'selected' : ''}>🌱 Petició o idea d'adaptació DUA</option>
+                  <option value="correccio_ortografica" ${selectedCat === 'correccio_ortografica' ? 'selected' : ''}>✏️ Revisió ortogràfica o d'errada puntual</option>
+                  <option value="vocabulari_glossari" ${selectedCat === 'vocabulari_glossari' ? 'selected' : ''}>📖 Suggeriment de vocabulari / glossari</option>
+                  <option value="felicitacio_resposta" ${selectedCat === 'felicitacio_resposta' ? 'selected' : ''}>💬 Comentari / Resposta entre docents</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Assumpte breu *</label>
+                <input type="text" id="tf-subject" value="${escapeHtmlAttr(prefillSubject || '')}" required maxlength="120" placeholder="Ex: Proposta d'una pregunta inferencial o revisió d'opció B" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Missatge detallat per al/la docent *</label>
+                <textarea id="tf-message" rows="4" required maxlength="1500" placeholder="Explica amb detall la teva proposta de millora, suggeriment o comentari..." class="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none"></textarea>
+              </div>
+
+              <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button type="button" onclick="closeTeacherFeedbackModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                  Cancel·lar
+                </button>
+                <button type="submit" id="tf-submit-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>Enviar Proposta</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function closeTeacherFeedbackModal() {
+      const container = document.getElementById('feedback-modal-container');
+      if (container) container.innerHTML = '';
+    }
+
+    async function submitTeacherFeedback(e) {
+      e.preventDefault();
+      if (!currentUser || !db) return;
+
+      const submitBtn = document.getElementById('tf-submit-btn');
+      const originalHTML = submitBtn ? submitBtn.innerHTML : '';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviant...';
+      }
+
+      const readingId = document.getElementById('tf-reading-id').value.trim();
+      const readingTitle = document.getElementById('tf-reading-title').value.trim();
+      const readingCode = document.getElementById('tf-reading-code').value.trim();
+      const recipientUid = document.getElementById('tf-recipient-uid').value.trim();
+      const recipientName = document.getElementById('tf-recipient-name').value.trim();
+      const recipientEmail = document.getElementById('tf-recipient-email').value.trim();
+      const category = document.getElementById('tf-category').value;
+      const subject = document.getElementById('tf-subject').value.trim();
+      const message = document.getElementById('tf-message').value.trim();
+
+      if (!subject || !message) {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalHTML;
+        }
+        return;
+      }
+
+      const senderName = userDisplayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Docent');
+
+      try {
+        await withTimeout(
+          db.collection(FEEDBACK_COLLECTION).add({
+            readingId: readingId,
+            readingTitle: readingTitle,
+            readingCode: readingCode,
+            senderUid: currentUser.uid,
+            senderName: senderName,
+            senderEmail: currentUser.email || '',
+            senderSchool: userSchool || '',
+            recipientUid: recipientUid,
+            recipientName: recipientName,
+            recipientEmail: recipientEmail,
+            category: category,
+            subject: subject,
+            message: message,
+            status: 'pending',
+            isRead: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAtIso: new Date().toISOString()
+          }),
+          8000,
+          "enviament del suggeriment"
+        );
+
+        closeTeacherFeedbackModal();
+        updateUnreadFeedbackBadge();
+        alert("✅ Proposta enviada correctament! L'autor/a de la lectura la rebrà a la seva bústia de «Suggeriments».");
+      } catch (err) {
+        console.error("Error enviant el suggeriment docent:", err);
+        alert("No s'ha pogut enviar el missatge: " + err.message);
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalHTML;
+        }
+      }
+    }
+
+    function getFeedbackCategoryBadge(cat) {
+      const map = {
+        millora_pedagogica: { label: "💡 Millora Pedagògica", cls: "bg-indigo-100 text-indigo-800 border-indigo-200" },
+        adaptacio_dua: { label: "🌱 Adaptació DUA", cls: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+        correccio_ortografica: { label: "✏️ Revisió / Errada", cls: "bg-amber-100 text-amber-900 border-amber-300" },
+        vocabulari_glossari: { label: "📖 Vocabulari / Glossari", cls: "bg-teal-100 text-teal-800 border-teal-200" },
+        felicitacio_resposta: { label: "💬 Comentari / Resposta", cls: "bg-purple-100 text-purple-800 border-purple-200" }
+      };
+      return map[cat] || map.millora_pedagogica;
+    }
+
+    function getFeedbackStatusBadge(status) {
+      if (status === 'applied') {
+        return '<span class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 inline-flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Millora Aplicada</span>';
+      }
+      if (status === 'reviewed') {
+        return '<span class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-sky-100 text-sky-800 border border-sky-300 inline-flex items-center gap-1"><i class="fa-solid fa-eye"></i> Revisat</span>';
+      }
+      return '<span class="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"><i class="fa-solid fa-clock"></i> Pendent</span>';
+    }
+
+    async function updateTeacherFeedbackStatus(feedbackId, newStatus) {
+      if (!currentUser || !db || !feedbackId) return;
+      try {
+        await db.collection(FEEDBACK_COLLECTION).doc(feedbackId).update({
+          status: newStatus,
+          isRead: true,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        updateUnreadFeedbackBadge();
+        renderTeacherFeedbackInbox();
+      } catch (err) {
+        alert("Error en actualitzar l'estat del suggeriment: " + err.message);
+      }
+    }
+
+    async function deleteTeacherFeedback(feedbackId) {
+      if (!currentUser || !db || !feedbackId) return;
+      if (!confirm("Vols eliminar aquest missatge de la bústia?")) return;
+      try {
+        await db.collection(FEEDBACK_COLLECTION).doc(feedbackId).delete();
+        updateUnreadFeedbackBadge();
+        renderTeacherFeedbackInbox();
+      } catch (err) {
+        alert("Error en eliminar el missatge: " + err.message);
+      }
+    }
+
+    function replyToTeacherFeedback(readingId, readingTitle, senderUid, senderName, originalSubject) {
+      const replySubject = originalSubject && !originalSubject.startsWith('Re:')
+        ? ('Re: ' + originalSubject)
+        : (originalSubject || 'Resposta al teu suggeriment');
+      openTeacherFeedbackModal(
+        readingId,
+        readingTitle,
+        senderUid,
+        senderName,
+        'felicitacio_resposta',
+        replySubject
+      );
+    }
+
+    async function renderTeacherFeedbackInbox() {
+      if (!currentUser) {
+        renderLogin();
+        return;
+      }
+      if (!isUserAdminOrCreator()) {
+        alert("Accés restringit a Docents i Col·laboradors.");
+        renderCatalog();
+        return;
+      }
+
+      stopSpeechSynthesis();
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la bústia de suggeriments docents...</p></div>';
+
+      try {
+        const [receivedSnap, sentSnap] = await Promise.all([
+          withTimeout(db.collection(FEEDBACK_COLLECTION).where('recipientUid', '==', currentUser.uid).get(), 7000, "missatges rebuts"),
+          withTimeout(db.collection(FEEDBACK_COLLECTION).where('senderUid', '==', currentUser.uid).get(), 7000, "missatges enviats")
+        ]);
+
+        const receivedList = [];
+        const unreadUpdates = [];
+
+        receivedSnap.forEach(function(doc) {
+          const d = doc.data() || {};
+          receivedList.push(Object.assign({ id: doc.id }, d));
+          if (!d.isRead) {
+            unreadUpdates.push(db.collection(FEEDBACK_COLLECTION).doc(doc.id).update({ isRead: true }).catch(function() {}));
+          }
+        });
+
+        if (unreadUpdates.length > 0) {
+          Promise.all(unreadUpdates).then(function() { updateUnreadFeedbackBadge(); });
+        }
+
+        const sentList = [];
+        sentSnap.forEach(function(doc) {
+          sentList.push(Object.assign({ id: doc.id }, doc.data() || {}));
+        });
+
+        const sortByDateDesc = function(a, b) {
+          const tA = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (a.createdAtIso ? Date.parse(a.createdAtIso) : 0);
+          const tB = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (b.createdAtIso ? Date.parse(b.createdAtIso) : 0);
+          return tB - tA;
+        };
+
+        receivedList.sort(sortByDateDesc);
+        sentList.sort(sortByDateDesc);
+
+        const activeList = currentFeedbackTab === 'sent' ? sentList : receivedList;
+
+        let cardsHTML = '';
+        if (activeList.length === 0) {
+          cardsHTML = `
+            <div class="bg-white p-8 rounded-2xl border border-slate-200 text-center space-y-2">
+              <i class="fa-solid fa-inbox text-4xl text-slate-300"></i>
+              <p class="text-sm font-bold text-slate-700">
+                ${currentFeedbackTab === 'sent'
+                  ? 'Encara no has enviat cap proposta de millora a altres docents.'
+                  : 'Encara no has rebut cap proposta de millora a les teves lectures.'}
+              </p>
+              <p class="text-xs text-slate-500 max-w-md mx-auto">
+                Quan obris qualsevol lectura del catàleg, trobaràs el botó <strong>«Enviar Suggeriment»</strong> al peu de la pàgina per col·laborar amb altres docents.
+              </p>
+            </div>
+          `;
+        } else {
+          activeList.forEach(function(item) {
+            const catBadge = getFeedbackCategoryBadge(item.category);
+            const statusBadge = getFeedbackStatusBadge(item.status || 'pending');
+            const isReceived = currentFeedbackTab === 'received';
+            const dateStr = item.createdAt && item.createdAt.toDate
+              ? item.createdAt.toDate().toLocaleDateString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+              : (item.createdAtIso ? new Date(item.createdAtIso).toLocaleDateString('ca-ES') : '');
+
+            const counterpartName = isReceived
+              ? (item.senderName || 'Docent') + (item.senderSchool ? ' (' + item.senderSchool + ')' : '')
+              : (item.recipientName || 'Autor/a de la lectura');
+
+            const encodedTitle = encodeURIComponent(item.readingTitle || 'Lectura');
+            const encodedSender = encodeURIComponent(item.senderName || 'Docent');
+            const encodedSubject = encodeURIComponent(item.subject || '');
+
+            cardsHTML += `
+              <div class="bg-white p-5 rounded-2xl border ${(isReceived && (item.status || 'pending') === 'pending') ? 'border-indigo-300 shadow-sm' : 'border-slate-200 shadow-2xs'} space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="text-[11px] font-extrabold px-2.5 py-0.5 rounded-md border ${catBadge.cls}">${catBadge.label}</span>
+                    ${statusBadge}
+                    ${item.readingCode ? '<span class="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">' + escapeHtmlAttr(item.readingCode) + '</span>' : ''}
+                  </div>
+                  <span class="text-[11px] font-mono text-slate-400">${dateStr}</span>
+                </div>
+
+                <div class="space-y-1">
+                  <h3 class="text-base font-black text-slate-900">${escapeHtmlAttr(item.subject || 'Proposta de millora')}</h3>
+                  <p class="text-xs text-slate-500 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>
+                      <i class="fa-solid fa-book-open text-indigo-500 mr-1"></i>
+                      Lectura: <strong class="text-slate-800">${escapeHtmlAttr(item.readingTitle || 'Lectura')}</strong>
+                    </span>
+                    <span>
+                      <i class="fa-solid ${isReceived ? 'fa-user-pen text-emerald-600' : 'fa-user-check text-indigo-500'} mr-1"></i>
+                      ${isReceived ? 'Enviat per:' : 'Per a:'} <strong class="text-slate-800">${escapeHtmlAttr(counterpartName)}</strong>
+                    </span>
+                  </p>
+                </div>
+
+                <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs sm:text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                  ${escapeHtmlAttr(item.message || '')}
+                </div>
+
+                <div class="pt-2 flex flex-wrap items-center justify-between gap-2">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    ${item.readingId ? `
+                      <button type="button" onclick="renderReader('${item.readingId}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-3 py-1.5 rounded-xl text-xs transition inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-book-open"></i> Obrir lectura
+                      </button>
+                    ` : ''}
+
+                    ${(isReceived && item.readingId) ? `
+                      <button type="button" onclick="renderEditor('${item.readingId}')" class="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold px-3 py-1.5 rounded-xl text-xs transition inline-flex items-center gap-1.5">
+                        <i class="fa-solid fa-pen-to-square text-amber-600"></i> Editar lectura
+                      </button>
+                    ` : ''}
+
+                    ${(isReceived && item.senderUid && item.senderUid !== currentUser.uid) ? `
+                      <button type="button" onclick="replyToTeacherFeedback('${item.readingId || ''}', decodeURIComponent('${encodedTitle}'), '${item.senderUid}', decodeURIComponent('${encodedSender}'), decodeURIComponent('${encodedSubject}'))" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs transition inline-flex items-center gap-1.5 shadow-2xs">
+                        <i class="fa-solid fa-reply"></i> Respondre al docent
+                      </button>
+                    ` : ''}
+                  </div>
+
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    ${isReceived ? `
+                      <button type="button" onclick="updateTeacherFeedbackStatus('${item.id}', 'reviewed')" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 transition">
+                        <i class="fa-solid fa-eye mr-1"></i> Revisat
+                      </button>
+                      <button type="button" onclick="updateTeacherFeedbackStatus('${item.id}', 'applied')" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition">
+                        <i class="fa-solid fa-check mr-1"></i> Aplicat
+                      </button>
+                    ` : ''}
+                    <button type="button" onclick="deleteTeacherFeedback('${item.id}')" title="Eliminar missatge" class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          });
+        }
+
+        const pendingCount = receivedList.filter(function(m) { return (m.status || 'pending') === 'pending'; }).length;
+
+        app.innerHTML = `
+          <div class="max-w-5xl mx-auto space-y-6">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+                <i class="fa-solid fa-arrow-left mr-1"></i> Tornar al catàleg
+              </button>
+            </div>
+
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                <div>
+                  <h1 class="text-2xl font-black text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-comments text-indigo-600"></i> Bústia de Suggeriments entre Docents
+                  </h1>
+                  <p class="text-xs text-slate-500 mt-0.5">
+                    Col·laboració pedagògica: rep propostes de millora per a les teves lectures o consulta els suggeriments que has enviat.
+                  </p>
+                </div>
+
+                <div class="flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold self-start sm:self-auto">
+                  <button onclick="currentFeedbackTab='received'; renderTeacherFeedbackInbox()" class="${currentFeedbackTab === 'received' ? 'bg-white text-indigo-700 shadow' : 'text-slate-600 hover:text-slate-900'} px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-inbox"></i>
+                    <span>Rebuts (${receivedList.length})</span>
+                    ${pendingCount > 0 ? '<span class="bg-amber-400 text-slate-950 text-[10px] font-black px-1.5 py-0.2 rounded-full">' + pendingCount + '</span>' : ''}
+                  </button>
+                  <button onclick="currentFeedbackTab='sent'; renderTeacherFeedbackInbox()" class="${currentFeedbackTab === 'sent' ? 'bg-white text-indigo-700 shadow' : 'text-slate-600 hover:text-slate-900'} px-3.5 py-2 rounded-lg transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Enviats (${sentList.length})</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                ${cardsHTML}
+              </div>
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error("Error carregant la bústia docent:", err);
+        app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">Error en carregar els suggeriments docents: ' + err.message + '</div>';
+      }
+    }
+
     async function renderStudentLeaderboard() {
       const app = document.getElementById('app');
       app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">Carregant la classificació...</p></div>';
@@ -5029,10 +5536,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.40.3",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Bústia i Missatgeria entre Docents",
+          isCurrent: true,
+          summary: "Activació completa de la missatgeria i suggeriments de millora entre docents amb bústia de recepció i enviats.",
+          highlights: [
+            "<strong>Enviament de propostes de millora des del lector:</strong> El botó «Enviar Suggeriment» obre un modal per redactar propostes pedagògiques, correccions o peticions d'adaptació DUA adreçades directament a l'autor/a de la lectura.",
+            "<strong>Bústia de Suggeriments Docents:</strong> Des del botó «Suggeriments» de la barra superior, cada docent pot consultar els missatges rebuts sobre les seves lectures i els suggeriments que ha enviat.",
+            "<strong>Gestió d'estat (Pendent / Revisat / Aplicat) i resposta directa:</strong> Permet marcar els suggeriments com a revisats o aplicats, obrir la lectura directament i respondre al docent remitent."
+          ]
+        },
+        {
           version: "v0.40.2",
           date: "Novembre 2026",
-          badge: "Versió Actual · Passaport Lector Desplegable",
-          isCurrent: true,
+          badge: "Passaport Lector Desplegable",
+          isCurrent: false,
           summary: "Desplegable interactiu al Passaport Lector de l'alumnat per consultar totes les lectures completades, puntuacions i desglossament per tipologia cognitiva.",
           highlights: [
             "<strong>Targeta de lectures completades interactiva:</strong> En fer clic a les lectures completades del Passaport Lector s'obre el llistat detallat de cada lectura feta.",
@@ -5366,7 +5885,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.40.0
+              Versió Actual: v0.40.3
             </span>
           </div>
 
