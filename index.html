@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.40.3</title>
+  <title>Lectura Aventura - v0.41.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.40.3</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.41.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.40.3...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.41.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.40.3 — Historial de versions</span>
+        <span>v0.41.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -682,6 +682,90 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       }
     }
 
+
+    function parseClozeTemplate(rawTemplate) {
+      const text = rawTemplate || '';
+      const regex = /\[\[([\s\S]*?)\]\]/g;
+      const parts = [];
+      const blanks = [];
+      let lastIndex = 0;
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        parts.push(text.slice(lastIndex, match.index));
+        const rawInner = (match[1] || '').trim();
+        const tokens = rawInner.split('|').map(function(s) { return s.trim(); }).filter(Boolean);
+        const correct = tokens.length > 0 ? tokens[0] : '';
+        const distractors = tokens.slice(1);
+        blanks.push({
+          raw: rawInner,
+          correct: correct,
+          distractors: distractors,
+          allOptions: tokens
+        });
+        lastIndex = regex.lastIndex;
+      }
+      parts.push(text.slice(lastIndex));
+      return { parts: parts, blanks: blanks };
+    }
+
+    function insertClozeBlankInEditor(btn) {
+      const block = btn.closest('.q-block');
+      if (!block) return;
+      const textarea = block.querySelector('.q-cloze-template');
+      if (!textarea) return;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const selected = textarea.value.substring(start, end).trim() || 'paraula';
+      const modeSelect = block.querySelector('.q-cloze-mode');
+      const mode = modeSelect ? modeSelect.value : 'dropdown';
+      const snippet = mode === 'dropdown'
+        ? ('[[' + selected + '|distractor1|distractor2]]')
+        : ('[[' + selected + ']]');
+      textarea.value = textarea.value.substring(0, start) + snippet + textarea.value.substring(end);
+      textarea.focus();
+      updateClozeEditorPreview(textarea);
+    }
+
+    function updateClozeEditorPreview(elem) {
+      const block = elem.closest('.q-block');
+      if (!block) return;
+      const textarea = block.querySelector('.q-cloze-template');
+      const modeSelect = block.querySelector('.q-cloze-mode');
+      const previewBox = block.querySelector('.q-cloze-preview');
+      if (!textarea || !previewBox) return;
+
+      const mode = modeSelect ? modeSelect.value : 'dropdown';
+      const parsed = parseClozeTemplate(textarea.value);
+
+      if (parsed.blanks.length === 0) {
+        previewBox.innerHTML = '<span class="text-xs text-slate-400 italic">Escriu frases amb <code class="bg-slate-200 px-1 rounded text-slate-700 font-mono">[[resposta|opció2|opció3]]</code> per generar els buits interactius.</span>';
+        return;
+      }
+
+      let previewHTML = '<div class="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">';
+      for (let i = 0; i < parsed.parts.length; i++) {
+        previewHTML += escapeHtmlAttr(parsed.parts[i]);
+        if (i < parsed.blanks.length) {
+          const b = parsed.blanks[i];
+          if (mode === 'dropdown') {
+            const optsPreview = b.allOptions.map(function(o, idx) {
+              return idx === 0 ? ('✓ ' + o) : o;
+            }).join(' / ');
+            previewHTML += '<span class="inline-flex items-center gap-1 mx-1 px-2 py-0.5 rounded-md bg-cyan-100 text-cyan-950 border border-cyan-400 font-bold text-xs">' +
+              '<i class="fa-solid fa-caret-down text-cyan-700"></i> [' + escapeHtmlAttr(optsPreview || 'buit ' + (i + 1)) + ']</span>';
+          } else {
+            previewHTML += '<span class="inline-flex items-center gap-1 mx-1 px-2 py-0.5 rounded-md bg-cyan-50 text-cyan-950 border-b-2 border-cyan-600 font-mono font-bold text-xs">' +
+              '___ (' + escapeHtmlAttr(b.correct || 'buit ' + (i + 1)) + ') ___</span>';
+          }
+        }
+      }
+      previewHTML += '</div><div class="mt-2 pt-1.5 border-t border-cyan-200/70 text-[11px] font-bold text-cyan-900 flex items-center justify-between">' +
+        '<span><i class="fa-solid fa-puzzle-piece text-cyan-600 mr-1"></i> Buits detectats: <strong>' + parsed.blanks.length + '</strong></span>' +
+        '<span>Cada buit encertat suma la part proporcional de la pregunta.</span></div>';
+      previewBox.innerHTML = previewHTML;
+    }
+
     const QuestionEngine = {
       render: function(qDocId, qData, qIndex, totalQuestions, glossaryWords) {
         totalQuestions = totalQuestions || 0;
@@ -709,13 +793,56 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             ? '<span class="text-[11px] font-bold text-indigo-800 bg-indigo-100 border border-indigo-300 px-2 py-0.5 rounded-md shrink-0 inline-flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i> Resposta Oberta (Rúbrica IA)</span>'
             : '<span class="text-[11px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-md shrink-0">✍️ Resposta Oberta</span>';
         }
+        else if (type === 'cloze') {
+          const clozeData = parseClozeTemplate(qData.clozeTemplate || '');
+          const cModeLabel = (qData.clozeMode || 'dropdown') === 'dropdown' ? 'Desplegables' : 'Escriure mots';
+          badgeHTML = '<span class="text-[11px] font-bold text-cyan-900 bg-cyan-100 border border-cyan-300 px-2 py-0.5 rounded-md shrink-0">🧩 Omplir Buits · ' + cModeLabel + ' (' + clozeData.blanks.length + ')</span>';
+        }
 
         const taxBadge = '<span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md border inline-flex items-center gap-1 ' + taxConfig.color + '">' +
           '<i class="fa-solid ' + taxConfig.icon + '"></i> ' + taxConfig.label + '</span>';
 
         let optionsHTML = '';
 
-        if (type === 'text_input') {
+        if (type === 'cloze') {
+          const clozeMode = qData.clozeMode || 'dropdown';
+          const parsedCloze = parseClozeTemplate(qData.clozeTemplate || '');
+          let sentenceHTML = '<div class="text-sm sm:text-base text-slate-800 leading-loose whitespace-pre-line font-medium">';
+
+          for (let pIdx = 0; pIdx < parsedCloze.parts.length; pIdx++) {
+            sentenceHTML += parseContentWithGlossary(parsedCloze.parts[pIdx], glossaryWords);
+            if (pIdx < parsedCloze.blanks.length) {
+              const blank = parsedCloze.blanks[pIdx];
+              const fieldName = 'q_' + qDocId + '_blank_' + pIdx;
+
+              if (clozeMode === 'dropdown') {
+                const shuffledOpts = blank.allOptions.slice().sort(function() { return Math.random() - 0.5; });
+                sentenceHTML += '<select name="' + fieldName + '" required class="mx-1 my-0.5 px-2.5 py-1 bg-white border-2 border-cyan-400 focus:border-cyan-600 rounded-lg text-xs sm:text-sm font-extrabold text-cyan-950 shadow-2xs outline-none cursor-pointer inline-block">' +
+                  '<option value="" selected disabled>— tria (${pIdx + 1}) —</option>' +
+                  shuffledOpts.map(function(optVal) {
+                    return '<option value="' + escapeHtmlAttr(optVal) + '">' + escapeHtmlAttr(optVal) + '</option>';
+                  }).join('') +
+                '</select>';
+              } else {
+                const inputWidthCh = Math.min(Math.max((blank.correct || '').length + 4, 9), 24);
+                sentenceHTML += '<input type="text" name="' + fieldName + '" required autocomplete="off" spellcheck="false" placeholder="(' + (pIdx + 1) + ') ..." style="width: ' + inputWidthCh + 'ch;" class="mx-1 my-0.5 px-2.5 py-0.5 bg-white border-b-2 border-t border-x border-cyan-500 focus:ring-2 focus:ring-cyan-400 rounded-lg text-xs sm:text-sm font-bold text-cyan-950 text-center outline-none inline-block">';
+              }
+            }
+          }
+          sentenceHTML += '</div>';
+
+          optionsHTML = `
+            <div class="bg-cyan-50/70 p-4 rounded-xl border border-cyan-200/90 space-y-2.5">
+              <p class="text-xs font-bold text-cyan-900 flex items-center gap-1.5">
+                <i class="fa-solid fa-puzzle-piece text-cyan-600"></i>
+                ${clozeMode === 'dropdown' ? 'Selecciona la paraula adequada a cada desplegable del text:' : 'Escriu la paraula que falta a cada espai en blanc:'}
+              </p>
+              <div class="bg-white p-3.5 rounded-xl border border-cyan-100 shadow-2xs">
+                ${sentenceHTML}
+              </div>
+            </div>
+          `;
+        } else if (type === 'text_input') {
           const isAiRubric = qData.evaluationMode === 'ai_rubric';
           optionsHTML = `
             <div class="${isAiRubric ? 'bg-indigo-50/50 border-indigo-200/80' : 'bg-emerald-50/50 border-emerald-200/80'} p-3.5 rounded-xl border space-y-2">
@@ -823,7 +950,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         if (isClassroomProjectionMode) {
           const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
           let revealText = '';
-          if (type === 'text_input') {
+          if (type === 'cloze') {
+            const parsedCloze = parseClozeTemplate(qData.clozeTemplate || '');
+            revealText = 'Paraules correctes per ordre: ' + parsedCloze.blanks.map(function(b, i) { return '(' + (i + 1) + ') ' + b.correct; }).join(' · ');
+          } else if (type === 'text_input') {
             if (qData.rubricPrompt) {
               revealText = 'Criteri docent: ' + escapeHtmlAttr(qData.rubricPrompt);
             } else if (Array.isArray(qData.keywords) && qData.keywords.length > 0) {
@@ -888,7 +1018,51 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         const letterLabels = ['A', 'B', 'C', 'D', 'E', 'F'];
         readingContext = readingContext || {};
 
-        if (type === 'text_input') {
+        if (type === 'cloze') {
+          const clozeMode = qData.clozeMode || 'dropdown';
+          const parsedCloze = parseClozeTemplate(qData.clozeTemplate || '');
+          const totalBlanks = parsedCloze.blanks.length;
+          if (totalBlanks === 0) {
+            return { multiplier: 1, status: 'correct', studentAnswerText: 'Sense buits configurats', correctAnswerText: '' };
+          }
+
+          let correctCount = 0;
+          const studentEntries = [];
+          const correctEntries = [];
+
+          parsedCloze.blanks.forEach(function(blank, bIdx) {
+            const rawUserVal = (formData.get('q_' + qDocId + '_blank_' + bIdx) || '').trim();
+            const expectedVal = (blank.correct || '').trim();
+            let isBlankOk = false;
+
+            if (rawUserVal) {
+              if (clozeMode === 'dropdown') {
+                isBlankOk = normalizeText(rawUserVal) === normalizeText(expectedVal);
+              } else {
+                const normUser = normalizeText(rawUserVal);
+                const normExp = normalizeText(expectedVal);
+                if (normUser === normExp) {
+                  isBlankOk = true;
+                } else if (normExp.length >= 5 && Math.abs(normUser.length - normExp.length) <= 1 && levenshteinDistance(normUser, normExp) <= 1) {
+                  isBlankOk = true;
+                }
+              }
+            }
+
+            if (isBlankOk) correctCount++;
+            studentEntries.push('(' + (bIdx + 1) + ') ' + (rawUserVal || '—') + (isBlankOk ? ' ✓' : ' ✕'));
+            correctEntries.push('(' + (bIdx + 1) + ') ' + expectedVal);
+          });
+
+          const mult = Math.round((correctCount / totalBlanks) * 100) / 100;
+          const status = correctCount === totalBlanks ? 'correct' : (correctCount > 0 ? 'partial' : 'incorrect');
+          return {
+            multiplier: mult,
+            status: status,
+            studentAnswerText: studentEntries.join(' · '),
+            correctAnswerText: correctEntries.join(' · ')
+          };
+        } else if (type === 'text_input') {
           const userText = (formData.get('q_' + qDocId) || '').trim();
           if (!userText) {
             return {
@@ -2677,6 +2851,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       }
       const qEvalMode = data && data.evaluationMode ? data.evaluationMode : ((qTaxonomy === 'opinion' || qTaxonomy === 'creative' || qTaxonomy === 'inferential') ? 'ai_rubric' : 'keywords');
       const qRubricPrompt = data && data.rubricPrompt ? data.rubricPrompt : '';
+      const qClozeMode = (data && data.clozeMode) ? data.clozeMode : 'dropdown';
+      const qClozeTemplate = (data && data.clozeTemplate) ? data.clozeTemplate : '';
 
       let correctSingleIdx = 0;
       let correctMultipleArr = [0];
@@ -2709,6 +2885,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <option value="ordering" ${qType === 'ordering' ? 'selected' : ''}>↕️ Ordena Cronològicament (Seqüència)</option>
               <option value="image_single" ${qType === 'image_single' ? 'selected' : ''}>🖼️ Selecció d'Imatge (Respostes visuals)</option>
               <option value="text_input" ${qType === 'text_input' ? 'selected' : ''}>✍️ Resposta Oberta (Rúbrica IA / Paraules clau)</option>
+              <option value="cloze" ${qType === 'cloze' ? 'selected' : ''}>🧩 Omplir Buits (Cloze: desplegables o mots)</option>
             </select>
 
             <select class="q-img-mode-select hidden p-1 text-xs border border-teal-300 rounded-md font-bold text-teal-900 bg-teal-50 outline-none" onchange="toggleQuestionAnswerType(this)">
@@ -2870,6 +3047,39 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           <i class="fa-solid fa-arrow-down-short-wide text-amber-600 text-sm"></i>
           <span>↕️ Escriu les frases en l’ordre cronològic REAL (1r a 6è). Es mostraran barrejades a l’alumne automàticament.</span>
         </div>
+
+        <div class="q-cloze-box hidden p-3.5 bg-cyan-50/80 rounded-xl border border-cyan-200 space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-200/80 pb-2">
+            <span class="text-xs font-black text-cyan-950 flex items-center gap-1.5">
+              <i class="fa-solid fa-puzzle-piece text-cyan-600"></i> Configuració d'Omplir Buits (Cloze):
+            </span>
+            <div class="flex items-center gap-2 flex-wrap">
+              <select onchange="updateClozeEditorPreview(this)" class="q-cloze-mode p-1.5 text-xs font-extrabold rounded-lg border border-cyan-300 bg-white text-cyan-950 outline-none cursor-pointer">
+                <option value="dropdown" ${qClozeMode === 'dropdown' ? 'selected' : ''}>🔽 Amb desplegables (tria entre opcions)</option>
+                <option value="input" ${qClozeMode === 'input' ? 'selected' : ''}>⌨️ Escriure la paraula (sense desplegable)</option>
+              </select>
+              <button type="button" onclick="insertClozeBlankInEditor(this)" class="text-xs bg-cyan-600 hover:bg-cyan-700 text-white font-bold px-2.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-1 transition">
+                <i class="fa-solid fa-plus"></i> Inserir Buit [[...]]
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="block text-xs font-bold text-cyan-950">
+              Text amb buits (posa la resposta correcta en primer lloc dins de <code class="bg-white px-1.5 py-0.5 rounded border border-cyan-200 font-mono text-cyan-800">[[correcta|distractor1|distractor2]]</code>):
+            </label>
+            <textarea rows="3" oninput="updateClozeEditorPreview(this)" placeholder="Ex: El protagonista es va [[amagar|mostrar|perdre]] darrere l'arbre [[perquè|encara que|doncs]] tenia molta por." class="q-cloze-template w-full p-2.5 bg-white border border-cyan-300 rounded-lg text-xs sm:text-sm text-slate-800 outline-none focus:ring-2 focus:ring-cyan-500">${escapeHtmlAttr(qClozeTemplate)}</textarea>
+            <p class="text-[11px] text-cyan-900 leading-snug">
+              <i class="fa-solid fa-circle-info text-cyan-600 mr-1"></i>
+              <strong>En mode desplegable:</strong> separa la paraula correcta i les incorrectes amb <code class="font-mono font-bold">|</code> (ex: <code class="font-mono">[[va córrer|corria|correrà]]</code>; es barrejaran soles). <strong>En mode escriure:</strong> posa només <code class="font-mono">[[paraula]]</code> (tolera majúscules, accents i 1 errada lleu en mots llargs).
+            </p>
+          </div>
+
+          <div class="bg-white/90 p-3 rounded-xl border border-cyan-200/80 space-y-1">
+            <span class="block text-[10px] font-black uppercase tracking-wider text-cyan-700">Vista prèvia per a l'alumnat:</span>
+            <div class="q-cloze-preview"></div>
+          </div>
+        </div>
       `;
 
       container.appendChild(qDiv);
@@ -2992,6 +3202,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const opinionBox = block.querySelector('.q-opinion-box');
       const orderingBox = block.querySelector('.q-ordering-box');
       const textInputBox = block.querySelector('.q-text-input-box');
+      const clozeBox = block.querySelector('.q-cloze-box');
       const imagePreviewsBox = block.querySelector('.q-image-previews-box');
       const uploadContainers = block.querySelectorAll('.q-upload-btn-container');
       const badges = block.querySelectorAll('.opt-label-badge');
@@ -3003,6 +3214,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       orderingBox.classList.add('hidden');
       if (imgModeSelect) imgModeSelect.classList.add('hidden');
       if (textInputBox) textInputBox.classList.add('hidden');
+      if (clozeBox) clozeBox.classList.add('hidden');
       if (imagePreviewsBox) imagePreviewsBox.classList.add('hidden');
 
       uploadContainers.forEach(function(c) { c.classList.add('hidden'); });
@@ -3010,6 +3222,17 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const isOrdering = mainType === 'ordering';
       const isImage = mainType === 'image_single';
       const isTextInput = mainType === 'text_input';
+      const isCloze = mainType === 'cloze';
+
+      if (isCloze) {
+        optionsWrapper.classList.add('hidden');
+        if (clozeBox) {
+          clozeBox.classList.remove('hidden');
+          const tplEl = clozeBox.querySelector('.q-cloze-template');
+          if (tplEl) updateClozeEditorPreview(tplEl);
+        }
+        return;
+      }
 
       if (isTextInput) {
         optionsWrapper.classList.add('hidden');
@@ -3166,7 +3389,38 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const imgMode = block.querySelector('.q-img-mode-select').value || 'single';
           const taxonomyType = block.querySelector('.q-taxonomy-select').value || 'literal';
 
-          if (qType === 'text_input') {
+          if (qType === 'cloze') {
+            const clozeModeEl = block.querySelector('.q-cloze-mode');
+            const clozeMode = clozeModeEl ? clozeModeEl.value : 'dropdown';
+            const clozeTplEl = block.querySelector('.q-cloze-template');
+            const clozeTemplate = clozeTplEl ? clozeTplEl.value.trim() : '';
+            const parsedCloze = parseClozeTemplate(clozeTemplate);
+
+            if (!clozeTemplate || parsedCloze.blanks.length === 0) {
+              alert("⚠️ La pregunta d'omplir buits «" + qText + "» ha d'incloure almenys un buit amb el format [[resposta|opció2]].");
+              return;
+            }
+            if (clozeMode === 'dropdown') {
+              const invalidBlank = parsedCloze.blanks.find(function(b) { return b.allOptions.length < 2; });
+              if (invalidBlank) {
+                alert("⚠️ En mode desplegable, cada buit de la pregunta «" + qText + "» ha de tenir com a mínim 2 opcions separades per | (ex: [[correcta|incorrecta]]).");
+                return;
+              }
+            }
+
+            if (qText) {
+              await db.collection(DB_COLLECTION).doc(docId).collection(SUB_COLLECTION).add({
+                questionText: qText,
+                options: [],
+                questionType: 'cloze',
+                taxonomyType: taxonomyType,
+                clozeMode: clozeMode,
+                clozeTemplate: clozeTemplate,
+                orderIndex: orderIndex
+              });
+              orderIndex++;
+            }
+          } else if (qType === 'text_input') {
             const evalModeEl = block.querySelector('.q-open-eval-mode');
             const evaluationMode = evalModeEl ? evalModeEl.value : 'keywords';
             const rubricEl = block.querySelector('.q-rubric-prompt-input');
@@ -5536,10 +5790,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.41.0",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Nou Format Omplir Buits (Cloze)",
+          isCurrent: true,
+          summary: "Nou format de pregunta interactiva «Omplir buits (Cloze)» amb desplegables o escriptura de mots per treballar el vocabulari en context i la cohesió gramatical.",
+          highlights: [
+            "<strong>Dos modes d'interacció al lector:</strong> Permet triar entre <em>desplegables integrats a la frase</em> (amb opcions barrejades automàticament) o <em>caselles d'escriptura directa</em> amb tolerància a majúscules, accents i petites errades ortogràfiques.",
+            "<strong>Editor visual amb vista prèvia en directe:</strong> Sintaxi senzilla <code>[[resposta|distractor1|distractor2]]</code>, botó ràpid d'inserció i previsualització instantània dels buits detectats.",
+            "<strong>Avaluació proporcional i feedback detallat:</strong> Calcula la puntuació proporcional segons els buits encertats, mostra el detall buit per buit en acabar el qüestionari i inclou revelació de solucions al Mode Projecció a l'Aula (PDI)."
+          ]
+        },
+        {
           version: "v0.40.3",
           date: "Novembre 2026",
-          badge: "Versió Actual · Bústia i Missatgeria entre Docents",
-          isCurrent: true,
+          badge: "Bústia i Missatgeria entre Docents",
+          isCurrent: false,
           summary: "Activació completa de la missatgeria i suggeriments de millora entre docents amb bústia de recepció i enviats.",
           highlights: [
             "<strong>Enviament de propostes de millora des del lector:</strong> El botó «Enviar Suggeriment» obre un modal per redactar propostes pedagògiques, correccions o peticions d'adaptació DUA adreçades directament a l'autor/a de la lectura.",
@@ -5885,7 +6151,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.40.3
+              Versió Actual: v0.41.0
             </span>
           </div>
 
