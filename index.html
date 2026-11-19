@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.41.0</title>
+  <title>Lectura Aventura - v0.42.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.41.0</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.42.0</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.41.0...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.42.0...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p>&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span>v0.41.0 — Historial de versions</span>
+        <span>v0.42.0 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -382,6 +382,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     let isClassroomProjectionMode = false;
     let classroomStepMode = 'all'; // 'all' | 'single'
     let classroomCurrentQuestionIndex = 0;
+    let readerCurrentPartIndex = 0;
+    let readerCurrentDocId = null;
 
     let speechUtterance = null;
     let isSpeaking = false;
@@ -627,7 +629,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         return;
       }
       stopSpeechSynthesis();
-      const textElem = document.getElementById('reading-text-box') || document.getElementById('visual-reading-transcript');
+      const textElem = document.querySelector('#reading-text-box .reader-part-panel:not(.hidden)') || document.getElementById('reading-text-box') || document.getElementById('visual-reading-transcript');
       if (!textElem) return;
 
       currentTextToRead = textElem.innerText.trim();
@@ -764,6 +766,185 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         '<span><i class="fa-solid fa-puzzle-piece text-cyan-600 mr-1"></i> Buits detectats: <strong>' + parsed.blanks.length + '</strong></span>' +
         '<span>Cada buit encertat suma la part proporcional de la pregunta.</span></div>';
       previewBox.innerHTML = previewHTML;
+    }
+
+    // =========================================================================
+    // DIVISIÓ DE LECTURES LLARGUES PER CAPÍTOLS O PÀGINES (v0.42.0)
+    // =========================================================================
+    function parseContentParts(rawContent, docType) {
+      const text = (rawContent || '').trim();
+      if (!text) return [];
+      const lines = text.split(/\r?\n/);
+      const parts = [];
+      let currentTitle = null;
+      let currentLines = [];
+
+      lines.forEach(function(line) {
+        const match = line.trim().match(/^===\s*(.+?)\s*===$/);
+        if (match) {
+          if (currentTitle !== null || currentLines.join('\n').trim().length > 0) {
+            parts.push({
+              title: currentTitle || (docType === 'book' ? 'Capítol 1' : 'Part 1'),
+              content: currentLines.join('\n').trim()
+            });
+          }
+          currentTitle = match[1].trim();
+          currentLines = [];
+        } else {
+          currentLines.push(line);
+        }
+      });
+
+      if (currentTitle !== null || currentLines.join('\n').trim().length > 0) {
+        parts.push({
+          title: currentTitle || (docType === 'book' ? ('Capítol ' + (parts.length + 1)) : ('Part ' + (parts.length + 1))),
+          content: currentLines.join('\n').trim()
+        });
+      }
+
+      return parts;
+    }
+
+    function insertChapterDividerInEditor() {
+      const textarea = document.getElementById('editor-content');
+      if (!textarea) return;
+      const typeEl = document.getElementById('editor-type');
+      const isBook = typeEl && typeEl.value === 'book';
+      const existingParts = parseContentParts(textarea.value, isBook ? 'book' : 'text');
+      const nextNum = existingParts.length > 0 ? existingParts.length + 1 : 2;
+      const defaultLabel = isBook ? ('Capítol ' + nextNum) : ('Part ' + nextNum);
+      const customLabel = prompt(
+        isBook
+          ? "Títol del nou capítol del llibre (ex: Capítol 2: El bosc encantat):"
+          : "Títol de la nova part o pàgina (ex: Part 2, Pàgina 2):",
+        defaultLabel
+      );
+      if (customLabel === null) return;
+      const cleanLabel = customLabel.trim() || defaultLabel;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const before = textarea.value.substring(0, start);
+      const after = textarea.value.substring(end);
+      const prefix = before.length > 0 && !before.endsWith('\n') ? '\n\n' : (before.length > 0 ? '\n' : '');
+      const suffix = after.length > 0 && !after.startsWith('\n') ? '\n\n' : '';
+      const marker = prefix + '=== ' + cleanLabel + ' ===\n' + suffix;
+      textarea.value = before + marker + after;
+      textarea.focus();
+      updateChapterButtonsInQuestions();
+    }
+
+    function updateChapterButtonsInQuestions() {
+      const textarea = document.getElementById('editor-content');
+      const typeEl = document.getElementById('editor-type');
+      const isBook = typeEl && typeEl.value === 'book';
+      const parts = textarea ? parseContentParts(textarea.value, isBook ? 'book' : 'text') : [];
+      const hasMultipleParts = parts.length > 1;
+
+      document.querySelectorAll('#questions-container .q-block').forEach(function(block) {
+        const select = block.querySelector('.q-chapter-select');
+        if (!select) return;
+        const prevVal = select.value;
+        let optsHTML = '<option value="all">📌 Tota la lectura / General</option>';
+        if (hasMultipleParts) {
+          parts.forEach(function(p, idx) {
+            optsHTML += '<option value="' + idx + '">' + (isBook ? '📖 ' : '📄 ') + escapeHtmlAttr(p.title) + '</option>';
+          });
+        }
+        select.innerHTML = optsHTML;
+        if (prevVal !== 'all' && parts[parseInt(prevVal)]) {
+          select.value = prevVal;
+        } else {
+          select.value = 'all';
+        }
+        if (hasMultipleParts) {
+          select.classList.remove('hidden');
+        } else {
+          select.classList.add('hidden');
+        }
+      });
+    }
+
+    function navigateReaderPart(delta, totalParts) {
+      const nextIdx = readerCurrentPartIndex + delta;
+      if (nextIdx < 0 || nextIdx >= totalParts) return;
+      selectReaderPart(nextIdx, totalParts);
+    }
+
+    function selectReaderPart(partIdx, totalParts) {
+      if (partIdx < 0 || partIdx >= totalParts) return;
+      stopSpeechSynthesis();
+      readerCurrentPartIndex = partIdx;
+
+      // Actualitzar panells de contingut (text o resum de capítol de llibre)
+      const partPanels = document.querySelectorAll('.reader-part-panel');
+      partPanels.forEach(function(panel, idx) {
+        if (idx === partIdx) panel.classList.remove('hidden');
+        else panel.classList.add('hidden');
+      });
+
+      // Actualitzar pestanyes / índex de capítols o parts
+      const partTabs = document.querySelectorAll('.reader-part-tab');
+      partTabs.forEach(function(tab, idx) {
+        if (idx === partIdx) {
+          tab.className = 'reader-part-tab px-3 py-1.5 rounded-xl text-xs font-extrabold bg-indigo-600 text-white shadow-xs border border-indigo-700 transition flex items-center gap-1.5 shrink-0';
+        } else {
+          tab.className = 'reader-part-tab px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-indigo-50 text-slate-700 border border-slate-200 transition flex items-center gap-1.5 shrink-0';
+        }
+      });
+
+      // Actualitzar barra inferior "Anterior / Següent part"
+      const prevBtns = document.querySelectorAll('.btn-reader-prev-part');
+      const nextBtns = document.querySelectorAll('.btn-reader-next-part');
+      const counterLabels = document.querySelectorAll('.reader-part-counter-label');
+
+      prevBtns.forEach(function(btn) {
+        btn.disabled = partIdx === 0;
+      });
+      nextBtns.forEach(function(btn) {
+        if (partIdx >= totalParts - 1) {
+          btn.classList.add('hidden');
+        } else {
+          btn.classList.remove('hidden');
+        }
+      });
+      counterLabels.forEach(function(lbl) {
+        lbl.innerText = 'Part ' + (partIdx + 1) + ' de ' + totalParts;
+      });
+
+      // Filtrar preguntes associades al capítol/part actual (o generals)
+      const qWrappers = document.querySelectorAll('.reader-question-chapter-wrapper');
+      let visibleQCount = 0;
+      qWrappers.forEach(function(wrap) {
+        const targetPart = wrap.getAttribute('data-chapter-index');
+        if (targetPart === 'all' || targetPart === null || targetPart === '' || parseInt(targetPart) === partIdx) {
+          wrap.classList.remove('hidden');
+          visibleQCount++;
+        } else {
+          wrap.classList.add('hidden');
+        }
+      });
+
+      const chapterQNotice = document.getElementById('chapter-questions-filter-notice');
+      if (chapterQNotice) {
+        const activeTab = partTabs[partIdx];
+        const partName = activeTab ? activeTab.getAttribute('data-part-title') : ('Part ' + (partIdx + 1));
+        chapterQNotice.innerHTML = '<i class="fa-solid fa-bookmark text-indigo-600 mr-1"></i> Mostrant preguntes de: <strong>' + escapeHtmlAttr(partName) + '</strong> (' + visibleQCount + ' ' + (visibleQCount === 1 ? 'pregunta' : 'preguntes') + ')';
+      }
+
+      // Avis final si encara queden parts per llegir abans d'enviar el qüestionari
+      const pendingPartsWarning = document.getElementById('reader-pending-parts-warning');
+      if (pendingPartsWarning) {
+        if (partIdx < totalParts - 1) {
+          pendingPartsWarning.classList.remove('hidden');
+        } else {
+          pendingPartsWarning.classList.add('hidden');
+        }
+      }
+
+      const topAnchor = document.getElementById('reader-content-start-anchor') || document.getElementById('reader-top-anchor');
+      if (topAnchor) {
+        topAnchor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     }
 
     const QuestionEngine = {
@@ -2648,15 +2829,26 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
 
             <div id="wrapper-content">
-              <div class="flex justify-between items-center mb-1">
+              <div class="flex flex-wrap justify-between items-center gap-2 mb-1.5">
                 <label id="label-editor-content" class="block text-sm font-bold text-slate-700">
                   ${isAdaptedMode ? 'Text Simplificat / Adaptat (Escurça i adapta el text original) *' : 'Text de la Lectura *'}
                 </label>
-                <button type="button" id="btn-insert-glossary" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
-                  <i class="fa-solid fa-link"></i> Marcar Vocabulari
-                </button>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  ${!isReadOnlyText ? `
+                    <button type="button" id="btn-insert-chapter" onclick="insertChapterDividerInEditor()" class="text-xs text-indigo-800 bg-indigo-100 hover:bg-indigo-200 font-bold px-2.5 py-1 rounded-lg border border-indigo-300 flex items-center gap-1 shadow-2xs">
+                      <i class="fa-solid fa-file-circle-plus"></i> Dividir per Capítol / Pàgina
+                    </button>
+                  ` : ''}
+                  <button type="button" id="btn-insert-glossary" onclick="insertGlossaryLink()" class="text-xs text-teal-800 bg-teal-100 hover:bg-teal-200 font-bold px-2.5 py-1 rounded-lg border border-teal-300 flex items-center gap-1 shadow-2xs">
+                    <i class="fa-solid fa-link"></i> Marcar Vocabulari
+                  </button>
+                </div>
               </div>
-              <textarea id="editor-content" rows="6" placeholder="Escriu aquí el text de la lectura..." class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              <textarea id="editor-content" oninput="updateChapterButtonsInQuestions()" rows="6" placeholder="Escriu aquí el text de la lectura..." class="w-full p-2.5 border ${isAdaptedMode ? 'border-emerald-400 bg-emerald-50/20' : 'border-slate-300'} rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none font-sans" ${isReadOnlyText ? 'readonly' : ''}>${initialData.content || ''}</textarea>
+              <p id="hint-chapter-pagination" class="text-[11px] text-indigo-800 mt-1 flex items-center gap-1.5 bg-indigo-50/70 px-2.5 py-1 rounded-lg border border-indigo-100">
+                <i class="fa-solid fa-book-open text-indigo-600 shrink-0"></i>
+                <span id="hint-chapter-pagination-text">Pots dividir lectures llargues en pàgines o parts fent servir el botó <strong>«Dividir per Capítol / Pàgina»</strong> (inserirà <code>=== Part 2 ===</code>) perquè l'alumne ho llegeixi pas a pas.</span>
+              </p>
               <p id="hint-transcript-audio" class="hidden text-[11px] text-teal-800 mt-1 flex items-center gap-1">
                 <i class="fa-solid fa-headphones text-teal-600"></i>
                 <span>Opcional: Si escrius aquí el text que apareix a la imatge, s'activarà el botó <strong>Escolta (Veu alta)</strong> al lector per ajudar l'alumnat que s'inicia en la lectura.</span>
@@ -2784,14 +2976,27 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const hintTranscript = document.getElementById('hint-transcript-audio');
       const btnGlossary = document.getElementById('btn-insert-glossary');
       const labelSource = document.getElementById('label-editorial-source');
+      const hintChapterBox = document.getElementById('hint-chapter-pagination');
+      const hintChapterText = document.getElementById('hint-chapter-pagination-text');
       const isAdapted = document.getElementById('editor-is-adapted') && document.getElementById('editor-is-adapted').value === 'true';
 
       if (type === 'book') {
         if (wrapFormat) wrapFormat.classList.add('hidden');
         if (wrapRefImg) wrapRefImg.classList.add('hidden');
         if (refImgInput) refImgInput.removeAttribute('required');
-        wrapContent.classList.add('hidden');
-        if (contentInput) contentInput.removeAttribute('required');
+        wrapContent.classList.remove('hidden');
+        if (contentInput) {
+          contentInput.removeAttribute('required');
+          contentInput.rows = 5;
+          contentInput.placeholder = "Opcional: divideix el llibre per capítols per anar fent les preguntes capítol a capítol:\n=== Capítol 1: El començament ===\nResum o fragment del capítol 1...\n\n=== Capítol 2: El viatge ===\nResum o fragment del capítol 2...";
+        }
+        if (labelContent) labelContent.innerText = "Estructura per Capítols / Fragments del Llibre (Opcional)";
+        if (hintTranscript) hintTranscript.classList.add('hidden');
+        if (btnGlossary) btnGlossary.classList.remove('hidden');
+        if (hintChapterBox) hintChapterBox.classList.remove('hidden');
+        if (hintChapterText) {
+          hintChapterText.innerHTML = 'Divideix el llibre en capítols amb <strong>«Dividir per Capítol / Pàgina»</strong> (<code>=== Capítol 1 ===</code>) i després assigna cada pregunta al capítol corresponent!';
+        }
         wrapImage.classList.remove('hidden');
         wrapDurText.classList.add('hidden');
         wrapDurBook.classList.remove('hidden');
@@ -2814,6 +3019,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           }
           if (labelContent) labelContent.innerText = "Transcripció per a Síntesi de Veu / Text Alternatiu (Opcional)";
           if (hintTranscript) hintTranscript.classList.remove('hidden');
+          if (hintChapterBox) hintChapterBox.classList.add('hidden');
           if (btnGlossary) btnGlossary.classList.add('hidden');
         } else {
           if (wrapRefImg) wrapRefImg.classList.add('hidden');
@@ -2828,9 +3034,14 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             labelContent.innerText = isAdapted ? "Text Simplificat / Adaptat (Escurça i adapta el text original) *" : "Text de la Lectura *";
           }
           if (hintTranscript) hintTranscript.classList.add('hidden');
+          if (hintChapterBox) hintChapterBox.classList.remove('hidden');
+          if (hintChapterText) {
+            hintChapterText.innerHTML = 'Pots dividir lectures llargues en pàgines o parts fent servir el botó <strong>«Dividir per Capítol / Pàgina»</strong> (inserirà <code>=== Part 2 ===</code>) perquè l\'alumne ho llegeixi pas a pas.';
+          }
           if (btnGlossary) btnGlossary.classList.remove('hidden');
         }
       }
+      updateChapterButtonsInQuestions();
     }
 
     function addQuestionField(data) {
@@ -2853,6 +3064,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const qRubricPrompt = data && data.rubricPrompt ? data.rubricPrompt : '';
       const qClozeMode = (data && data.clozeMode) ? data.clozeMode : 'dropdown';
       const qClozeTemplate = (data && data.clozeTemplate) ? data.clozeTemplate : '';
+      const qChapterIndex = (data && data.chapterIndex !== undefined && data.chapterIndex !== null) ? String(data.chapterIndex) : 'all';
 
       let correctSingleIdx = 0;
       let correctMultipleArr = [0];
@@ -2900,6 +3112,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <option value="figurative" ${qTaxonomy === 'figurative' ? 'selected' : ''}>🟣 Sentit Figurat (Dites/Dobles)</option>
               <option value="opinion" ${qTaxonomy === 'opinion' ? 'selected' : ''}>💬 D'Opinió (Crítica)</option>
               <option value="creative" ${qTaxonomy === 'creative' ? 'selected' : ''}>🎨 Creativa (Alternatives)</option>
+            </select>
+
+            <select data-initial-chapter="${escapeHtmlAttr(qChapterIndex)}" title="Assigna aquesta pregunta a un capítol o part concreta" class="q-chapter-select hidden p-1 text-xs border border-amber-300 rounded-md font-bold text-amber-950 bg-amber-50 outline-none">
+              <option value="all">📌 Tota la lectura / General</option>
             </select>
           </div>
 
@@ -3086,6 +3302,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
       const selectElem = qDiv.querySelector('.q-type-select');
       if (selectElem) toggleQuestionAnswerType(selectElem);
+
+      updateChapterButtonsInQuestions();
+      const chSelect = qDiv.querySelector('.q-chapter-select');
+      if (chSelect && qChapterIndex !== 'all') {
+        chSelect.value = qChapterIndex;
+      }
 
       updateQuestionIndexes();
     }
@@ -3388,6 +3610,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const qType = block.querySelector('.q-type-select').value || 'single';
           const imgMode = block.querySelector('.q-img-mode-select').value || 'single';
           const taxonomyType = block.querySelector('.q-taxonomy-select').value || 'literal';
+          const chapterSelectEl = block.querySelector('.q-chapter-select');
+          const chapterIndexVal = (chapterSelectEl && chapterSelectEl.value !== 'all') ? parseInt(chapterSelectEl.value) : null;
 
           if (qType === 'cloze') {
             const clozeModeEl = block.querySelector('.q-cloze-mode');
@@ -3416,6 +3640,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 taxonomyType: taxonomyType,
                 clozeMode: clozeMode,
                 clozeTemplate: clozeTemplate,
+                chapterIndex: chapterIndexVal,
                 orderIndex: orderIndex
               });
               orderIndex++;
@@ -3442,6 +3667,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 evaluationMode: evaluationMode,
                 rubricPrompt: rubricPrompt,
                 keywords: keywordsArr,
+                chapterIndex: chapterIndexVal,
                 orderIndex: orderIndex
               });
               orderIndex++;
@@ -3461,6 +3687,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 questionType: qType,
                 imageSelectionMode: imgMode,
                 taxonomyType: taxonomyType,
+                chapterIndex: chapterIndexVal,
                 orderIndex: orderIndex
               };
 
@@ -3670,10 +3897,20 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         }
 
         const data = doc.data() || {};
+        if (readerCurrentDocId !== docId) {
+          readerCurrentDocId = docId;
+          readerCurrentPartIndex = 0;
+        }
+
         const isBook = data.type === 'book';
         const isVisualText = !isBook && data.contentFormat === 'image';
         const refImgUrl = data.referenceImageUrl || data.imageUrl || '';
         const hasTranscript = isVisualText && (data.content || '').trim().length > 0;
+        const contentParts = !isVisualText ? parseContentParts(data.content, isBook ? 'book' : 'text') : [];
+        const hasMultipleParts = contentParts.length > 1;
+        if (!hasMultipleParts || readerCurrentPartIndex >= contentParts.length) {
+          readerCurrentPartIndex = 0;
+        }
 
         const readingNum = data.readingNumber || 1;
         const readingCode = formatReadingCode(readingNum);
@@ -3815,12 +4052,47 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               ${classroomViewControlsHTML}
           `;
 
+          const hasChapterTaggedQuestions = hasMultipleParts && Array.from(questionsSnap.docs || []).some(function(d) {
+            const qd = d.data() || {};
+            return qd.chapterIndex !== undefined && qd.chapterIndex !== null && qd.chapterIndex !== 'all';
+          });
+
+          if (hasChapterTaggedQuestions) {
+            const activePartTitle = contentParts[readerCurrentPartIndex] ? contentParts[readerCurrentPartIndex].title : ('Part ' + (readerCurrentPartIndex + 1));
+            questionsHTML += `
+              <div id="chapter-questions-filter-notice" class="mb-4 bg-indigo-50 border border-indigo-200 text-indigo-950 px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-center justify-between flex-wrap gap-2">
+                <span><i class="fa-solid fa-bookmark text-indigo-600 mr-1"></i> Mostrant preguntes de: <strong>${escapeHtmlAttr(activePartTitle)}</strong></span>
+              </div>
+            `;
+          }
+
           let qIndex = 0;
           questionsSnap.forEach(function(qDoc) {
             const q = qDoc.data() || {};
-            questionsHTML += QuestionEngine.render(qDoc.id, q, qIndex, totalQuestions, glossaryList);
+            const qChIdx = (hasChapterTaggedQuestions && q.chapterIndex !== undefined && q.chapterIndex !== null && q.chapterIndex !== 'all')
+              ? parseInt(q.chapterIndex)
+              : 'all';
+            const isHiddenInitially = hasChapterTaggedQuestions && qChIdx !== 'all' && qChIdx !== readerCurrentPartIndex;
+            questionsHTML += '<div class="reader-question-chapter-wrapper ' + (isHiddenInitially ? 'hidden' : '') + '" data-chapter-index="' + qChIdx + '">' +
+              QuestionEngine.render(qDoc.id, q, qIndex, totalQuestions, glossaryList) +
+              '</div>';
             qIndex++;
           });
+
+          if (hasMultipleParts) {
+            questionsHTML += `
+              <div id="reader-pending-parts-warning" class="${readerCurrentPartIndex < contentParts.length - 1 ? '' : 'hidden'} mb-4 bg-amber-50 border border-amber-300 text-amber-950 p-3.5 rounded-xl text-xs font-semibold flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div class="flex items-center gap-2">
+                  <i class="fa-solid fa-book-open-reader text-amber-600 text-base shrink-0"></i>
+                  <span>Encara queden parts o capítols per llegir abans d'enviar tot el qüestionari!</span>
+                </div>
+                <button type="button" onclick="navigateReaderPart(1, ${contentParts.length})" class="btn-reader-next-part shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs shadow transition inline-flex items-center gap-1.5">
+                  <span>Següent part</span>
+                  <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+            `;
+          }
 
           questionsHTML += isClassroomProjectionMode ? `
               <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-black py-3.5 rounded-2xl shadow-md transition text-base md:text-lg flex items-center justify-center gap-2">
@@ -3900,8 +4172,80 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           </div>
         ` : '';
 
+        let partsNavigationHeaderHTML = '';
+        let partsNavigationFooterHTML = '';
+        if (hasMultipleParts) {
+          partsNavigationHeaderHTML = `
+            <div id="reader-content-start-anchor" class="mb-4 bg-indigo-50/80 p-3 rounded-2xl border border-indigo-200/90 space-y-2.5">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <span class="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                  <i class="fa-solid ${isBook ? 'fa-book-bookmark text-purple-600' : 'fa-book-open text-indigo-600'}"></i>
+                  <span>${isBook ? 'Capítols del llibre' : 'Lectura dividida en parts'} (${contentParts.length}):</span>
+                </span>
+                <span class="reader-part-counter-label text-xs font-extrabold bg-white text-indigo-800 px-2.5 py-0.5 rounded-lg border border-indigo-200">
+                  Part ${readerCurrentPartIndex + 1} de ${contentParts.length}
+                </span>
+              </div>
+              <div class="flex items-center gap-1.5 overflow-x-auto pb-1">
+                ${contentParts.map(function(p, idx) {
+                  const isActive = idx === readerCurrentPartIndex;
+                  return '<button type="button" data-part-title="' + escapeHtmlAttr(p.title) + '" onclick="selectReaderPart(' + idx + ', ' + contentParts.length + ')" class="reader-part-tab px-3 py-1.5 rounded-xl text-xs ' + (isActive ? 'font-extrabold bg-indigo-600 text-white shadow-xs border border-indigo-700' : 'font-bold bg-white hover:bg-indigo-50 text-slate-700 border border-slate-200') + ' transition flex items-center gap-1.5 shrink-0">' +
+                    '<span class="opacity-75">' + (idx + 1) + '.</span>' +
+                    '<span>' + escapeHtmlAttr(p.title) + '</span>' +
+                  '</button>';
+                }).join('')}
+              </div>
+            </div>
+          `;
+
+          partsNavigationFooterHTML = `
+            <div class="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-slate-200/80">
+              <button type="button" onclick="navigateReaderPart(-1, ${contentParts.length})" ${readerCurrentPartIndex === 0 ? 'disabled' : ''} class="btn-reader-prev-part px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 disabled:opacity-40 text-slate-700 font-bold text-xs sm:text-sm border border-slate-300 shadow-2xs transition inline-flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Part anterior</span>
+              </button>
+
+              <span class="reader-part-counter-label text-xs font-extrabold text-slate-500">
+                Part ${readerCurrentPartIndex + 1} de ${contentParts.length}
+              </span>
+
+              <button type="button" onclick="navigateReaderPart(1, ${contentParts.length})" class="btn-reader-next-part ${readerCurrentPartIndex >= contentParts.length - 1 ? 'hidden' : ''} px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm shadow-md transition inline-flex items-center gap-2">
+                <span>Següent part</span>
+                <i class="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+          `;
+        }
+
         let headerContentHTML = '';
         if (isBook) {
+          let bookChaptersContentHTML = '';
+          if (contentParts.length > 0) {
+            const bookPanelsHTML = contentParts.map(function(part, idx) {
+              const hiddenClass = (hasMultipleParts && idx !== readerCurrentPartIndex) ? 'hidden' : '';
+              return `
+                <div class="reader-part-panel ${hiddenClass} space-y-2.5">
+                  <div class="flex items-center gap-2 pb-1.5 border-b border-purple-200/80">
+                    <span class="text-xs font-black uppercase tracking-wider text-purple-800 bg-purple-100 px-2.5 py-0.5 rounded-md border border-purple-200">
+                      📖 ${escapeHtmlAttr(part.title)}
+                    </span>
+                  </div>
+                  <div class="text-slate-700 leading-relaxed whitespace-pre-line" style="font-size: ${readerFontSize}px;">
+                    ${parseContentWithGlossary(part.content, glossaryList)}
+                  </div>
+                </div>
+              `;
+            }).join('');
+
+            bookChaptersContentHTML = `
+              ${partsNavigationHeaderHTML}
+              <div id="reading-text-box" class="p-5 rounded-2xl bg-purple-50/40 border border-purple-200/90 text-slate-700 mb-6 transition-all duration-200">
+                ${bookPanelsHTML}
+                ${partsNavigationFooterHTML}
+              </div>
+            `;
+          }
+
           headerContentHTML = `
             <div class="flex flex-col md:flex-row gap-6 items-center bg-indigo-50/50 p-5 rounded-2xl border border-indigo-100 mb-6">
               ${data.imageUrl ? '<img src="' + data.imageUrl + '" alt="Coberta" class="w-32 h-44 object-cover rounded-xl shadow-md border border-slate-200">' : '<div class="w-32 h-44 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-400"><i class="fa-solid fa-book text-4xl"></i></div>'}
@@ -3917,6 +4261,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 </div>
               </div>
             </div>
+            ${bookChaptersContentHTML}
           `;
         } else if (isVisualText) {
           headerContentHTML = `
@@ -3962,8 +4307,18 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </div>
             </div>
             ${accessibilityToolbarHTML}
-            <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border ${isCurrentlyAdapted ? 'border-emerald-300' : 'border-slate-200'} text-slate-700 leading-relaxed whitespace-pre-line mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
-              ${parseContentWithGlossary(data.content, glossaryList)}
+            ${partsNavigationHeaderHTML}
+            <div id="reading-text-box" class="p-5 rounded-2xl bg-slate-50 border ${isCurrentlyAdapted ? 'border-emerald-300' : 'border-slate-200'} text-slate-700 leading-relaxed mb-6 transition-all duration-200" style="font-size: ${readerFontSize}px;">
+              ${hasMultipleParts ? contentParts.map(function(part, idx) {
+                const hiddenClass = idx !== readerCurrentPartIndex ? 'hidden' : '';
+                return '<div class="reader-part-panel ' + hiddenClass + ' space-y-3">' +
+                  '<div class="pb-2 border-b border-slate-200/80 flex items-center justify-between">' +
+                    '<span class="text-xs font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">' + escapeHtmlAttr(part.title) + '</span>' +
+                  '</div>' +
+                  '<div class="whitespace-pre-line">' + parseContentWithGlossary(part.content, glossaryList) + '</div>' +
+                '</div>';
+              }).join('') : '<div class="whitespace-pre-line">' + parseContentWithGlossary(data.content, glossaryList) + '</div>'}
+              ${partsNavigationFooterHTML}
             </div>
           `;
         }
@@ -5790,10 +6145,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.42.0",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Divisió per Capítols o Pàgines",
+          isCurrent: true,
+          summary: "Paginació de lectures llargues i divisió per capítols en llibres amb botó «Següent part» i preguntes associades a cada capítol.",
+          highlights: [
+            "<strong>Divisió en parts, pàgines o capítols (<code>=== Títol ===</code>):</strong> Disponible tant per a lectures escrites llargues com per a fitxes de llibres des del botó <em>«Dividir per Capítol / Pàgina»</em> de l'editor.",
+            "<strong>Navegació progressiva al lector amb botó «Següent part»:</strong> L'alumne llegeix el text fragment a fragment sense veure's aclaparat per blocs extensos, amb índex superior i control de lectura en veu alta adaptat a la part activa.",
+            "<strong>Preguntes comprensives per capítol:</strong> En els llibres i lectures dividides, el docent pot vincular cada pregunta a un capítol concret perquè l'alumne les vagi responent a mesura que avança."
+          ]
+        },
+        {
           version: "v0.41.0",
           date: "Novembre 2026",
-          badge: "Versió Actual · Nou Format Omplir Buits (Cloze)",
-          isCurrent: true,
+          badge: "Nou Format Omplir Buits (Cloze)",
+          isCurrent: false,
           summary: "Nou format de pregunta interactiva «Omplir buits (Cloze)» amb desplegables o escriptura de mots per treballar el vocabulari en context i la cohesió gramatical.",
           highlights: [
             "<strong>Dos modes d'interacció al lector:</strong> Permet triar entre <em>desplegables integrats a la frase</em> (amb opcions barrejades automàticament) o <em>caselles d'escriptura directa</em> amb tolerància a majúscules, accents i petites errades ortogràfiques.",
@@ -6151,7 +6518,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.41.0
+              Versió Actual: v0.42.0
             </span>
           </div>
 
