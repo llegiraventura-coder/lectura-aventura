@@ -1,347 +1,160 @@
 // =========================================================================
-// CAPÍTOL 1: CONFIGURACIÓ FIREBASE, IA (GEMINI), ESTAT GLOBAL I UTILS
+// CAPÍTOL 1: CONFIGURACIÓ FIREBASE, ESTAT GLOBAL, UTILITATS, PUJADA IMATGES I IA GEMINI
 // =========================================================================
 
-function withTimeout(promise, ms, label) {
-  ms = ms || 8000;
-  label = label || "connexió amb la base de dades";
-  return Promise.race([
-    promise,
-    new Promise(function(_, reject) {
-      setTimeout(function() {
-        reject(new Error("Temps d'espera esgotat (" + (ms / 1000) + "s) en " + label + ". Comprova la connexió o torna-ho a provar."));
-      }, ms);
-    })
-  ]);
-}
-
+// 1. CONFIGURACIÓ DE FIREBASE I GEMINI (Substitueix amb les teves claus)
 const firebaseConfig = {
-  apiKey: "AIzaSyCcBpg9FRwYDElWoZlYsGir4ZA_HqS0BDc",
-  authDomain: "lectura-aventura.firebaseapp.com",
-  projectId: "lectura-aventura",
-  storageBucket: "lectura-aventura.firebasestorage.app",
-  messagingSenderId: "525339295825",
-  appId: "1:525339295825:web:3a5b3ea8791f6146d4b870",
-  measurementId: "G-7132LXLDTR"
+  apiKey: "EL_TEU_API_KEY",
+  authDomain: "EL_TEU_PROJECTE.firebaseapp.com",
+  projectId: "EL_TEU_PROJECTE",
+  storageBucket: "EL_TEU_PROJECTE.appspot.com",
+  messagingSenderId: "EL_TEU_MESSAGING_ID",
+  appId: "EL_TEU_APP_ID"
 };
 
+const GEMINI_API_KEY = "LA_TEVA_CLAU_GEMINI_API";
+
+let appFirebase = null;
 let auth = null;
 let db = null;
 let storage = null;
 
 try {
-  if (typeof firebase === 'undefined') {
-    throw new Error("No s'ha pogut carregar l'SDK de Firebase. Revisa la connexió a Internet o bloquejadors d'scripts.");
+  if (typeof firebase !== 'undefined') {
+    appFirebase = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+    if (typeof firebase.storage === 'function') {
+      storage = firebase.storage();
+    }
   }
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
-  auth = firebase.auth();
-  db = firebase.firestore();
-  storage = firebase.storage();
 } catch (initErr) {
-  showGlobalError("Error iniciant Firebase: " + initErr.message);
-  const appEl = document.getElementById('app');
-  if (appEl) {
-    appEl.innerHTML = '<div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center space-y-3"><h3 class="font-bold">Error d\'inicialització</h3><p class="text-xs">' + initErr.message + '</p></div>';
-  }
+  console.error("Error inicialitzant Firebase:", initErr);
 }
 
-const DB_COLLECTION = "lectures";
-const FOLDERS_COLLECTION = "folders";
-const SUB_COLLECTION = "questions";
-const FEEDBACK_COLLECTION = "teacher_feedback";
-const ADMIN_SUPREMO_EMAIL = "scasas26@xtec.cat";
-const GEMINI_API_KEY_STORAGE = "lectura_aventura_gemini_key_v39";
+// 2. CONSTANTS DEL SISTEMA I COL·LECCIONS FIRESTORE
+const DB_COLLECTION = 'lectures_catala';
+const SUB_COLLECTION = 'preguntes';
+const FEEDBACK_COLLECTION = 'feedback_docents';
+const FOLDERS_COLLECTION = 'carpetes_lectures';
+const ADMIN_SUPREMO_EMAIL = 'albert@escola.cat';
 
-function getCachedGeminiKey() {
-  try {
-    return (localStorage.getItem(GEMINI_API_KEY_STORAGE) || '').trim();
-  } catch (e) {
-    return '';
-  }
-}
+const STUDENT_RANKS = [
+  { name: 'Aprenent de Lector', minPoints: 0, badgeBg: 'bg-slate-100 text-slate-700 border-slate-300', barColor: 'bg-slate-500' },
+  { name: 'Explorador de Lletres', minPoints: 50, badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-300', barColor: 'bg-emerald-500' },
+  { name: 'Cercador d\'Històries', minPoints: 150, badgeBg: 'bg-sky-50 text-sky-800 border-sky-300', barColor: 'bg-sky-500' },
+  { name: 'Mestre de la Comprensió', minPoints: 300, badgeBg: 'bg-indigo-50 text-indigo-800 border-indigo-300', barColor: 'bg-indigo-600' },
+  { name: 'Lector Llegendari', minPoints: 500, badgeBg: 'bg-amber-50 text-amber-800 border-amber-300', barColor: 'bg-amber-500' }
+];
 
-async function fetchGlobalGeminiKey() {
-  const localKey = getCachedGeminiKey();
-  if (localKey) return localKey;
-  if (!db) return '';
-  try {
-    const cfgDoc = await withTimeout(db.collection("app_config").doc("ai_settings").get(), 4000, "configuració IA");
-    if (cfgDoc.exists && cfgDoc.data().geminiApiKey) {
-      const remoteKey = cfgDoc.data().geminiApiKey.trim();
-      try { localStorage.setItem(GEMINI_API_KEY_STORAGE, remoteKey); } catch (e) {}
-      return remoteKey;
-    }
-  } catch (e) {
-    console.warn("No s'ha pogut llegir la clau IA global:", e);
-  }
-  return '';
-}
+const TAXONOMY_CONFIG = {
+  literal: { label: 'Comprensió Literal', color: 'bg-sky-50 text-sky-800 border-sky-200', icon: 'fa-magnifying-glass' },
+  inferencial: { label: 'Comprensió Inferencial', color: 'bg-indigo-50 text-indigo-800 border-indigo-200', icon: 'fa-brain' },
+  figurat: { label: 'Sentit Figurat i Vocabulari', color: 'bg-purple-50 text-purple-800 border-purple-200', icon: 'fa-feather-pointed' },
+  critica: { label: 'Reflexió i Opinió Crítica', color: 'bg-amber-50 text-amber-800 border-amber-200', icon: 'fa-scale-balanced' },
+  creativa: { label: 'Expressió Creativa', color: 'bg-emerald-50 text-emerald-800 border-emerald-200', icon: 'fa-palette' }
+};
 
-async function configureAiRubricEndpoint() {
-  const current = await fetchGlobalGeminiKey();
-  const key = prompt(
-    "Enganxa aquí la teva API Key gratuïta de Google AI Studio:\n(Es desarà a Firebase perquè tots els teus alumnes la puguin utilitzar automàticament)",
-    current
-  );
-  if (key === null) return;
-  const cleanKey = key.trim();
-  try {
-    if (cleanKey) localStorage.setItem(GEMINI_API_KEY_STORAGE, cleanKey);
-    else localStorage.removeItem(GEMINI_API_KEY_STORAGE);
-
-    if (db && currentUser) {
-      await db.collection("app_config").doc("ai_settings").set({
-        geminiApiKey: cleanKey,
-        updatedBy: currentUser.email,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    }
-    alert("✅ Clau de Gemini desada correctament! Ja pots avaluar preguntes obertes amb IA.");
-  } catch (e) {
-    alert("⚠️ Desada al navegador, però error en pujar-la a Firestore (revisa les regles): " + e.message);
-  }
-}
-
-function levenshteinDistance(a, b) {
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-  const matrix = [];
-  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  return matrix[b.length][a.length];
-}
-
-function matchesKeywordFuzzy(rawUserText, keyword) {
-  const normKw = normalizeText(keyword);
-  if (!normKw) return false;
-  const normFull = normalizeText(rawUserText);
-  if (normFull.includes(normKw)) return true;
-  if (normKw.length < 4) return false;
-  const maxDist = normKw.length >= 7 ? 2 : 1;
-  const words = (rawUserText || '').split(/\s+/);
-  for (let i = 0; i < words.length; i++) {
-    const w = normalizeText(words[i]);
-    if (Math.abs(w.length - normKw.length) <= maxDist) {
-      if (levenshteinDistance(w, normKw) <= maxDist) return true;
-    }
-  }
-  return false;
-}
-
-function evaluateKeywordsFallback(userText, qData) {
-  let keywords = [];
-  if (Array.isArray(qData.keywords)) keywords = qData.keywords;
-  else if (typeof qData.keywords === 'string') keywords = qData.keywords.split(',').map(function(k) { return k.trim(); }).filter(Boolean);
-  else if (qData.correctAnswerText) keywords = [qData.correctAnswerText];
-
-  const cleanWords = (userText || '').trim().split(/\s+/).filter(Boolean);
-  if (cleanWords.length === 0) {
-    return {
-      status: 'incorrect',
-      multiplier: 0,
-      feedback: "No has escrit cap resposta.",
-      usedFallback: true
-    };
-  }
-
-  if (keywords.length === 0) {
-    const isLongEnough = cleanWords.length >= 3;
-    return {
-      status: isLongEnough ? 'correct' : 'partial',
-      multiplier: isLongEnough ? 1.0 : 0.5,
-      feedback: isLongEnough
-        ? "Resposta enregistrada correctament!"
-        : "Has escrit una resposta molt breu. Intenta explicar-ho amb una frase més completa!",
-      usedFallback: true
-    };
-  }
-
-  const matched = keywords.filter(function(kw) { return matchesKeywordFuzzy(userText, kw); });
-  if (matched.length > 0) {
-    return {
-      status: 'correct',
-      multiplier: 1.0,
-      feedback: "Molt bé! La teva resposta inclou els conceptes clau esperats (" + matched.join(", ") + ").",
-      usedFallback: true
-    };
-  }
-  return {
-    status: 'incorrect',
-    multiplier: 0,
-    feedback: "Revisa el text i assegura't d'incloure la idea principal que es demana a la pregunta.",
-    usedFallback: true
-  };
-}
-
-async function evaluateOpenAnswerWithAI(params) {
-  const apiKey = await fetchGlobalGeminiKey();
-  if (!apiKey) {
-    console.warn("Falta la clau de Gemini; s'activa el fallback local.");
-    const fb = evaluateKeywordsFallback(params.studentAnswer, params.qData);
-    fb.feedback = "⚡ (Mode paraules clau) " + fb.feedback;
-    return fb;
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(function() { controller.abort(); }, 10000);
-
-  const promptText = `Ets un docent expert en comprensió lectora en llengua catalana per a alumnat de ${params.readingLevel || 'Primària'}.
-Avalua la resposta oberta d'un alumne basant-te en el text i la rúbrica docent.
-
-TÍTOL DE LA LECTURA: ${params.readingTitle || ''}
-TEXT DE REFERÈNCIA:
-"""
-${(params.textFragment || '').slice(0, 5000)}
-"""
-
-PREGUNTA (${params.taxonomyType || 'opinió'}): ${params.question || ''}
-CRITERI / RÚBRICA DEL DOCENT: ${params.rubricPrompt || 'Valora que la resposta sigui coherent amb el text i estigui ben argumentada.'}
-
-RESPOSTA DE L'ALUMNE: "${params.studentAnswer || ''}"
-
-INSTRUCCIONS D'AVALUACIÓ:
-- No penalitzis petites faltes d'ortografia o accents si la idea s'entén clarament.
-- Classifica la resposta en un d'aquests tres estats:
-  * "correct" (si compleix bé el criteri i s'explica amb coherència).
-  * "partial" (si té part de raó però li falta argumentar-ho o és massa incompleta).
-  * "incorrect" (si no té relació amb el text, contradiu la lectura o no respon la pregunta).
-- Escriu un "feedback" breu (1-2 frases), proper, motivador i en català adreçat directament a l'alumne (tractant-lo de "tu").
-
-Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
-{"status": "correct" | "partial" | "incorrect", "feedback": "text del feedback"}`;
-
-  try {
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + encodeURIComponent(apiKey);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: promptText }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: "application/json"
-        }
-      })
-    });
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error("HTTP " + response.status);
-    }
-
-    const rawJson = await response.json();
-    const textResponse = rawJson.candidates[0].content.parts[0].text;
-    const data = JSON.parse(textResponse);
-
-    let mult = 0;
-    if (data.status === 'correct') mult = 1.0;
-    else if (data.status === 'partial') mult = 0.5;
-
-    return {
-      status: data.status || 'incorrect',
-      multiplier: mult,
-      feedback: data.feedback || (data.status === 'correct' ? "Molt ben argumentat!" : "Revisa el text i completa la teva reflexió."),
-      usedFallback: false
-    };
-  } catch (err) {
-    clearTimeout(timeoutId);
-    console.warn("Fallback automàtic activat per a la pregunta oberta:", err);
-    const fb = evaluateKeywordsFallback(params.studentAnswer, params.qData);
-    fb.feedback = "⚡ (Correcció automàtica local) " + fb.feedback;
-    return fb;
-  }
-}
-
+// 3. ESTAT GLOBAL DE L'APLICACIÓ
 let currentUser = null;
-let userPoints = 0;
 let userRole = 'alumne';
+let userDisplayName = '';
+let userPoints = 0;
 let userCompletedReadings = [];
 let userScores = {};
 let userReadingHistory = {};
-let userTaxonomyStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
+let userTaxonomyStats = {};
 let userHasImprovedScore = false;
-let userDisplayName = "";
-let userSchool = "";
-let userTeacherUid = "";
-let userClassGroup = "";
+let userTeacherUid = '';
+let userTeacherName = '';
+let userClassGroup = '';
 let userTeacherGroups = [];
-let selectedClassroomFilter = "all";
-let filterMyLectures = false;
+
+let cachedLecturesList = [];
+let cachedFoldersList = [];
+let currentCatalogFilter = 'tots';
+let currentLevelFilter = 'tots';
+let currentTypeFilter = 'tots';
+let currentAuthorFilter = 'tots';
+let currentSearchQuery = '';
+let showOnlyMyReadings = false;
+let currentLeaderboardTab = 'global';
+let selectedClassroomFilter = 'all';
+
 let editingDocId = null;
 let cloningParentId = null;
-let cloningMode = 'questions';
-let currentLeaderboardTab = 'group';
-let isInitialRouteDone = false;
 
 let isDyslexicMode = false;
 let readerFontSize = 18;
 let readerTheme = 'default';
-let isClassroomProjectionMode = false;
-let classroomStepMode = 'all'; // 'all' | 'single'
-let classroomCurrentQuestionIndex = 0;
-let readerCurrentPartIndex = 0;
-let readerCurrentDocId = null;
-
-let speechUtterance = null;
 let isSpeaking = false;
 let isSpeechPaused = false;
+let speechUtterance = null;
 let speechRate = 1.0;
-let currentTextToRead = "";
+let currentTextToRead = '';
 
-let filterSearch = "";
-let filterBookAuthor = "";
-let filterType = "all";
-let filterLevel = "all";
-let filterCategory = "all";
-let filterStatus = "all";
-let filterDuration = "all";
+let readerCurrentPartIndex = 0;
+let readerCurrentDocId = null;
+let isClassroomProjectionMode = false;
+let classroomStepMode = 'all';
+let classroomCurrentQuestionIndex = 0;
 
-const TAXONOMY_CONFIG = {
-  literal: { label: "Literal", desc: "Buscar informació explícita en el text", color: "bg-emerald-100 text-emerald-800 border-emerald-300", icon: "fa-magnifying-glass" },
-  inferential: { label: "Inferencial", desc: "Deduir informació implícita a partir de pistes", color: "bg-blue-100 text-blue-800 border-blue-300", icon: "fa-lightbulb" },
-  figurative: { label: "Sentit Figurat", desc: "Desxifrar frases fetes, dites i llenguatge no literal", color: "bg-purple-100 text-purple-800 border-purple-300", icon: "fa-comments" },
-  opinion: { label: "D'Opinió", desc: "Valorar, jutjar o donar el punt de vista crític", color: "bg-amber-100 text-amber-900 border-amber-300", icon: "fa-scale-balanced" },
-  creative: { label: "Creativa", desc: "Proposar alternatives o connectar amb l'expressió artística", color: "bg-rose-100 text-rose-800 border-rose-300", icon: "fa-wand-magic-sparkles" }
-};
-
-const STUDENT_RANKS_CATALOG = [
-  { min: 0, max: 99, name: "Explorador/a d'Històries", desc: "El punt de partida de tota gran aventura.", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", badgeBg: "bg-indigo-100 text-indigo-800 border-indigo-300" },
-  { min: 100, max: 299, name: "Lector/a de Bronze", desc: "Ja domines les primeres lectures i reptes!", icon: "fa-award", color: "from-amber-700 to-amber-900", badgeBg: "bg-amber-100 text-amber-900 border-amber-300" },
-  { min: 300, max: 699, name: "Lector/a d'Argent", desc: "La teva comprensió lectora brilla amb força.", icon: "fa-medal", color: "from-slate-400 to-slate-600", badgeBg: "bg-slate-200 text-slate-800 border-slate-300" },
-  { min: 700, max: 1299, name: "Lector/a d'Or", desc: "Un referent de lectura i constància al centre.", icon: "fa-trophy", color: "from-amber-300 to-amber-500", badgeBg: "bg-yellow-100 text-yellow-900 border-yellow-400" },
-  { min: 1300, max: Infinity, name: "Mestre/a de la Lectura", desc: "El màxim reconeixement de Lectura Aventura!", icon: "fa-crown", color: "from-amber-400 to-amber-600", badgeBg: "bg-amber-200 text-amber-950 border-amber-500" }
-];
-
-const TEACHER_RANKS_CATALOG = [
-  { min: 0, max: 0, name: "🎒 Docent Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", color: "from-slate-400 to-indigo-500", badgeBg: "bg-slate-50 text-slate-600 border-slate-200" },
-  { min: 1, max: 2, name: "👨‍🏫 Docent Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", color: "from-slate-500 to-slate-700", badgeBg: "bg-slate-100 text-slate-800 border-slate-300" },
-  { min: 3, max: 5, name: "📝 Docent Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", color: "from-teal-500 to-emerald-700", badgeBg: "bg-teal-50 text-teal-800 border-teal-200" },
-  { min: 6, max: 9, name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", color: "from-indigo-500 to-indigo-700", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200" },
-  { min: 10, max: 14, name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", color: "from-amber-600 to-amber-800", badgeBg: "bg-amber-50 text-amber-800 border-amber-200" },
-  { min: 15, max: 19, name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", color: "from-blue-600 to-indigo-800", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300" },
-  { min: 20, max: Infinity, name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", color: "from-amber-400 to-amber-600", badgeBg: "bg-amber-100 text-amber-900 border-amber-300" }
-];
+// 4. UTILITATS GENERALS, TIMEOUTS I ESCAPAT SEGUR D'HTML
+function withTimeout(promise, ms, label) {
+  let timer;
+  const timeoutPromise = new Promise(function(_, reject) {
+    timer = setTimeout(function() {
+      reject(new Error('Temps exhaurit (' + Math.round(ms / 1000) + 's) en: ' + (label || 'operació')));
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(function() {
+    clearTimeout(timer);
+  });
+}
 
 function isUserAdminOrCreator() {
   if (!currentUser) return false;
   if (currentUser.email === ADMIN_SUPREMO_EMAIL) return true;
-  return userRole === 'docent' || userRole === 'colaborador';
+  return userRole === 'docent';
+}
+
+function formatReadingCode(num) {
+  const n = Number(num);
+  if (!n || isNaN(n) || n <= 0) return '#---';
+  return '#' + String(Math.floor(n)).padStart(3, '0');
+}
+
+function getStudentRankInfo(points) {
+  const pts = Number(points) || 0;
+  let current = STUDENT_RANKS[0];
+  let next = null;
+  for (let i = 0; i < STUDENT_RANKS.length; i++) {
+    if (pts >= STUDENT_RANKS[i].minPoints) {
+      current = STUDENT_RANKS[i];
+      next = STUDENT_RANKS[i + 1] || null;
+    }
+  }
+  let progressPercent = 100;
+  let pointsNeeded = 0;
+  if (next) {
+    const span = next.minPoints - current.minPoints;
+    const earnedInLevel = pts - current.minPoints;
+    progressPercent = Math.min(100, Math.max(0, Math.round((earnedInLevel / span) * 100)));
+    pointsNeeded = Math.max(0, next.minPoints - pts);
+  }
+  return {
+    current: current,
+    next: next,
+    progressPercent: progressPercent,
+    pointsNeeded: pointsNeeded
+  };
+}
+
+function escapeHtmlSafe(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function escapeHtmlAttr(str) {
@@ -353,142 +166,200 @@ function escapeHtmlAttr(str) {
     .replace(/>/g, '&gt;');
 }
 
-function formatReadingCode(num) {
-  if (!num || isNaN(num)) return "#CL-00001";
-  return "#CL-" + String(num).padStart(5, '0');
-}
-
-function scrollToGlossary(e) {
-  if (e) e.preventDefault();
-  const target = document.getElementById('glossary-section') || document.getElementById('glossari-section');
-  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function normalizeText(str) {
-  return (str || '')
+function normalizeForComparison(str) {
+  return String(str || '')
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function uploadImageToFirebase(fileInputElem, targetInputClass, statusSpanId, maxDim) {
-  if (!fileInputElem) return;
-  const file = fileInputElem.files ? fileInputElem.files[0] : fileInputElem;
-  if (!file) return;
-
-  const optionWrapper = fileInputElem.closest('.flex-col') || fileInputElem.closest('.q-block');
-  const block = fileInputElem.closest('.q-block');
-
-  let statusElem = statusSpanId ? document.getElementById(statusSpanId) : null;
-  if (!statusElem && optionWrapper) {
-    statusElem = optionWrapper.querySelector('.q-upload-status');
-  }
-
-  if (statusElem) {
-    statusElem.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-indigo-600"></i> Compriment...';
-    statusElem.className = "text-xs text-indigo-600 font-bold flex items-center gap-1";
-  }
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const MAX_WIDTH = maxDim || 900;
-      const MAX_HEIGHT = maxDim || 900;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > height) {
-        if (width > MAX_WIDTH) {
-          height = Math.round((height * MAX_WIDTH) / width);
-          width = MAX_WIDTH;
-        }
-      } else {
-        if (height > MAX_HEIGHT) {
-          width = Math.round((width * MAX_HEIGHT) / height);
-          height = MAX_HEIGHT;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const compressedDataURL = canvas.toDataURL('image/jpeg', 0.78);
-
-      let inputElem = null;
-      if (optionWrapper) inputElem = optionWrapper.querySelector('input[type="text"], input[type="url"]');
-      if (!inputElem && block) inputElem = block.querySelector('.' + targetInputClass);
-      if (!inputElem) inputElem = document.getElementById(targetInputClass) || document.querySelector('.' + targetInputClass);
-
-      if (inputElem) {
-        inputElem.value = compressedDataURL;
-        updateImagePreview(inputElem);
-        inputElem.dispatchEvent(new Event('input', { bubbles: true }));
-        inputElem.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-
-      if (statusElem) {
-        statusElem.innerHTML = '<i class="fa-solid fa-check text-emerald-600"></i> Carregada!';
-        statusElem.className = "text-xs text-emerald-600 font-bold flex items-center gap-1";
-        setTimeout(function() { if (statusElem) statusElem.innerHTML = ''; }, 3000);
-      }
-      fileInputElem.value = '';
-    };
-
-    img.onerror = function() {
-      if (statusElem) {
-        statusElem.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-red-600"></i> Error en la imatge';
-        statusElem.className = "text-xs text-red-600 font-bold flex items-center gap-1";
-      }
-      fileInputElem.value = '';
-    };
-
-    img.src = e.target.result;
-  };
-
-  reader.readAsDataURL(file);
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.,;:!?¡¿"'()\[\]{}\-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function updateRefImagePreview(url) {
   const box = document.getElementById('ref-image-preview-box');
   const img = document.getElementById('ref-image-preview-img');
   if (!box || !img) return;
-  const cleanUrl = (url || '').trim();
-  if (cleanUrl) {
-    img.src = cleanUrl;
-    box.classList.remove('hidden');
-  } else {
-    img.src = '';
+  const clean = (url || '').trim();
+  if (!clean) {
     box.classList.add('hidden');
+    img.src = '';
+    return;
   }
+  img.src = clean;
+  box.classList.remove('hidden');
 }
 
-function openZoomImageModal(imgSrc, title) {
-  const container = document.getElementById('zoom-modal-container');
-  if (!container || !imgSrc) return;
-  container.innerHTML = `
-    <div onclick="closeZoomImageModal()" class="fixed inset-0 bg-slate-950/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4 cursor-zoom-out">
-      <div onclick="event.stopPropagation()" class="max-w-5xl w-full flex items-center justify-between text-white mb-3 px-2 cursor-default">
-        <span class="font-bold text-sm sm:text-base flex items-center gap-2">
-          <i class="fa-solid fa-magnifying-glass-plus text-amber-400"></i>
-          <span>${escapeHtmlAttr(title || 'Imatge de referència')}</span>
-        </span>
-        <button onclick="closeZoomImageModal()" class="bg-white/15 hover:bg-white/25 text-white font-bold px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition">
-          <i class="fa-solid fa-xmark"></i> Tancar Zoom
-        </button>
-      </div>
-      <div onclick="event.stopPropagation()" class="max-w-5xl max-h-[82vh] overflow-auto bg-white p-2 rounded-2xl shadow-2xl cursor-default">
-        <img src="${imgSrc}" alt="${escapeHtmlAttr(title)}" class="max-w-full h-auto mx-auto rounded-xl">
-      </div>
-    </div>
-  `;
+function openZoomImageModal(url, caption) {
+  if (!url) return;
+  const container = document.getElementById('image-zoom-modal-container');
+  if (!container) return;
+  const safeUrl = escapeHtmlAttr(url);
+  const safeCap = escapeHtmlAttr(caption || 'Imatge ampliada');
+  container.innerHTML =
+    '<div onclick="closeZoomImageModal()" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-zoom-out">' +
+      '<div onclick="event.stopPropagation()" class="relative max-w-4xl w-full bg-white rounded-3xl p-3 md:p-4 shadow-2xl border border-slate-200">' +
+        '<button onclick="closeZoomImageModal()" class="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-slate-900 text-white hover:bg-rose-600 shadow-lg flex items-center justify-center transition" title="Tancar">' +
+          '<i class="fa-solid fa-xmark"></i>' +
+        '</button>' +
+        '<img src="' + safeUrl + '" alt="' + safeCap + '" class="max-h-[78vh] w-auto mx-auto rounded-2xl object-contain">' +
+        (caption ? '<p class="text-center text-xs font-bold text-slate-600 mt-3">' + escapeHtmlSafe(caption) + '</p>' : '') +
+      '</div>' +
+    '</div>';
 }
 
 function closeZoomImageModal() {
-  const container = document.getElementById('zoom-modal-container');
+  const container = document.getElementById('image-zoom-modal-container');
   if (container) container.innerHTML = '';
+}
+
+function scrollToGlossary(e) {
+  if (e) e.preventDefault();
+  const target = document.getElementById('glossary-section');
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.classList.add('ring-4', 'ring-amber-300');
+    setTimeout(function() {
+      target.classList.remove('ring-4', 'ring-amber-300');
+    }, 1800);
+  }
+}
+
+// 5. COMPRESSIÓ I PUJADA D'IMATGES A FIREBASE STORAGE
+function compressImageFile(file, maxWidth, quality) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      const img = new Image();
+      img.onload = function() {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob) {
+          if (blob) resolve(blob);
+          else reject(new Error('No s\'ha pogut generar la imatge comprimida.'));
+        }, 'image/jpeg', quality || 0.82);
+      };
+      img.onerror = function() { reject(new Error('Arxiu d\'imatge invàlid.')); };
+      img.src = ev.target.result;
+    };
+    reader.onerror = function() { reject(new Error('Error llegint l\'arxiu.')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImageToFirebase(fileInput, targetInputClass, statusId, maxWidth) {
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) return;
+
+  const parent = fileInput.closest('.q-block') || fileInput.closest('.mc-option-row') || document;
+  const urlInput = parent.querySelector('.' + targetInputClass) || document.querySelector('.' + targetInputClass);
+  const statusEl = statusId ? document.getElementById(statusId) : parent.querySelector('.q-upload-status');
+
+  if (!storage || !currentUser) {
+    alert("Has d'iniciar sessió com a docent i tenir Firebase Storage actiu per pujar imatges.");
+    fileInput.value = '';
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.innerHTML = '<span class="text-indigo-600 font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Comprimint i pujant...</span>';
+  }
+
+  try {
+    const compressedBlob = await compressImageFile(file, maxWidth || 800, 0.82);
+    const safeName = Date.now() + '_' + file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storageRef = storage.ref().child('lectures_imatges/' + currentUser.uid + '/' + safeName);
+    const snapshot = await withTimeout(storageRef.put(compressedBlob, { contentType: 'image/jpeg' }), 20000, 'pujada d\'imatge');
+    const downloadURL = await snapshot.ref.getDownloadURL();
+
+    if (urlInput) {
+      urlInput.value = downloadURL;
+      if (targetInputClass === 'ed-cover-input') {
+        updateRefImagePreview(downloadURL);
+      } else if (typeof updateImagePreview === 'function') {
+        updateImagePreview(urlInput);
+      }
+    }
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="text-emerald-600 font-bold"><i class="fa-solid fa-check mr-1"></i>Imatge pujada!</span>';
+    }
+  } catch (err) {
+    console.error("Error pujant imatge:", err);
+    if (statusEl) {
+      statusEl.innerHTML = '<span class="text-rose-600 font-bold">Error: ' + escapeHtmlSafe(err.message) + '</span>';
+    }
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+// 6. CORRECCIÓ D'ACTIVITATS OBERTES AMB IA GEMINI
+async function evaluateOpenAnswerWithAI(questionPrompt, rubric, studentAnswer, context) {
+  const cleanAnswer = (studentAnswer || '').trim();
+  if (!cleanAnswer) {
+    return { ratio: 0, feedback: 'No has escrit cap resposta.' };
+  }
+
+  if (!GEMINI_API_KEY || GEMINI_API_KEY === 'LA_TEVA_CLAU_GEMINI_API') {
+    const wordCount = cleanAnswer.split(/\s+/).length;
+    const ratio = wordCount >= 5 ? 1 : 0.5;
+    return {
+      ratio: ratio,
+      feedback: ratio === 1
+        ? 'Resposta registrada correctament.'
+        : 'Resposta massa breu; intenta desenvolupar una mica més la teva explicació.'
+    };
+  }
+
+  try {
+    const promptText =
+      'Ets un mestre de primària i ESO a Catalunya avaluant la comprensió lectora d\'un alumne en català.\n' +
+      'Títol lectura: ' + (context.readingTitle || '') + '\n' +
+      'Nivell: ' + (context.readingLevel || '') + '\n' +
+      'Pregunta: ' + questionPrompt + '\n' +
+      'Criteri d\'avaluació del docent: ' + (rubric || 'Que respongui amb coherència respecte al text.') + '\n' +
+      'Resposta de l\'alumne: ' + cleanAnswer + '\n\n' +
+      'Respon ÚNICAMENT un JSON vàlid amb aquest format exacte: {"score": 1.0, "feedback": "Comentari breu i motivador en català per a l\'alumne"} on "score" sigui un número entre 0.0 i 1.0.';
+
+    const response = await withTimeout(
+      fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(GEMINI_API_KEY), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      }),
+      12000,
+      'avaluació IA'
+    );
+
+    const json = await response.json();
+    const rawText = json && json.candidates && json.candidates[0] && json.candidates[0].content && json.candidates[0].content.parts[0].text;
+    const match = rawText ? rawText.match(/\{[\s\S]*\}/) : null;
+    if (match) {
+      const parsed = JSON.parse(match[0]);
+      const score = Math.min(1, Math.max(0, Number(parsed.score) || 0));
+      return {
+        ratio: score,
+        feedback: parsed.feedback || 'Resposta avaluada.'
+      };
+    }
+  } catch (err) {
+    console.warn("Fallback avaluació oberta:", err);
+  }
+
+  return {
+    ratio: cleanAnswer.length >= 12 ? 1 : 0.5,
+    feedback: 'Resposta enregistrada correctament.'
+  };
 }
