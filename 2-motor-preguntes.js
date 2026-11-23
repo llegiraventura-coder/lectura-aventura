@@ -213,13 +213,6 @@ function splitReadingIntoChapters(rawText) {
   return [text];
 }
 
-function escapeHtmlSafe(str) {
-  return String(str || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
 function renderFormattedReadingText(rawText, glossaryList) {
   const lines = (rawText || '').split(/\r?\n/);
   const validGlossary = Array.isArray(glossaryList)
@@ -241,11 +234,9 @@ function renderFormattedReadingText(rawText, glossaryList) {
     }
 
     let safeLine = escapeHtmlSafe(trimmed);
-    // Negreta i cursiva bàsica Markdown
     safeLine = safeLine.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
     safeLine = safeLine.replace(/\*([^*]+)\*/g, '<em>$1</em>');
 
-    // Ressaltat de paraules del glossari
     validGlossary.forEach(function(item) {
       const escapedTerm = item.term.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp('\\b(' + escapedTerm + ')\\b', 'gi');
@@ -329,8 +320,23 @@ function renderClozeInteractiveHtml(templateText, qIndex, disabled) {
   });
 }
 
+function moveOrderItem(btn, delta) {
+  const row = btn.closest('.order-item-row');
+  const list = row ? row.parentElement : null;
+  if (!row || !list) return;
+  if (delta < 0 && row.previousElementSibling) {
+    list.insertBefore(row, row.previousElementSibling);
+  } else if (delta > 0 && row.nextElementSibling) {
+    list.insertBefore(row.nextElementSibling, row);
+  }
+  Array.from(list.children).forEach(function(el, i) {
+    const badge = el.querySelector('.order-pos-badge');
+    if (badge) badge.textContent = String(i + 1);
+  });
+}
+
 // -------------------------------------------------------------------------
-// 5. MOTOR DE PREGUNTES (QuestionEngine)
+// 5. MOTOR DE PREGUNTES I CORRECCIÓ (QuestionEngine)
 // -------------------------------------------------------------------------
 
 const QuestionEngine = {
@@ -343,6 +349,44 @@ const QuestionEngine = {
     if (t === 'open_ai' || t === 'oberta' || t === 'open') return 'open_ai';
     if (t === 'ordering' || t === 'ordenar') return 'ordering';
     return 'multiple_choice';
+  },
+
+  renderAll: function(questions, containerId, isReadOnly) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const list = Array.isArray(questions) ? questions : [];
+
+    if (list.length === 0) {
+      container.innerHTML = '<div class="p-6 rounded-2xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">Aquesta lectura encara no té activitats associades.</div>';
+      return;
+    }
+
+    if (isClassroomProjectionMode && classroomStepMode === 'single') {
+      const safeIdx = Math.min(Math.max(0, classroomCurrentQuestionIndex), list.length - 1);
+      classroomCurrentQuestionIndex = safeIdx;
+      const singleCardHtml = this.renderQuestionCard(list[safeIdx], safeIdx, list.length, isReadOnly);
+      container.innerHTML =
+        '<div class="space-y-4">' +
+          singleCardHtml +
+          '<div class="flex items-center justify-between gap-2 bg-amber-50 border border-amber-200 p-3 rounded-2xl">' +
+            '<button type="button" onclick="navigateClassroomQuestion(-1)" ' + (safeIdx === 0 ? 'disabled' : '') + ' class="px-4 py-2 rounded-xl bg-white border border-amber-300 text-amber-900 font-bold text-xs disabled:opacity-40">' +
+              '<i class="fa-solid fa-arrow-left mr-1"></i> Pregunta anterior' +
+            '</button>' +
+            '<span class="text-xs font-extrabold text-amber-950">Projecció PDI: Pregunta ' + (safeIdx + 1) + ' de ' + list.length + '</span>' +
+            '<button type="button" onclick="navigateClassroomQuestion(1)" ' + (safeIdx >= list.length - 1 ? 'disabled' : '') + ' class="px-4 py-2 rounded-xl bg-amber-600 text-white font-bold text-xs disabled:opacity-40">' +
+              'Pregunta següent <i class="fa-solid fa-arrow-right ml-1"></i>' +
+            '</button>' +
+          '</div>' +
+        '</div>';
+      return;
+    }
+
+    const self = this;
+    container.innerHTML = '<div class="space-y-4">' +
+      list.map(function(q, idx) {
+        return self.renderQuestionCard(q, idx, list.length, isReadOnly);
+      }).join('') +
+    '</div>';
   },
 
   renderQuestionCard: function(q, idx, totalCount, isReadOnly) {
@@ -367,289 +411,200 @@ const QuestionEngine = {
         '</label>';
       }).join('') + '</div>';
     } else if (qType === 'true_false') {
-      bodyHtml = '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">' +
-        '<label class="flex items-center gap-3 p-3.5 rounded-xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 cursor-pointer transition">' +
+      bodyHtml = '<div class="grid grid-cols-2 gap-3 mt-3">' +
+        '<label class="flex items-center justify-center gap-2 p-3.5 rounded-xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/40 cursor-pointer font-bold text-slate-700 transition">' +
           '<input type="radio" name="q_answer_' + idx + '" value="true" ' + (isReadOnly ? 'disabled' : '') + ' class="w-4 h-4 text-emerald-600">' +
-          '<span class="font-bold text-emerald-800"><i class="fa-solid fa-check mr-1.5"></i>Vertader</span>' +
+          '<i class="fa-solid fa-check text-emerald-600"></i> Vertader' +
         '</label>' +
-        '<label class="flex items-center gap-3 p-3.5 rounded-xl border-2 border-slate-200 hover:border-rose-400 hover:bg-rose-50/40 cursor-pointer transition">' +
+        '<label class="flex items-center justify-center gap-2 p-3.5 rounded-xl border-2 border-slate-200 hover:border-rose-400 hover:bg-rose-50/40 cursor-pointer font-bold text-slate-700 transition">' +
           '<input type="radio" name="q_answer_' + idx + '" value="false" ' + (isReadOnly ? 'disabled' : '') + ' class="w-4 h-4 text-rose-600">' +
-          '<span class="font-bold text-rose-800"><i class="fa-solid fa-xmark mr-1.5"></i>Fals</span>' +
+          '<i class="fa-solid fa-xmark text-rose-600"></i> Fals' +
         '</label>' +
       '</div>';
     } else if (qType === 'cloze') {
-      const clozeText = q.clozeText || q.question || '';
-      bodyHtml = '<div class="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 text-base leading-loose text-slate-800">' +
-        renderClozeInteractiveHtml(clozeText, idx, isReadOnly) +
-        '</div>';
+      const clozeSource = q.clozeText || q.question || '';
+      bodyHtml = '<div class="mt-3 p-4 rounded-xl bg-slate-50 border border-slate-200 leading-loose text-base text-slate-800">' +
+        renderClozeInteractiveHtml(clozeSource, idx, isReadOnly) +
+      '</div>';
     } else if (qType === 'short_answer') {
       bodyHtml = '<div class="mt-3">' +
-        '<input type="text" id="q_short_' + idx + '" ' + (isReadOnly ? 'disabled' : '') +
-        ' placeholder="Escriu la teva resposta curta aquí..." ' +
-        'class="w-full px-4 py-2.5 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-slate-800 font-medium">' +
+        '<input type="text" id="q_short_' + idx + '" ' + (isReadOnly ? 'disabled ' : '') +
+        'placeholder="Escriu la teva resposta breu aquí..." ' +
+        'class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:outline-none text-slate-800 font-medium">' +
       '</div>';
     } else if (qType === 'open_ai') {
-      bodyHtml = '<div class="mt-3 space-y-2">' +
-        '<div class="flex items-center gap-1.5 text-xs text-purple-700 font-semibold">' +
-          '<i class="fa-solid fa-wand-magic-sparkles"></i>' +
-          '<span>Pregunta de reflexió oberta (avaluació intel·ligent amb rúbrica docent)</span>' +
-        '</div>' +
-        '<textarea id="q_open_' + idx + '" rows="3" ' + (isReadOnly ? 'disabled' : '') +
-        ' placeholder="Explica la teva resposta amb una frase completa i ben argumentada..." ' +
+      bodyHtml = '<div class="mt-3">' +
+        '<textarea id="q_open_' + idx + '" rows="3" ' + (isReadOnly ? 'disabled ' : '') +
+        'placeholder="Explica la teva resposta amb les teves paraules..." ' +
         'class="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:outline-none text-slate-800"></textarea>' +
+        '<p class="text-xs text-purple-600 mt-1 flex items-center gap-1"><i class="fa-solid fa-wand-magic-sparkles"></i> Aquesta resposta serà avaluada amb intel·ligència artificial.</p>' +
       '</div>';
     } else if (qType === 'ordering') {
-      const items = Array.isArray(q.orderItems) ? q.orderItems : (Array.isArray(q.options) ? q.options : []);
-      const shuffled = items.map(function(item, i) {
-        return { text: typeof item === 'string' ? item : (item.text || ''), origIdx: i };
-      });
-      if (!isReadOnly && shuffled.length > 1) {
-        shuffled.reverse();
+      const items = Array.isArray(q.orderItems) ? q.orderItems : [];
+      const shuffled = items.map(function(txt, origI) { return { txt: txt, origI: origI }; });
+      if (!isReadOnly) {
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const temp = shuffled[i];
+          shuffled[i] = shuffled[j];
+          shuffled[j] = temp;
+        }
       }
       bodyHtml = '<div id="q_order_list_' + idx + '" class="space-y-2 mt-3">' +
-        shuffled.map(function(entry, pos) {
-          return '<div class="order-item-row flex items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 border border-slate-300" data-orig-idx="' + entry.origIdx + '">' +
-            '<span class="font-medium text-slate-800 text-sm"><strong class="text-indigo-600 mr-2">' + (pos + 1) + '.</strong>' + escapeHtmlSafe(entry.text) + '</span>' +
+        shuffled.map(function(item, pos) {
+          return '<div class="order-item-row flex items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200" data-orig-index="' + item.origI + '">' +
+            '<span class="font-medium text-slate-800 text-sm"><span class="order-pos-badge inline-block w-6 h-6 text-center leading-6 rounded-full bg-indigo-100 text-indigo-700 font-bold text-xs mr-2">' + (pos + 1) + '</span>' + escapeHtmlSafe(item.txt) + '</span>' +
             (isReadOnly ? '' :
               '<div class="flex items-center gap-1 shrink-0">' +
-                '<button type="button" onclick="QuestionEngine.moveOrderItem(this, -1)" class="px-2 py-1 rounded bg-white border border-slate-300 hover:bg-indigo-50 text-slate-600 text-xs" title="Pujar"><i class="fa-solid fa-arrow-up"></i></button>' +
-                '<button type="button" onclick="QuestionEngine.moveOrderItem(this, 1)" class="px-2 py-1 rounded bg-white border border-slate-300 hover:bg-indigo-50 text-slate-600 text-xs" title="Baixar"><i class="fa-solid fa-arrow-down"></i></button>' +
+                '<button type="button" onclick="moveOrderItem(this, -1)" class="p-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs" title="Pujar"><i class="fa-solid fa-arrow-up"></i></button>' +
+                '<button type="button" onclick="moveOrderItem(this, 1)" class="p-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-600 text-xs" title="Baixar"><i class="fa-solid fa-arrow-down"></i></button>' +
               '</div>') +
           '</div>';
         }).join('') +
       '</div>';
     }
 
-    const qImageHtml = q.image
-      ? '<div class="mt-3"><img src="' + escapeHtmlAttr(q.image) + '" onclick="openZoomImageModal(\'' + escapeHtmlAttr(q.image) + '\', \'Imatge de la pregunta ' + (idx + 1) + '\')" class="max-h-52 rounded-xl border border-slate-200 cursor-zoom-in shadow-sm"></div>'
-      : '';
+    const promptText = (qType === 'cloze' && !q.prompt)
+      ? 'Completa els espais en blanc del text següent:'
+      : (q.question || q.prompt || 'Respon la pregunta:');
 
-    const questionTitle = qType === 'cloze'
-      ? (q.prompt || 'Completa els espais en blanc del fragment següent:')
-      : (q.question || '');
-
-    return '<div id="question-card-' + idx + '" class="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-sm transition">' +
-      '<div class="flex flex-wrap items-center justify-between gap-2 mb-2">' +
+    return '<div id="question-card-' + idx + '" class="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 shadow-sm transition-all">' +
+      '<div class="flex flex-wrap items-center justify-between gap-2 mb-3">' +
         '<div class="flex items-center gap-2">' +
-          '<span class="w-7 h-7 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">' + (idx + 1) + '</span>' +
-          '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full border ' + tax.color + '" title="' + escapeHtmlAttr(tax.desc) + '">' +
+          '<span class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold text-xs">Pregunta ' + (idx + 1) + ' / ' + totalCount + '</span>' +
+          '<span class="px-2.5 py-1 rounded-lg border text-xs font-bold ' + tax.color + '">' +
             '<i class="fa-solid ' + tax.icon + ' mr-1"></i>' + tax.label +
           '</span>' +
         '</div>' +
-        '<span class="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">' + pts + ' pts</span>' +
+        '<span class="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg">' + pts + ' punts</span>' +
       '</div>' +
-      '<p class="font-bold text-slate-800 text-base md:text-lg">' + escapeHtmlSafe(questionTitle) + '</p>' +
-      qImageHtml +
+      '<h4 class="font-bold text-slate-800 text-base md:text-lg leading-snug">' + escapeHtmlSafe(promptText) + '</h4>' +
+      (q.image ? '<div class="my-3"><img src="' + escapeHtmlAttr(q.image) + '" onclick="openZoomImageModal(\'' + escapeHtmlAttr(q.image) + '\', \'Imatge de la pregunta ' + (idx + 1) + '\')" class="max-h-56 rounded-xl border border-slate-200 cursor-zoom-in"></div>' : '') +
       bodyHtml +
-      '<div id="question-feedback-' + idx + '" class="hidden mt-3 p-3 rounded-xl text-sm font-medium"></div>' +
-    '</div>';
-  },
-
-  moveOrderItem: function(btn, direction) {
-    const row = btn.closest('.order-item-row');
-    const list = row ? row.parentElement : null;
-    if (!row || !list) return;
-    if (direction < 0 && row.previousElementSibling) {
-      list.insertBefore(row, row.previousElementSibling);
-    } else if (direction > 0 && row.nextElementSibling) {
-      list.insertBefore(row.nextElementSibling, row);
-    }
-    Array.from(list.querySelectorAll('.order-item-row')).forEach(function(r, i) {
-      const strong = r.querySelector('strong');
-      if (strong) strong.textContent = (i + 1) + '.';
-    });
-  },
-
-  renderAll: function(questions, containerId, isReadOnly) {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const list = Array.isArray(questions) ? questions : [];
-    if (list.length === 0) {
-      container.innerHTML = '<div class="p-6 text-center text-slate-500 bg-white rounded-2xl border border-slate-200">Aquesta lectura encara no té preguntes configurades.</div>';
-      return;
-    }
-
-    if (isClassroomProjectionMode && classroomStepMode === 'single') {
-      const safeIdx = Math.min(Math.max(0, classroomCurrentQuestionIndex), list.length - 1);
-      classroomCurrentQuestionIndex = safeIdx;
-      container.innerHTML = this.renderQuestionCard(list[safeIdx], safeIdx, list.length, isReadOnly) +
-        '<div class="flex items-center justify-between mt-4 bg-indigo-50 p-3 rounded-xl border border-indigo-200">' +
-          '<button type="button" onclick="navigateClassroomQuestion(-1)" ' + (safeIdx === 0 ? 'disabled' : '') + ' class="px-4 py-2 rounded-xl bg-white border border-indigo-300 text-indigo-800 font-bold text-xs disabled:opacity-40"><i class="fa-solid fa-arrow-left mr-1"></i> Anterior</button>' +
-          '<span class="font-bold text-xs text-indigo-900">Pregunta ' + (safeIdx + 1) + ' de ' + list.length + ' (Mode Aula PDI)</span>' +
-          '<button type="button" onclick="navigateClassroomQuestion(1)" ' + (safeIdx >= list.length - 1 ? 'disabled' : '') + ' class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs disabled:opacity-40">Següent <i class="fa-solid fa-arrow-right ml-1"></i></button>' +
-        '</div>';
-      return;
-    }
-
-    const self = this;
-    container.innerHTML = '<div class="space-y-4">' +
-      list.map(function(q, idx) {
-        return self.renderQuestionCard(q, idx, list.length, isReadOnly);
-      }).join('') +
+      '<div id="question-feedback-' + idx + '" class="hidden mt-4 p-3.5 rounded-xl text-sm"></div>' +
     '</div>';
   },
 
   gradeAll: async function(questions, context) {
     const list = Array.isArray(questions) ? questions : [];
-    let totalMaxPoints = 0;
     let totalEarnedPoints = 0;
-    const taxonomyEarned = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
-    const results = [];
+    let totalMaxPoints = 0;
+    const taxonomyEarned = {};
 
     for (let idx = 0; idx < list.length; idx++) {
       const q = list[idx];
       const qType = this.normalizeType(q.type);
-      const pts = Number(q.points) || 10;
-      const taxKey = (q.taxonomy && taxonomyEarned.hasOwnProperty(q.taxonomy)) ? q.taxonomy : 'literal';
-      totalMaxPoints += pts;
+      const maxPts = Number(q.points) || 10;
+      const taxKey = (q.taxonomy && TAXONOMY_CONFIG[q.taxonomy]) ? q.taxonomy : 'literal';
+      totalMaxPoints += maxPts;
 
-      let multiplier = 0;
-      let status = 'incorrect';
+      let ratio = 0;
       let feedbackMsg = '';
 
       if (qType === 'multiple_choice') {
         const selected = document.querySelector('input[name="q_answer_' + idx + '"]:checked');
-        const chosenIdx = selected ? parseInt(selected.value, 10) : -1;
-        const correctIdx = parseInt(q.correctIndex, 10);
-        if (chosenIdx === correctIdx && chosenIdx >= 0) {
-          multiplier = 1.0;
-          status = 'correct';
-          feedbackMsg = q.explanation || 'Correcte! Has encertat la resposta.';
+        const correctIdx = Number(q.correctIndex) || 0;
+        if (selected && Number(selected.value) === correctIdx) {
+          ratio = 1;
+          feedbackMsg = 'Resposta correcta!';
         } else {
           const opts = Array.isArray(q.options) ? q.options : [];
           const rightOpt = opts[correctIdx];
-          const rightLabel = typeof rightOpt === 'string' ? rightOpt : (rightOpt && rightOpt.text ? rightOpt.text : 'Opció ' + (correctIdx + 1));
-          feedbackMsg = q.explanation || ('Resposta incorrecta. La resposta correcta era: ' + rightLabel);
+          const rightText = typeof rightOpt === 'string' ? rightOpt : (rightOpt && rightOpt.text ? rightOpt.text : 'Opció ' + (correctIdx + 1));
+          feedbackMsg = 'La resposta correcta era: <strong>' + escapeHtmlSafe(rightText) + '</strong>';
         }
       } else if (qType === 'true_false') {
         const selected = document.querySelector('input[name="q_answer_' + idx + '"]:checked');
-        const chosenVal = selected ? selected.value : '';
-        const expectedVal = String(q.correctBool) === 'true' || q.correctAnswer === true ? 'true' : 'false';
-        if (chosenVal && chosenVal === expectedVal) {
-          multiplier = 1.0;
-          status = 'correct';
-          feedbackMsg = q.explanation || 'Molt bé! És ' + (expectedVal === 'true' ? 'Vertader.' : 'Fals.');
+        const expectedBool = String(q.correctBool) !== 'false' && q.correctAnswer !== false;
+        if (selected && (selected.value === 'true') === expectedBool) {
+          ratio = 1;
+          feedbackMsg = 'Correcte!';
         } else {
-          feedbackMsg = q.explanation || ('Incorrecte. La resposta correcta era ' + (expectedVal === 'true' ? 'Vertader.' : 'Fals.'));
+          feedbackMsg = 'La resposta correcta era: <strong>' + (expectedBool ? 'Vertader' : 'Fals') + '</strong>';
         }
       } else if (qType === 'cloze') {
         const solutions = extractClozeSolutions(q.clozeText || q.question || '');
-        const inputs = Array.from(document.querySelectorAll('.cloze-blank-input[data-q-index="' + idx + '"]'));
+        const inputs = document.querySelectorAll('.cloze-blank-input[data-q-index="' + idx + '"]');
         let hits = 0;
         solutions.forEach(function(sol, bIdx) {
           const inp = inputs[bIdx];
-          const userVal = inp ? inp.value : '';
-          const isOk = normalizeText(userVal) === normalizeText(sol) && normalizeText(sol).length > 0;
-          if (isOk) {
+          const val = inp ? normalizeForComparison(inp.value) : '';
+          if (val && val === normalizeForComparison(sol)) {
             hits++;
             if (inp) inp.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-900');
           } else if (inp) {
             inp.classList.add('border-rose-500', 'bg-rose-50', 'text-rose-900');
           }
         });
-        multiplier = solutions.length > 0 ? (hits / solutions.length) : 0;
-        if (multiplier === 1) {
-          status = 'correct';
-          feedbackMsg = 'Excel·lent! Has completat tots els buits (' + hits + '/' + solutions.length + ').';
-        } else if (multiplier > 0) {
-          status = 'partial';
-          feedbackMsg = 'Has encertat ' + hits + ' de ' + solutions.length + ' buits. Solució: ' + solutions.join(', ');
-        } else {
-          feedbackMsg = 'Revisa el text. Les paraules esperades eren: ' + solutions.join(', ');
-        }
+        ratio = solutions.length > 0 ? (hits / solutions.length) : 0;
+        feedbackMsg = hits === solutions.length
+          ? 'Tots els buits són correctes!'
+          : 'Has encertat ' + hits + ' de ' + solutions.length + ' buits. Solució: <strong>' + escapeHtmlSafe(solutions.join(', ')) + '</strong>';
       } else if (qType === 'short_answer') {
         const inp = document.getElementById('q_short_' + idx);
-        const userText = inp ? inp.value : '';
-        const evalRes = evaluateKeywordsFallback(userText, q);
-        multiplier = evalRes.multiplier;
-        status = evalRes.status;
-        feedbackMsg = evalRes.feedback;
+        const userNorm = normalizeForComparison(inp ? inp.value : '');
+        const keywords = Array.isArray(q.keywords) ? q.keywords : [];
+        const matched = userNorm && keywords.some(function(kw) {
+          const kwNorm = normalizeForComparison(kw);
+          return kwNorm && userNorm.includes(kwNorm);
+        });
+        if (matched) {
+          ratio = 1;
+          feedbackMsg = 'Molt bé! Resposta correcta.';
+        } else {
+          feedbackMsg = 'Paraules clau esperades: <strong>' + escapeHtmlSafe(keywords.join(', ')) + '</strong>';
+        }
       } else if (qType === 'open_ai') {
         const area = document.getElementById('q_open_' + idx);
-        const studentAnswer = area ? area.value.trim() : '';
-        if (!studentAnswer) {
-          multiplier = 0;
-          status = 'incorrect';
-          feedbackMsg = 'No has escrit cap resposta en aquesta pregunta oberta.';
-        } else {
-          const aiRes = await evaluateOpenAnswerWithAI({
-            studentAnswer: studentAnswer,
-            question: q.question || '',
-            rubricPrompt: q.rubric || q.explanation || '',
-            taxonomyType: taxKey,
-            readingTitle: context ? context.readingTitle : '',
-            readingLevel: context ? context.readingLevel : '',
-            textFragment: context ? context.textFragment : '',
-            qData: q
-          });
-          multiplier = aiRes.multiplier;
-          status = aiRes.status;
-          feedbackMsg = aiRes.feedback;
-        }
+        const studentText = area ? area.value : '';
+        const aiRes = await evaluateOpenAnswerWithAI(q.question || q.prompt || '', q.rubric || '', studentText, context || {});
+        ratio = aiRes.ratio;
+        feedbackMsg = escapeHtmlSafe(aiRes.feedback);
       } else if (qType === 'ordering') {
-        const rows = Array.from(document.querySelectorAll('#q_order_list_' + idx + ' .order-item-row'));
+        const rows = document.querySelectorAll('#q_order_list_' + idx + ' .order-item-row');
         let correctPositions = 0;
-        rows.forEach(function(row, pos) {
-          if (parseInt(row.getAttribute('data-orig-idx'), 10) === pos) {
-            correctPositions++;
-          }
+        rows.forEach(function(r, pos) {
+          if (Number(r.getAttribute('data-orig-index')) === pos) correctPositions++;
         });
-        multiplier = rows.length > 0 ? (correctPositions / rows.length) : 0;
-        if (multiplier === 1) {
-          status = 'correct';
-          feedbackMsg = 'Ordre perfecte!';
-        } else if (multiplier >= 0.5) {
-          status = 'partial';
-          feedbackMsg = 'Has col·locat ' + correctPositions + ' de ' + rows.length + ' elements al seu lloc correcte.';
-        } else {
-          feedbackMsg = 'Revisa l\'ordre cronològic dels fets a la lectura.';
-        }
+        ratio = rows.length > 0 ? (correctPositions / rows.length) : 0;
+        feedbackMsg = ratio === 1
+          ? 'Seqüència ordenada perfectament!'
+          : 'Has col·locat ' + correctPositions + ' de ' + rows.length + ' passos al seu lloc.';
       }
 
-      const earned = Math.round(pts * multiplier);
+      const earned = Math.round(maxPts * ratio);
       totalEarnedPoints += earned;
-      if (status === 'correct') {
-        taxonomyEarned[taxKey] = (taxonomyEarned[taxKey] || 0) + 1;
-      }
+      taxonomyEarned[taxKey] = (taxonomyEarned[taxKey] || 0) + earned;
 
-      this.paintQuestionFeedback(idx, status, feedbackMsg, earned, pts);
-      results.push({ index: idx, status: status, earned: earned, max: pts, taxonomy: taxKey });
+      const fbEl = document.getElementById('question-feedback-' + idx);
+      const cardEl = document.getElementById('question-card-' + idx);
+      if (fbEl) {
+        fbEl.classList.remove('hidden');
+        const isGood = ratio >= 0.7;
+        fbEl.className = 'mt-4 p-3.5 rounded-xl text-sm border ' + (isGood ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900');
+        fbEl.innerHTML =
+          '<div class="font-bold flex items-center justify-between">' +
+            '<span>' + (isGood ? '<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i>' : '<i class="fa-solid fa-circle-info text-amber-600 mr-1.5"></i>') + feedbackMsg + '</span>' +
+            '<span class="font-mono text-xs font-extrabold">+' + earned + '/' + maxPts + ' pts</span>' +
+          '</div>' +
+          (q.explanation ? '<p class="text-xs mt-1.5 opacity-90">' + escapeHtmlSafe(q.explanation) + '</p>' : '');
+      }
+      if (cardEl) {
+        cardEl.querySelectorAll('input, textarea, button').forEach(function(el) {
+          el.disabled = true;
+        });
+      }
     }
 
-    const scoreOver10 = totalMaxPoints > 0 ? Math.round((totalEarnedPoints / totalMaxPoints) * 100) / 10 : 0;
+    const scoreOver10 = totalMaxPoints > 0
+      ? Number(((totalEarnedPoints / totalMaxPoints) * 10).toFixed(1))
+      : 10;
+
     return {
       totalEarnedPoints: totalEarnedPoints,
       totalMaxPoints: totalMaxPoints,
       scoreOver10: scoreOver10,
-      taxonomyEarned: taxonomyEarned,
-      results: results
+      taxonomyEarned: taxonomyEarned
     };
-  },
-
-  paintQuestionFeedback: function(idx, status, message, earned, maxPts) {
-    const card = document.getElementById('question-card-' + idx);
-    const fb = document.getElementById('question-feedback-' + idx);
-    if (!fb) return;
-
-    fb.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-900', 'border-emerald-300', 'bg-amber-50', 'text-amber-900', 'border-amber-300', 'bg-rose-50', 'text-rose-900', 'border-rose-300');
-    fb.classList.add('border');
-
-    if (card) {
-      card.classList.remove('border-slate-200', 'border-emerald-400', 'border-amber-400', 'border-rose-400');
-    }
-
-    if (status === 'correct') {
-      if (card) card.classList.add('border-emerald-400');
-      fb.classList.add('bg-emerald-50', 'text-emerald-900', 'border-emerald-300');
-      fb.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-600 mr-1.5"></i><strong>+' + earned + '/' + maxPts + ' pts:</strong> ' + escapeHtmlSafe(message);
-    } else if (status === 'partial') {
-      if (card) card.classList.add('border-amber-400');
-      fb.classList.add('bg-amber-50', 'text-amber-900', 'border-amber-300');
-      fb.innerHTML = '<i class="fa-solid fa-circle-half-stroke text-amber-600 mr-1.5"></i><strong>+' + earned + '/' + maxPts + ' pts:</strong> ' + escapeHtmlSafe(message);
-    } else {
-      if (card) card.classList.add('border-rose-400');
-      fb.classList.add('bg-rose-50', 'text-rose-900', 'border-rose-300');
-      fb.innerHTML = '<i class="fa-solid fa-circle-xmark text-rose-600 mr-1.5"></i><strong>0/' + maxPts + ' pts:</strong> ' + escapeHtmlSafe(message);
-    }
   }
 };
