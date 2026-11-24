@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.43.0</title>
+  <title>Lectura Aventura - v0.43.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -35,7 +35,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.0</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +47,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.0...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.1...</p>
     </div>
   </main>
 
@@ -56,7 +56,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.43.0 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.43.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -1600,7 +1600,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.43.0 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.43.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -1684,12 +1684,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
       // Botons de canvi d'idioma (CAT / EN) — sempre visibles
       const langBtns = document.createElement('div');
-      langBtns.className = 'flex items-center gap-1 ml-1';
+      langBtns.className = 'flex flex-col gap-0.5 ml-1';
       langBtns.innerHTML = `
         <button
           onclick="setAppLanguage('ca')"
           title="Català"
-          class="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition
+          class="flex items-center justify-center gap-1 px-2 py-0.5 rounded-lg text-[10px] leading-tight font-bold border transition
             ${currentLang === 'ca'
               ? 'bg-amber-300 text-slate-900 border-amber-400 shadow-sm'
               : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50'}"
@@ -1708,7 +1708,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         <button
           onclick="setAppLanguage('en')"
           title="English"
-          class="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold border transition
+          class="flex items-center justify-center gap-1 px-2 py-0.5 rounded-lg text-[10px] leading-tight font-bold border transition
             ${currentLang === 'en'
               ? 'bg-amber-300 text-slate-900 border-amber-400 shadow-sm'
               : 'bg-indigo-700 hover:bg-indigo-600 text-white border-indigo-500/50'}"
@@ -6314,10 +6314,21 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.43.1",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Selector d'Idioma Compacte",
+          isCurrent: true,
+          summary: "Optimització compacta en vertical del selector d'idioma al menú superior per aprofitar millor l'espai horitzontal.",
+          highlights: [
+            "<strong>Selector d'idioma compacte en vertical:</strong> Nova disposició dels botons de selecció d'idioma un a sota de l'altre (<code>flex-col</code>) amb mida reduïda, ocupant la meitat d'amplada horitzontal a la capçalera.",
+            "<strong>Conservació d'estils i accessibilitat:</strong> Manteniment íntegre de les banderes gràfiques, esdeveniments de canvi d'idioma i contrast visual dels estats actiu i inactiu."
+          ]
+        },
+        {
           version: "v0.43.0",
           date: "Novembre 2026",
-          badge: "Versió Actual · Sistema Bilingüe Català / Anglès",
-          isCurrent: true,
+          badge: "Sistema Bilingüe Català / Anglès",
+          isCurrent: false,
           summary: "Nou sistema bilingüe integral Català / Anglès amb col·leccions independents de Firestore, selector d'idioma i adaptació completa de totes les eines pedagògiques.",
           highlights: [
             "<strong>Sistema bilingüe Català / Anglès complet:</strong> Selector dinàmic d'idioma (CA / EN) a la capçalera que tradueix la navegació, catàleg, filtres, lector de textos, passaport lector, eines docents i missatgeria.",
@@ -6699,7 +6710,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.43.0
+              Versió Actual: v0.43.1
             </span>
           </div>
 
