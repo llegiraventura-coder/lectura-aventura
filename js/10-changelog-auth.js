@@ -6,10 +6,23 @@ function renderChangelogPage() {
   // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
   const phase2Versions = [
     {
+      version: "v0.46.1",
+      date: "Novembre 2026",
+      badge: "Versió Actual · Edició i Reordenació de Carpetes / Situacions d'Aprenentatge",
+      isCurrent: true,
+      summary: "Nou modal d'edició completa de Carpetes i Situacions d'Aprenentatge (SA) per modificar metadades, reordenar la seqüència didàctica i afegir o treure lectures del catàleg.",
+      highlights: [
+        "<strong>Edició completa de metadades:</strong> Botó «Editar» tant a la llista de carpetes del docent com dins la vista de cada carpeta per actualitzar el títol, la descripció i el nivell educatiu.",
+        "<strong>Gestió i reordenació de lectures de l'itinerari:</strong> Permet treure lectures existents i reordenar-ne la seqüència amb controls de pujar/baixar per adaptar l'ordre pedagògic.",
+        "<strong>Cercador integrat del catàleg:</strong> Cerca ràpida per títol, codi o nivell dins el mateix modal d'edició per incorporar noves lectures amb un sol clic.",
+        "<strong>Eliminació segura de carpetes:</strong> Opció d'eliminar carpetes o SA amb confirmació prèvia per mantenir endreçat l'espai docent."
+      ]
+    },
+    {
       version: "v0.46",
       date: "Novembre 2026",
-      badge: "Versió Actual · Medalles de Docent / Creador i Bloqueig de Punts en Vista Prèvia",
-      isCurrent: true,
+      badge: "Medalles de Docent / Creador i Bloqueig de Punts en Vista Prèvia",
+      isCurrent: false,
       summary: "Catàleg exclusiu de 8 medalles pedagògiques i de creació per a docents i creadors (X/8), bloqueig de punts i medalles d'alumne en mode prova de lectura docent, i manteniment íntegre de les 11 medalles lectores per a alumnes (X/11).",
       highlights: [
         "<strong>Catàleg exclusiu de 8 medalles docents:</strong> Primera Llavor, Artesà de la Comprensió, Mestre Polivalent, Lectura Estimada, Èxit d'Aula, Best-Seller Educatiu, Amfitrió d'Aula i Guia Lector, amb comptador dedicat (X/8) a la capçalera blava.",
@@ -513,7 +526,7 @@ function renderChangelogPage() {
           <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
         </div>
         <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-          Versió Actual: v0.46
+          Versió Actual: v0.46.1
         </span>
       </div>
 

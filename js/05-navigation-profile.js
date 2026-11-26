@@ -229,7 +229,7 @@ function updateFooterLang() {
   const tagline = document.getElementById('footer-tagline');
   const changelog = document.getElementById('footer-changelog-label');
   if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-  if (changelog) changelog.textContent = 'v0.46 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+  if (changelog) changelog.textContent = 'v0.46.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
 }
 
 function setAppLanguage(lang) {
