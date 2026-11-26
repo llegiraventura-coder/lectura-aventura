@@ -1,7 +1,7 @@
 ﻿<!DOCTYPE html>
 <!-- 
   CHANGELOG v0.46:
-  - v0.46: Catàleg separat de 8 medalles pedagògiques per a Docents/Creadors (X/8) i bloqueig de punts d'alumne en mode vista prèvia docent.
+  - v0.46: Catàleg exclusiu de 8 medalles pedagògiques per a Docents i Creadors, separació respecte a les medalles d'alumne i protecció contra suma de punts en mode vista prèvia docent.
 
   CHANGELOG v0.45.1:
   - v0.45.1: Renderitzat complet de la graella de les 11 medalles al perfil (amb estat desbloquejat a color i pendent en gris claret amb requisits visibles).
@@ -663,7 +663,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         id: 'first_seed',
         title: function() { return isEn() ? "First Seed" : "Primera Llavor"; },
         desc: function() { return isEn() ? "Publish your first reading to the catalog." : "Publica la teva primera lectura al catàleg."; },
-        requirement: function() { return isEn() ? "1 reading published in catalog" : "Publica la teva primera lectura al catàleg."; },
+        requirement: function() { return isEn() ? "Publish your first reading to the catalog." : "Publica la teva primera lectura al catàleg."; },
         icon: "fa-seedling",
         color: "bg-emerald-500",
         check: function(ctx) {
@@ -673,9 +673,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'comprehension_crafter',
-        title: function() { return isEn() ? "Comprehension Crafter" : "Artesà de la comprensió"; },
-        desc: function() { return isEn() ? "Create a reading with questions from at least 3 distinct taxonomies." : "Crea una lectura amb preguntes d'almenys 3 taxonomies diferents."; },
-        requirement: function() { return isEn() ? "At least 3 question taxonomies in 1 reading" : "Crea una lectura amb preguntes d'almenys 3 taxonomies diferents."; },
+        title: function() { return isEn() ? "Comprehension Crafter" : "Artesà de la Comprensió"; },
+        desc: function() { return isEn() ? "Create a reading combining at least 3 different question types (Literal, Inferential, Figurative, Opinion or Creative)." : "Crea una lectura que combini almenys 3 tipus de preguntes diferents (Literal, Inferencial, Sentit Figurat, Opinió o Creativa)."; },
+        requirement: function() { return isEn() ? "Create a reading combining at least 3 different question types." : "Crea una lectura que combini almenys 3 tipus de preguntes diferents."; },
         icon: "fa-brain",
         color: "bg-indigo-600",
         check: function(ctx) {
@@ -685,9 +685,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'versatile_educator',
-        title: function() { return isEn() ? "Versatile Educator" : "Educador versàtil"; },
-        desc: function() { return isEn() ? "Publish readings across at least 3 different educational levels or cycles." : "Publica lectures per a almenys 3 nivells o cursos educatius diferents."; },
-        requirement: function() { return isEn() ? "Readings in 3 different educational levels" : "Publica lectures per a almenys 3 nivells o cursos educatius diferents."; },
+        title: function() { return isEn() ? "Versatile Educator" : "Mestre Polivalent"; },
+        desc: function() { return isEn() ? "Create readings for at least 3 different educational levels or grades." : "Crea lectures per a almenys 3 cursos o nivells educatius diferents."; },
+        requirement: function() { return isEn() ? "Create readings for at least 3 different educational levels." : "Crea lectures per a almenys 3 cursos o nivells educatius diferents."; },
         icon: "fa-layer-group",
         color: "bg-teal-600",
         check: function(ctx) {
@@ -697,9 +697,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'beloved_story',
-        title: function() { return isEn() ? "Beloved Story" : "Història estimada"; },
-        desc: function() { return isEn() ? "Have one of your readings completed by at least 10 readers." : "Aconsegueix que una de les teves lectures sigui completada per almenys 10 lectors."; },
-        requirement: function() { return isEn() ? "1 reading completed by 10 readers" : "Aconsegueix que una de les teves lectures sigui completada per almenys 10 lectors."; },
+        title: function() { return isEn() ? "Beloved Story" : "Lectura Estimada"; },
+        desc: function() { return isEn() ? "One of your readings has been completed at least 10 times." : "Una de les teves lectures ha estat completada almenys 10 vegades."; },
+        requirement: function() { return isEn() ? "One of your readings completed at least 10 times." : "Una de les teves lectures ha estat completada almenys 10 vegades."; },
         icon: "fa-heart",
         color: "bg-rose-500",
         check: function(ctx) {
@@ -709,9 +709,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'classroom_hit',
-        title: function() { return isEn() ? "Classroom Hit" : "Èxit d'aula"; },
-        desc: function() { return isEn() ? "Have one of your readings exceed 50 completions." : "Aconsegueix que una lectura teva superi les 50 finalitzacions."; },
-        requirement: function() { return isEn() ? "1 reading with 50 completions" : "Aconsegueix que una lectura teva superi les 50 finalitzacions."; },
+        title: function() { return isEn() ? "Classroom Hit" : "Èxit d'Aula"; },
+        desc: function() { return isEn() ? "A reading created by you exceeds 50 completions in the community." : "Una lectura creada per tu supera les 50 realitzacions a la comunitat."; },
+        requirement: function() { return isEn() ? "A reading created by you exceeds 50 completions." : "Una lectura creada per tu supera les 50 realitzacions a la comunitat."; },
         icon: "fa-fire",
         color: "bg-amber-600",
         check: function(ctx) {
@@ -721,9 +721,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'educational_bestseller',
-        title: function() { return isEn() ? "Educational Bestseller" : "Supervendes pedagògic"; },
-        desc: function() { return isEn() ? "Reach 100 cumulative completions across all your published readings." : "Arriba a les 100 finalitzacions acumulades entre totes les teves lectures."; },
-        requirement: function() { return isEn() ? "100 cumulative completions across readings" : "Arriba a les 100 finalitzacions acumulades entre totes les teves lectures."; },
+        title: function() { return isEn() ? "Educational Bestseller" : "Best-Seller Educatiu"; },
+        desc: function() { return isEn() ? "Accumulate more than 100 completions across all your created readings." : "Acumula més de 100 realitzacions sumant totes les teves lectures creades."; },
+        requirement: function() { return isEn() ? "Accumulate more than 100 completions across all your readings." : "Acumula més de 100 realitzacions sumant totes les teves lectures creades."; },
         icon: "fa-award",
         color: "bg-purple-600",
         check: function(ctx) {
@@ -733,9 +733,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'classroom_host',
-        title: function() { return isEn() ? "Classroom Host" : "Amfitrió d'aula"; },
-        desc: function() { return isEn() ? "Create a classroom group with at least 5 registered students." : "Crea una aula o grup-classe amb almenys 5 alumnes registrats."; },
-        requirement: function() { return isEn() ? "1 classroom with at least 5 students" : "Crea una aula o grup-classe amb almenys 5 alumnes registrats."; },
+        title: function() { return isEn() ? "Classroom Host" : "Amfitrió d'Aula"; },
+        desc: function() { return isEn() ? "Create a classroom group and link at least 5 students." : "Crea un grup-classe i vincula-hi almenys 5 alumnes."; },
+        requirement: function() { return isEn() ? "Create a classroom group and link at least 5 students." : "Crea un grup-classe i vincula-hi almenys 5 alumnes."; },
         icon: "fa-users",
         color: "bg-blue-600",
         check: function(ctx) {
@@ -745,9 +745,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       },
       {
         id: 'reading_guide',
-        title: function() { return isEn() ? "Reading Guide" : "Guia de lectura"; },
-        desc: function() { return isEn() ? "Assign at least 3 required or recommended readings to a classroom." : "Assigna almenys 3 lectures obligatòries o recomanades a una aula."; },
-        requirement: function() { return isEn() ? "At least 3 assigned readings in 1 classroom" : "Assigna almenys 3 lectures obligatòries o recomanades a una aula."; },
+        title: function() { return isEn() ? "Reading Guide" : "Guia Lector"; },
+        desc: function() { return isEn() ? "Assign a pathway of at least 3 readings to a classroom group." : "Assigna un itinerari d'almenys 3 lectures a un grup-classe."; },
+        requirement: function() { return isEn() ? "Assign a pathway of at least 3 readings to a classroom." : "Assigna un itinerari d'almenys 3 lectures a un grup-classe."; },
         icon: "fa-book-bookmark",
         color: "bg-emerald-600",
         check: function(ctx) {
@@ -756,6 +756,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         }
       }
     ];
+
+    function renderProfile() {
+      return renderReaderPassport();
+    }
 
     function isUserAdminOrCreator() {
       if (!currentUser) return false;
@@ -2724,6 +2728,16 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       let hasPerfectScore = false;
       const lecturesCatalogMap = {};
 
+      const teacherMedalsCtx = {
+        createdCount: 0,
+        maxTaxonomies: 0,
+        distinctLevelsCount: 0,
+        maxCompletions: 0,
+        totalCompletions: 0,
+        maxStudentsInAnyGroup: 0,
+        maxAssignedInAnyGroup: 0
+      };
+
       try {
         const allLecturesSnap = await withTimeout(db.collection(getReadingsCollection()).get(), 6000, "catàleg per al passaport");
         totalReadingsInCatalog = allLecturesSnap.size;
@@ -2737,6 +2751,78 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           }, lData);
           idxCat++;
         });
+
+        if (isCreator && currentUser) {
+          const myReadings = [];
+          Object.values(lecturesCatalogMap).forEach(function(r) {
+            const isMine = (r.authorUid && r.authorUid === currentUser.uid) ||
+                           (r.authorEmail && r.authorEmail.toLowerCase() === currentUser.email.toLowerCase());
+            if (isMine) myReadings.push(r);
+          });
+
+          teacherMedalsCtx.createdCount = Math.max(myReadings.length, userPoints || 0);
+          teacherMedalsCtx.distinctLevelsCount = new Set(myReadings.map(function(r) { return r.level; }).filter(Boolean)).size;
+          teacherMedalsCtx.maxCompletions = myReadings.reduce(function(m, r) {
+            return Math.max(m, r.completions || r.timesCompleted || r.plays || 0);
+          }, 0);
+          teacherMedalsCtx.totalCompletions = myReadings.reduce(function(s, r) {
+            return s + (r.completions || r.timesCompleted || r.plays || 0);
+          }, 0);
+
+          let maxTax = 0;
+          const taxFetchIds = [];
+          myReadings.forEach(function(r) {
+            if (r.taxonomyTypes && Array.isArray(r.taxonomyTypes)) {
+              maxTax = Math.max(maxTax, r.taxonomyTypes.length);
+            } else if (r.taxonomiesCount !== undefined) {
+              maxTax = Math.max(maxTax, r.taxonomiesCount);
+            } else {
+              taxFetchIds.push(r.id);
+            }
+          });
+
+          if (taxFetchIds.length > 0) {
+            try {
+              const fetchTaxPromises = taxFetchIds.slice(0, 10).map(async function(rId) {
+                try {
+                  const qSnap = await withTimeout(db.collection(getReadingsCollection()).doc(rId).collection(SUB_COLLECTION).get(), 3000, "taxonomia fites");
+                  const tTypes = new Set();
+                  qSnap.forEach(function(qd) {
+                    const qData = qd.data() || {};
+                    if (qData.taxonomyType) tTypes.add(qData.taxonomyType);
+                  });
+                  return tTypes.size;
+                } catch(e) { return 0; }
+              });
+              const tCounts = await Promise.all(fetchTaxPromises);
+              tCounts.forEach(function(tc) { maxTax = Math.max(maxTax, tc); });
+            } catch(taxErr) {}
+          }
+          teacherMedalsCtx.maxTaxonomies = maxTax;
+
+          const assignedCounts = Object.values(teacherAssignedReadingsMap || {}).map(function(arr) {
+            return Array.isArray(arr) ? arr.length : 0;
+          });
+          teacherMedalsCtx.maxAssignedInAnyGroup = assignedCounts.length > 0 ? Math.max.apply(null, assignedCounts) : 0;
+
+          try {
+            const studentsSnap = await withTimeout(
+              db.collection("users").where('teacherUid', '==', currentUser.uid).get(),
+              3500,
+              "alumnes fites docent"
+            );
+            const groupStudentCounts = {};
+            studentsSnap.forEach(function(sDoc) {
+              const sData = sDoc.data() || {};
+              const grp = (sData.classGroup || 'default').trim();
+              groupStudentCounts[grp] = (groupStudentCounts[grp] || 0) + 1;
+            });
+            const countsArr = Object.values(groupStudentCounts);
+            teacherMedalsCtx.maxStudentsInAnyGroup = countsArr.length > 0 ? Math.max.apply(null, countsArr) : studentsSnap.size;
+          } catch(stErr) {
+            console.warn("No s'han pogut carregar els alumnes per a les medalles docents:", stErr);
+          }
+        }
 
         userCompletedReadings.forEach(function(rId) {
           const rData = lecturesCatalogMap[rId];
@@ -2977,7 +3063,19 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const figCorrect = userTaxonomyStats.figurative || 0;
       const opCreatCorrect = (userTaxonomyStats.opinion || 0) + (userTaxonomyStats.creative || 0);
 
-      const achievements = [
+      const achievements = isCreator ? TEACHER_MEDALS.map(function(m) {
+        const checkRes = m.check(teacherMedalsCtx);
+        return {
+          id: m.id,
+          title: typeof m.title === 'function' ? m.title() : m.title,
+          desc: typeof m.desc === 'function' ? m.desc() : m.desc,
+          requirement: typeof m.requirement === 'function' ? m.requirement() : m.requirement,
+          unlocked: !!checkRes.unlocked,
+          progress: checkRes.progress,
+          icon: m.icon,
+          color: m.color
+        };
+      }) : [
         {
           id: 'first_read',
           title: isEn() ? "First Adventure" : "Primera Aventura",
@@ -3206,14 +3304,16 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
 
-          <!-- BLOC 2: MEDALLES I FITES ESPECIALS (PER A TOTS ELS USUARIS) -->
+          <!-- BLOC 2: MEDALLES I FITES ESPECIALS (SEPARADES PER ROL) -->
           <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-3">
               <div>
                 <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
-                  <i class="fa-solid fa-medal text-indigo-600"></i> ${isEn() ? 'Medals (' + unlockedBadgesCount + ' / ' + achievements.length + ')' : 'Medalles (' + unlockedBadgesCount + ' / ' + achievements.length + ')'}
+                  <i class="fa-solid fa-medal text-indigo-600"></i> ${isCreator ? (isEn() ? 'Teacher & Creator Medals (' + unlockedBadgesCount + ' / 8)' : 'Medalles de Docent i Creador (' + unlockedBadgesCount + ' / 8)') : (isEn() ? 'Medals (' + unlockedBadgesCount + ' / ' + achievements.length + ')' : 'Medalles (' + unlockedBadgesCount + ' / ' + achievements.length + ')')}
                 </h2>
-                <p class="text-xs text-slate-500">${isEn() ? 'Complete challenges of perseverance, accuracy, and reading variety to earn all 11 medals.' : 'Completa reptes de constància, precisió i varietat de lectures per aconseguir les 11 medalles.'}</p>
+                <p class="text-xs text-slate-500">
+                  ${isCreator ? (isEn() ? 'Complete pedagogical, creation, and classroom milestones to unlock all 8 teacher medals.' : 'Completa fites pedagògiques, de creació i de dinamització d\'aules per aconseguir les 8 medalles docents.') : (isEn() ? 'Complete challenges of perseverance, accuracy, and reading variety to earn all 11 medals.' : 'Completa reptes de constància, precisió i varietat de lectures per aconseguir les 11 medalles.')}
+                </p>
               </div>
               <span class="text-xs font-extrabold bg-indigo-50 text-indigo-800 px-3 py-1 rounded-xl border border-indigo-200 self-start sm:self-auto">
                 ${unlockedBadgesCount} / ${achievements.length} ${isEn() ? 'unlocked' : 'aconseguides'}
@@ -4625,6 +4725,13 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const qBlocks = document.querySelectorAll('.q-block');
       const totalQCount = qBlocks.length;
 
+      const distinctTaxonomiesSet = new Set();
+      qBlocks.forEach(function(b) {
+        const sel = b.querySelector('.q-taxonomy-select');
+        if (sel && sel.value) distinctTaxonomiesSet.add(sel.value);
+      });
+      const distinctTaxonomies = Array.from(distinctTaxonomiesSet);
+
       try {
         let docId = editingDocId;
 
@@ -4642,6 +4749,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
             questionCount: totalQCount,
+            taxonomyTypes: distinctTaxonomies,
+            taxonomiesCount: distinctTaxonomies.length,
             content: content,
             imageUrl: imageUrl,
             glossary: glossary,
@@ -4674,6 +4783,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             bookPages: bookPages,
             pointsPerQuestion: pointsPerQuestion,
             questionCount: totalQCount,
+            taxonomyTypes: distinctTaxonomies,
+            taxonomiesCount: distinctTaxonomies.length,
             content: content,
             imageUrl: imageUrl,
             readingNumber: nextNum,
@@ -5611,6 +5722,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         return;
       }
 
+      // Mode Vista Prèvia Docent: no s'escriuen punts ni lectures completades ni medalles d'alumne a Firestore
+      if (isUserAdminOrCreator()) {
+        renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, 0, stats, allQuestionFeedbackItems, true);
+        return;
+      }
+
       let localScores = {};
       let localTaxStats = { literal: 0, inferential: 0, figurative: 0, opinion: 0, creative: 0 };
       let localHasImproved = userHasImprovedScore;
@@ -5688,7 +5805,14 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       userTaxonomyStats = localTaxStats;
       userHasImprovedScore = localHasImproved;
 
-      if (!userCompletedReadings.includes(docId)) userCompletedReadings.push(docId);
+      if (!userCompletedReadings.includes(docId)) {
+        userCompletedReadings.push(docId);
+        try {
+          db.collection(getReadingsCollection()).doc(docId).update({
+            completions: firebase.firestore.FieldValue.increment(1)
+          }).catch(function() {});
+        } catch(cErr) {}
+      }
 
       try {
         await db.collection("users").doc(currentUser.uid).set({
@@ -5703,10 +5827,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
       await loadUserData();
       renderNav();
-      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, allQuestionFeedbackItems);
+      renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, allQuestionFeedbackItems, false);
     }
 
-    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, questionFeedbackItems) {
+    function renderFeedbackModal(score, total, newQuizPoints, maxPossiblePoints, pointsToAdd, stats, questionFeedbackItems, isTeacherPreview) {
       const container = document.getElementById('feedback-modal-container');
       if (!container) return;
       questionFeedbackItems = questionFeedbackItems || [];
@@ -5811,6 +5935,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <h3 class="text-xl font-black text-slate-800">${isEn() ? 'Reading Results' : 'Resultat de la Lectura'}</h3>
               <p class="text-xs text-slate-500">${isEn() ? 'You scored ' : 'Has aconseguit '}<strong>${score} ${isEn() ? 'out of ' : 'de '}${total}</strong> ${isEn() ? 'correct points' : "punts d'encert"} (${newQuizPoints}/${maxPossiblePoints} PTS)</p>
             </div>
+            ${isTeacherPreview ? `
+              <div class="bg-amber-50 border border-amber-300 text-amber-900 text-xs px-3.5 py-2.5 rounded-xl text-center font-medium flex items-center justify-center gap-2">
+                <i class="fa-solid fa-chalkboard-user text-amber-600"></i>
+                <span>${isEn() ? 'Teacher preview mode: this test does not add points or alter student stats.' : 'Mode vista prèvia docent: aquesta prova no suma punts ni altera estadístiques d\'alumne.'}</span>
+              </div>
+            ` : ''}
             ${pointsToAdd > 0 ? '<div class="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-center text-emerald-800 text-xs font-bold">' + (isEn() ? '🎉 Congratulations! You earned ' : '🎉 Felicitats! Has aconseguit ') + '<span class="text-sm text-emerald-700">+' + pointsToAdd + ' PTS</span> ' + (isEn() ? 'new!' : 'nous!') + '</div>' : ''}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">${breakdownRows}</div>
             ${questionsListHTML}
@@ -8511,7 +8641,7 @@ function exportClassroomGradeBookCSV() {
           isCurrent: true,
           summary: "Catàleg exclusiu de 8 medalles pedagògiques i de creació per a docents i creadors (X/8), bloqueig de punts i medalles d'alumne en mode prova de lectura docent, i manteniment íntegre de les 11 medalles lectores per a alumnes (X/11).",
           highlights: [
-            "<strong>Catàleg exclusiu de 8 medalles docents:</strong> Primera Llavor, Artesà de la comprensió, Educador versàtil, Història estimada, Èxit d'aula, Supervendes pedagògic, Amfitrió d'aula i Guia de lectura, amb comptador dedicat (X/8) a la capçalera blava.",
+            "<strong>Catàleg exclusiu de 8 medalles docents:</strong> Primera Llavor, Artesà de la Comprensió, Mestre Polivalent, Lectura Estimada, Èxit d'Aula, Best-Seller Educatiu, Amfitrió d'Aula i Guia Lector, amb comptador dedicat (X/8) a la capçalera blava.",
             "<strong>Bloqueig de punts d'alumne per a docents en proves:</strong> Els mestres i administradors poden provar i enviar qualsevol qüestionari per comprovar la correcció i feedback sense alterar els seus punts, lectures completades ni desbloquejar medalles d'alumne, amb avís discret de mode vista prèvia docent.",
             "<strong>Targetes de medalla coherents i bilingües:</strong> Mateixa estètica que els rangs docents (actives a tot color amb marc daurat, o en gris claret amb requisit i progrés visible per a les pendents), amb textos complets en català i anglès."
           ]
