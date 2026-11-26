@@ -570,8 +570,12 @@ async function renderStudentLeaderboard() {
   }
 }
 
+let currentActiveFolderId = null;
+let currentFolderEditState = null;
+
 async function renderTeacherFoldersList() {
   if (!currentUser) return;
+  currentActiveFolderId = null;
   const app = document.getElementById('app');
   app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">' + (isEn() ? 'Loading Folders and Learning Situations...' : 'Carregant Carpetes i SA...') + '</p></div>';
 
@@ -579,20 +583,67 @@ async function renderTeacherFoldersList() {
     const snap = await db.collection(getFoldersCollection()).where('authorUid', '==', currentUser.uid).get();
     let foldersHTML = '';
     snap.forEach(function(doc) {
-      const f = doc.data();
+      const f = doc.data() || {};
       const fId = doc.id;
       const count = (f.readings || []).length;
-      foldersHTML += '<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4"><div><div class="flex items-center justify-between mb-2"><span class="text-xs font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">' + escapeHtmlAttr(f.level || (isEn() ? 'Primary' : 'Primària')) + '</span><span class="text-xs font-semibold text-slate-400">' + count + ' ' + (isEn() ? 'readings' : 'lectures') + '</span></div><h3 class="font-bold text-slate-800 text-lg mb-1">' + escapeHtmlAttr(f.title) + '</h3><p class="text-xs text-slate-500 line-clamp-2">' + escapeHtmlAttr(f.description || '') + '</p></div><div class="pt-3 border-t border-slate-100 flex items-center justify-between"><button onclick="renderFolderView(\'' + fId + '\')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl">' + (isEn() ? 'View Folder' : 'Veure Carpeta') + '</button><button onclick="shareFolderLink(\'' + fId + '\')" class="text-slate-400 hover:text-indigo-600 text-xs"><i class="fa-solid fa-share-nodes"></i> ' + (isEn() ? 'Share' : 'Compartir') + '</button></div></div>';
+      const fTitleSafe = escapeHtmlAttr(f.title || (isEn() ? 'Untitled Folder' : 'Carpeta sense títol'));
+      const fTitleParam = fTitleSafe.replace(/'/g, "\\'");
+
+      foldersHTML += `
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-4 hover:border-slate-300 transition">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold px-2.5 py-0.5 bg-indigo-100 text-indigo-800 rounded-md">
+                ${escapeHtmlAttr(f.level || (isEn() ? 'Primary' : 'Primària'))}
+              </span>
+              <span class="text-xs font-semibold text-slate-400">
+                ${count} ${isEn() ? 'readings' : 'lectures'}
+              </span>
+            </div>
+            <h3 class="font-bold text-slate-800 text-lg mb-1 leading-snug">${fTitleSafe}</h3>
+            <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${escapeHtmlAttr(f.description || '')}</p>
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+            <button onclick="renderFolderView('${fId}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+              <i class="fa-solid fa-folder-open"></i>
+              <span>${isEn() ? 'View' : 'Veure'}</span>
+            </button>
+
+            <div class="flex items-center gap-1.5">
+              <button onclick="openEditFolderModal('${fId}')" title="${isEn() ? 'Edit folder' : 'Editar carpeta'}" class="bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 font-bold text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 transition flex items-center gap-1">
+                <i class="fa-solid fa-pen-to-square text-indigo-600"></i>
+                <span class="hidden sm:inline">${isEn() ? 'Edit' : 'Editar'}</span>
+              </button>
+
+              <button onclick="deleteFolder('${fId}', '${fTitleParam}')" title="${isEn() ? 'Delete folder' : 'Eliminar carpeta'}" class="bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 font-bold text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 transition flex items-center gap-1">
+                <i class="fa-solid fa-trash-can text-rose-500"></i>
+                <span class="hidden sm:inline">${isEn() ? 'Delete' : 'Eliminar'}</span>
+              </button>
+
+              <button onclick="shareFolderLink('${fId}')" title="${isEn() ? 'Share' : 'Compartir'}" class="text-slate-400 hover:text-indigo-600 text-xs p-1.5 transition">
+                <i class="fa-solid fa-share-nodes"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
     });
 
     app.innerHTML = `
       <div class="max-w-5xl mx-auto space-y-6">
-        <div class="flex items-center justify-between">
-          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> ${isEn() ? 'Back to catalog' : 'Tornar al catàleg'}</button>
-          <button onclick="createNewFolderPrompt()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow"><i class="fa-solid fa-folder-plus mr-1"></i> ${isEn() ? 'New Folder / Learning Situation' : 'Nova Carpeta / SA'}</button>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+            <i class="fa-solid fa-arrow-left mr-1"></i> ${isEn() ? 'Back to catalog' : 'Tornar al catàleg'}
+          </button>
+          <button onclick="createNewFolderPrompt()" class="bg-amber-400 hover:bg-amber-500 text-slate-900 font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-folder-plus"></i> ${isEn() ? 'New Folder / Learning Situation' : 'Nova Carpeta / SA'}
+          </button>
         </div>
-        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-folder-closed text-amber-500"></i> ${isEn() ? 'My Folders / Learning Situations' : "Les meves Carpetes / Situacions d'Aprenentatge"}</h1>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${foldersHTML || '<p class="col-span-full text-slate-500 text-sm italic">' + (isEn() ? 'You have not created any folders yet.' : 'Encara no has creat cap carpeta.') + '</p>'}</div>
+        <h1 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-folder-closed text-amber-500"></i> ${isEn() ? 'My Folders / Learning Situations' : "Les meves Carpetes / Situacions d'Aprenentatge"}
+        </h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${foldersHTML || '<p class="col-span-full text-slate-500 text-sm italic py-8 text-center bg-white rounded-2xl border border-slate-200">' + (isEn() ? 'You have not created any folders yet.' : 'Encara no has creat cap carpeta.') + '</p>'}</div>
       </div>
     `;
   } catch (err) {
@@ -608,6 +659,7 @@ async function createNewFolderPrompt() {
     await db.collection(getFoldersCollection()).add({
       title: title,
       description: description,
+      level: 'Primària',
       authorUid: currentUser.uid,
       authorDisplayName: userDisplayName || currentUser.email.split('@')[0],
       readings: [],
@@ -620,41 +672,534 @@ async function createNewFolderPrompt() {
 }
 
 async function renderFolderView(folderId) {
+  currentActiveFolderId = folderId;
   const app = document.getElementById('app');
   app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">' + (isEn() ? 'Loading folder...' : 'Carregant la carpeta...') + '</p></div>';
 
   try {
     const fDoc = await db.collection(getFoldersCollection()).doc(folderId).get();
     if (!fDoc.exists) { renderCatalog(); return; }
-    const fData = fDoc.data();
+    const fData = fDoc.data() || {};
     const rIds = fData.readings || [];
+    const isAuthor = currentUser && (fData.authorUid === currentUser.uid || currentUser.email === ADMIN_SUPREMO_EMAIL);
+    const fTitleSafe = escapeHtmlAttr(fData.title || (isEn() ? 'Untitled Folder' : 'Carpeta sense títol'));
+    const fTitleParam = fTitleSafe.replace(/'/g, "\\'");
+
     let cardsHTML = '';
 
-    for (const rId of rIds) {
-      const rDoc = await db.collection(getReadingsCollection()).doc(rId).get();
-      if (rDoc.exists) {
-        const r = rDoc.data();
-        const isDone = userCompletedReadings.includes(rId);
-        cardsHTML += '<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between"><div><h3 class="font-bold text-slate-800 text-lg mb-1">' + escapeHtmlAttr(r.title) + '</h3><p class="text-xs text-indigo-600 font-semibold mb-3">' + escapeHtmlAttr(r.level || '') + '</p></div><div class="pt-3 border-t border-slate-100 flex items-center justify-between"><span class="text-xs font-bold ' + (isDone ? 'text-emerald-600' : 'text-amber-600') + '">' + (isDone ? (isEn() ? '✅ Completed' : '✅ Completada') : (isEn() ? '⏳ Pending' : '⏳ Pendent')) + '</span><button onclick="renderReader(\'' + rId + '\')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl">' + (isEn() ? 'Read' : 'Llegir') + '</button></div></div>';
-      }
-    }
+    const readingPromises = rIds.map(async function(rId) {
+      try {
+        const rDoc = await db.collection(getReadingsCollection()).doc(rId).get();
+        if (rDoc.exists) {
+          return { id: rId, data: rDoc.data() };
+        }
+      } catch (e) {}
+      return null;
+    });
+
+    const readingResults = await Promise.all(readingPromises);
+
+    readingResults.forEach(function(item) {
+      if (!item) return;
+      const rId = item.id;
+      const r = item.data || {};
+      const isDone = userCompletedReadings.includes(rId);
+
+      cardsHTML += `
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between space-y-3">
+          <div>
+            <h3 class="font-bold text-slate-800 text-lg mb-1 leading-snug">${escapeHtmlAttr(r.title)}</h3>
+            <p class="text-xs text-indigo-600 font-semibold mb-2">${escapeHtmlAttr(r.level || '')}</p>
+          </div>
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-xs font-bold ${isDone ? 'text-emerald-600' : 'text-amber-600'}">
+              ${isDone ? (isEn() ? '✅ Completed' : '✅ Completada') : (isEn() ? '⏳ Pending' : '⏳ Pendent')}
+            </span>
+            <button onclick="renderReader('${rId}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition">
+              ${isEn() ? 'Read' : 'Llegir'}
+            </button>
+          </div>
+        </div>
+      `;
+    });
 
     app.innerHTML = `
       <div class="max-w-5xl mx-auto space-y-6">
-        <div class="flex items-center justify-between">
-          <button onclick="resetFiltersAndRenderCatalog()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center"><i class="fa-solid fa-arrow-left mr-1"></i> ${isEn() ? 'General Catalog' : 'Catàleg General'}</button>
-          <button onclick="shareFolderLink('${folderId}')" class="bg-indigo-600 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow"><i class="fa-solid fa-share-nodes mr-1"></i> ${isEn() ? 'Share Folder' : 'Compartir Carpeta'}</button>
+        <div class="flex items-center justify-between flex-wrap gap-2">
+          <button onclick="renderTeacherFoldersList()" class="text-slate-500 hover:text-slate-800 text-sm font-medium inline-flex items-center">
+            <i class="fa-solid fa-arrow-left mr-1"></i> ${isEn() ? 'My Folders / SA' : 'Les meves Carpetes / SA'}
+          </button>
+          <div class="flex items-center gap-2 flex-wrap">
+            ${isAuthor ? `
+              <button onclick="openEditFolderModal('${folderId}')" class="bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs px-3.5 py-2 rounded-xl border border-slate-300 shadow-2xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-to-square text-indigo-600"></i> ${isEn() ? 'Edit Folder / SA' : 'Editar Carpeta / SA'}
+              </button>
+              <button onclick="deleteFolder('${folderId}', '${fTitleParam}')" class="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs px-3.5 py-2 rounded-xl border border-rose-200 shadow-2xs transition flex items-center gap-1.5">
+                <i class="fa-solid fa-trash-can text-rose-600"></i> ${isEn() ? 'Delete' : 'Eliminar'}
+              </button>
+            ` : ''}
+            <button onclick="shareFolderLink('${folderId}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl shadow transition flex items-center gap-1.5">
+              <i class="fa-solid fa-share-nodes"></i> ${isEn() ? 'Share Folder' : 'Compartir Carpeta'}
+            </button>
+          </div>
         </div>
+
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-2">
-          <span class="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">📁 ${isEn() ? 'Folder / Learning Situation' : "Carpeta / Situació d'Aprenentatge"}</span>
-          <h1 class="text-2xl font-bold text-slate-800">${escapeHtmlAttr(fData.title)}</h1>
-          <p class="text-sm text-slate-600">${escapeHtmlAttr(fData.description || '')}</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full">📁 ${isEn() ? 'Folder / Learning Situation' : "Carpeta / Situació d'Aprenentatge"}</span>
+            <span class="text-xs font-bold text-indigo-800 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">${escapeHtmlAttr(fData.level || (isEn() ? 'Primary' : 'Primària'))}</span>
+            <span class="text-xs font-semibold text-slate-400">· ${(fData.readings || []).length} ${isEn() ? 'readings' : 'lectures'}</span>
+          </div>
+          <h1 class="text-2xl font-bold text-slate-800">${fTitleSafe}</h1>
+          <p class="text-sm text-slate-600 leading-relaxed">${escapeHtmlAttr(fData.description || '')}</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${cardsHTML || '<p class="col-span-full text-slate-500 italic text-sm">' + (isEn() ? 'This folder does not have any readings assigned yet.' : 'Aquesta carpeta encara no té lectures assignades.') + '</p>'}</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">${cardsHTML || '<p class="col-span-full text-slate-500 italic text-sm py-8 text-center bg-white rounded-2xl border border-slate-200">' + (isEn() ? 'This folder does not have any readings assigned yet.' : 'Aquesta carpeta encara no té lectures assignades.') + '</p>'}</div>
       </div>
     `;
   } catch (err) {
     console.error(err);
+  }
+}
+
+async function deleteFolder(folderId, folderTitle) {
+  if (!currentUser || !folderId) return;
+  const titleText = folderTitle || (isEn() ? 'this folder' : 'aquesta carpeta');
+  const confirmMsg = isEn()
+    ? `Are you sure you want to delete folder «${titleText}»?\nThis action cannot be undone.`
+    : `Segur que vols eliminar la carpeta «${titleText}»?\nAquesta acció no es pot desfer.`;
+  if (!confirm(confirmMsg)) return;
+
+  try {
+    const fDoc = await db.collection(getFoldersCollection()).doc(folderId).get();
+    if (fDoc.exists) {
+      const fData = fDoc.data() || {};
+      if (fData.authorUid && fData.authorUid !== currentUser.uid && currentUser.email !== ADMIN_SUPREMO_EMAIL) {
+        alert(isEn() ? "You do not have permission to delete this folder." : "No tens permisos per eliminar aquesta carpeta.");
+        return;
+      }
+    }
+    await db.collection(getFoldersCollection()).doc(folderId).delete();
+    alert(isEn() ? "Folder deleted successfully." : "Carpeta eliminada correctament.");
+    currentActiveFolderId = null;
+    renderTeacherFoldersList();
+  } catch (err) {
+    console.error("Error deleting folder:", err);
+    alert((isEn() ? "Error deleting folder: " : "Error en eliminar la carpeta: ") + err.message);
+  }
+}
+
+async function openEditFolderModal(folderId) {
+  if (!currentUser || !folderId) return;
+  const modal = document.getElementById('folder-modal-container');
+  if (!modal) return;
+
+  modal.innerHTML = `
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div class="bg-white p-6 rounded-2xl max-w-sm w-full text-center space-y-3 shadow-xl">
+        <i class="fa-solid fa-spinner fa-spin text-3xl text-indigo-600"></i>
+        <p class="text-xs font-bold text-slate-600">${isEn() ? 'Loading folder details and catalog...' : 'Carregant la carpeta i el catàleg...'}</p>
+      </div>
+    </div>
+  `;
+
+  try {
+    const [fDoc, catSnap] = await Promise.all([
+      db.collection(getFoldersCollection()).doc(folderId).get(),
+      db.collection(getReadingsCollection()).get()
+    ]);
+
+    if (!fDoc.exists) {
+      alert(isEn() ? "Folder not found." : "No s'ha trobat la carpeta.");
+      modal.innerHTML = '';
+      return;
+    }
+
+    const fData = fDoc.data() || {};
+    if (fData.authorUid && fData.authorUid !== currentUser.uid && currentUser.email !== ADMIN_SUPREMO_EMAIL) {
+      alert(isEn() ? "You do not have permission to edit this folder." : "No tens permisos per editar aquesta carpeta.");
+      modal.innerHTML = '';
+      return;
+    }
+
+    const totalReadings = catSnap.size;
+    let idx = 0;
+    const catalogMap = {};
+    const allReadingsList = [];
+    catSnap.forEach(function(d) {
+      const data = d.data() || {};
+      const rNum = data.readingNumber || (totalReadings - idx);
+      const code = formatReadingCode(rNum);
+      const item = Object.assign({ id: d.id, code: code }, data);
+      catalogMap[d.id] = item;
+      allReadingsList.push(item);
+      idx++;
+    });
+
+    currentFolderEditState = {
+      folderId: folderId,
+      title: fData.title || '',
+      description: fData.description || '',
+      level: fData.level || 'Primària',
+      readings: Array.isArray(fData.readings) ? fData.readings.slice() : [],
+      catalogMap: catalogMap,
+      allReadingsList: allReadingsList,
+      searchQuery: ''
+    };
+
+    renderEditFolderModalUI();
+  } catch (err) {
+    console.error("Error opening edit folder modal:", err);
+    alert((isEn() ? "Error loading folder: " : "Error en carregar la carpeta: ") + err.message);
+    modal.innerHTML = '';
+  }
+}
+
+function closeEditFolderModal() {
+  currentFolderEditState = null;
+  const modal = document.getElementById('folder-modal-container');
+  if (modal) modal.innerHTML = '';
+}
+
+function syncEditFolderInputsFromDOM() {
+  if (!currentFolderEditState) return;
+  const titleEl = document.getElementById('edit-folder-title');
+  const levelEl = document.getElementById('edit-folder-level');
+  const descEl = document.getElementById('edit-folder-desc');
+  const searchEl = document.getElementById('edit-folder-search-input');
+
+  if (titleEl) currentFolderEditState.title = titleEl.value;
+  if (levelEl) currentFolderEditState.level = levelEl.value;
+  if (descEl) currentFolderEditState.description = descEl.value;
+  if (searchEl) currentFolderEditState.searchQuery = searchEl.value;
+}
+
+function renderEditFolderModalUI() {
+  const modal = document.getElementById('folder-modal-container');
+  if (!modal || !currentFolderEditState) return;
+
+  const st = currentFolderEditState;
+  const lvl = st.level;
+
+  const standardLevels = [
+    'Primària',
+    '1r cicle de primària',
+    '2n cicle de primària',
+    '3r cicle de primària',
+    'Secundària',
+    'Batxillerat',
+    "Formació d'Adults",
+    'Infantil',
+    'General'
+  ];
+  let isCustom = lvl && !standardLevels.some(function(s) { return s.toLowerCase() === lvl.toLowerCase(); });
+
+  modal.innerHTML = `
+    <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-5 my-4 max-h-[92vh] overflow-y-auto border border-slate-200">
+        <!-- CAPÇALERA DEL MODAL -->
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-lg">
+              <i class="fa-solid fa-folder-open"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-black text-slate-800 leading-snug">${isEn() ? 'Edit Folder / Learning Situation (SA)' : "Editar Carpeta / Situació d'Aprenentatge (SA)"}</h3>
+              <p class="text-xs text-slate-500">${isEn() ? 'Configure the basic details and sequence of readings for this learning pathway.' : "Configura les dades bàsiques i la seqüència de lectures d'aquest itinerari pedagògic."}</p>
+            </div>
+          </div>
+          <button type="button" onclick="closeEditFolderModal()" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center transition">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+
+        <!-- DADES GENERALS DE LA CARPETA -->
+        <div class="space-y-3.5">
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="sm:col-span-2 space-y-1">
+              <label class="block text-xs font-bold text-slate-700">${isEn() ? 'Title / Name' : 'Títol de la Carpeta / SA'} <span class="text-rose-500">*</span></label>
+              <input type="text" id="edit-folder-title" value="${escapeHtmlAttr(st.title)}" oninput="syncEditFolderInputsFromDOM()" placeholder="${isEn() ? 'e.g.: Fantastic Animals, Greek Mythology...' : 'ex: Els Animals Fantàstics, Mitologia Grega...'}" class="w-full p-2.5 border border-slate-300 rounded-xl text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none">
+            </div>
+            <div class="space-y-1">
+              <label class="block text-xs font-bold text-slate-700">${isEn() ? 'Educational Level' : 'Nivell educatiu'}</label>
+              <select id="edit-folder-level" onchange="syncEditFolderInputsFromDOM()" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-indigo-500 outline-none bg-white">
+                <option value="Primària" ${lvl === 'Primària' ? 'selected' : ''}>${isEn() ? 'Primary (General)' : 'Primària (General)'}</option>
+                <option value="1r cicle de primària" ${lvl === '1r cicle de primària' || lvl === 'Cicle Inicial' ? 'selected' : ''}>${isEn() ? '1st cycle of primary (Grades 1-2)' : '1r cicle de primària'}</option>
+                <option value="2n cicle de primària" ${lvl === '2n cicle de primària' || lvl === 'Cicle Mitjà' ? 'selected' : ''}>${isEn() ? '2nd cycle of primary (Grades 3-4)' : '2n cicle de primària'}</option>
+                <option value="3r cicle de primària" ${lvl === '3r cicle de primària' || lvl === 'Cicle Superior' ? 'selected' : ''}>${isEn() ? '3rd cycle of primary (Grades 5-6)' : '3r cicle de primària'}</option>
+                <option value="Secundària" ${lvl === 'Secundària' || lvl === 'Secundària (ESO)' || lvl === 'ESO' ? 'selected' : ''}>${isEn() ? 'Secondary (ESO)' : 'Secundària (ESO)'}</option>
+                <option value="Batxillerat" ${lvl === 'Batxillerat' ? 'selected' : ''}>${isEn() ? 'Baccalaureate (High School)' : 'Batxillerat'}</option>
+                <option value="Formació d'Adults" ${lvl === "Formació d'Adults" || lvl === "Adults" ? 'selected' : ''}>${isEn() ? '🧑‍💼 Adult Education / CFA' : "🧑‍💼 Formació d'Adults / CFA"}</option>
+                <option value="Infantil" ${lvl === 'Infantil' ? 'selected' : ''}>${isEn() ? 'Early Childhood' : 'Educació Infantil'}</option>
+                <option value="General" ${lvl === 'General' || lvl === 'Altres' ? 'selected' : ''}>${isEn() ? 'General / Cross-curricular' : 'General / Transversal'}</option>
+                ${isCustom ? `<option value="${escapeHtmlAttr(lvl)}" selected>${escapeHtmlAttr(lvl)}</option>` : ''}
+              </select>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <label class="block text-xs font-bold text-slate-700">${isEn() ? 'Description & Learning Objectives' : "Descripció i objectius d'aprenentatge"}</label>
+            <textarea id="edit-folder-desc" rows="2" oninput="syncEditFolderInputsFromDOM()" placeholder="${isEn() ? 'Briefly explain the theme, context or objectives of this folder...' : "Explica breument la temàtica, el context o els objectius d'aquesta situació d'aprenentatge..."}" class="w-full p-2.5 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none leading-relaxed"></textarea>
+          </div>
+        </div>
+
+        <!-- SECCIÓ: LECTURES INCLOSES A L'ITINERARI -->
+        <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h4 class="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-list-ol text-amber-500"></i>
+              <span>${isEn() ? 'Readings in Pathway Sequence' : "Lectures de l'itinerari ordenades"}</span>
+              <span id="edit-folder-readings-count" class="text-xs bg-indigo-100 text-indigo-800 font-bold px-2 py-0.5 rounded-full">${st.readings.length}</span>
+            </h4>
+            <span class="text-[11px] text-slate-400 italic">${isEn() ? 'Use (↑ ↓) to sequence readings' : 'Usa (↑ ↓) per reordenar la seqüència'}</span>
+          </div>
+          <div id="edit-folder-readings-list" class="space-y-1.5 max-h-52 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+            <!-- omplert dinàmicament -->
+          </div>
+        </div>
+
+        <!-- SECCIÓ: CERCADOR DE LECTURES DEL CATÀLEG PER AFEGIR -->
+        <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <h4 class="text-xs sm:text-sm font-black text-slate-800 flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass text-indigo-600"></i>
+              <span>${isEn() ? 'Add Readings from Catalog' : 'Incorporar lectures del catàleg'}</span>
+            </h4>
+            <span class="text-[11px] text-slate-400">${isEn() ? 'Search by title, code or level' : 'Cerca per títol, codi o nivell'}</span>
+          </div>
+          <div class="relative">
+            <input type="text" id="edit-folder-search-input" oninput="handleEditFolderSearchInput(this.value)" value="${escapeHtmlAttr(st.searchQuery)}" placeholder="${isEn() ? 'Type title, code (e.g. LEC-005) or level...' : 'Escriu títol, codi (ex. LEC-005) o nivell...'}" class="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
+          </div>
+          <div id="edit-folder-search-results" class="space-y-1.5 max-h-48 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+            <!-- omplert dinàmicament -->
+          </div>
+        </div>
+
+        <!-- PEU AMB BOTONS D'ACCIÓ -->
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeEditFolderModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition">
+            ${isEn() ? 'Cancel' : 'Cancel·lar'}
+          </button>
+          <button type="button" id="save-edit-folder-btn" onclick="saveFolderEditChanges()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow transition flex items-center gap-1.5">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>${isEn() ? 'Save Changes' : 'Desar canvis'}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const descEl = document.getElementById('edit-folder-desc');
+  if (descEl) descEl.value = st.description;
+
+  renderEditFolderReadingsListOnly();
+  renderEditFolderSearchResultsOnly();
+}
+
+function renderEditFolderReadingsListOnly() {
+  const container = document.getElementById('edit-folder-readings-list');
+  const countEl = document.getElementById('edit-folder-readings-count');
+  if (!container || !currentFolderEditState) return;
+
+  const readings = currentFolderEditState.readings;
+  const catalogMap = currentFolderEditState.catalogMap;
+
+  if (countEl) countEl.textContent = readings.length;
+
+  if (readings.length === 0) {
+    container.innerHTML = `
+      <div class="py-5 text-center text-slate-400 text-xs italic">
+        <i class="fa-solid fa-folder-open text-xl text-slate-300 block mb-1"></i>
+        ${isEn() ? 'This folder has no readings yet. Use the search below to add readings.' : 'Aquesta carpeta encara no té cap lectura. Cerca lectures a sota per afegir-les.'}
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  readings.forEach(function(rId, idx) {
+    const r = catalogMap[rId] || { title: (isEn() ? 'Reading (' : 'Lectura (') + rId.slice(0, 6) + '...)', level: '', code: '' };
+    const isFirst = idx === 0;
+    const isLast = idx === readings.length - 1;
+
+    html += `
+      <div class="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2 shadow-2xs hover:border-indigo-300 transition">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-700 font-mono text-xs font-black flex items-center justify-center shrink-0 border border-indigo-200">
+            ${idx + 1}
+          </span>
+          ${r.code ? `<span class="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded shrink-0">${r.code}</span>` : ''}
+          <div class="min-w-0">
+            <p class="text-xs sm:text-sm font-bold text-slate-800 truncate">${escapeHtmlAttr(r.title)}</p>
+            <span class="text-[10px] font-semibold text-slate-400">${escapeHtmlAttr(r.level || '')}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" onclick="moveFolderReadingItem(${idx}, -1)" ${isFirst ? 'disabled' : ''} class="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition ${isFirst ? 'text-slate-300 cursor-not-allowed' : 'bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-700'}" title="${isEn() ? 'Move up in sequence' : 'Pujar amunt a la seqüència'}">
+            <i class="fa-solid fa-arrow-up"></i>
+          </button>
+          <button type="button" onclick="moveFolderReadingItem(${idx}, 1)" ${isLast ? 'disabled' : ''} class="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition ${isLast ? 'text-slate-300 cursor-not-allowed' : 'bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-700'}" title="${isEn() ? 'Move down in sequence' : 'Baixar avall a la seqüència'}">
+            <i class="fa-solid fa-arrow-down"></i>
+          </button>
+          <button type="button" onclick="removeFolderReadingItem(${idx})" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs transition ml-0.5" title="${isEn() ? 'Remove from folder' : 'Treure de la carpeta'}">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderEditFolderSearchResultsOnly() {
+  const container = document.getElementById('edit-folder-search-results');
+  if (!container || !currentFolderEditState) return;
+
+  const q = (currentFolderEditState.searchQuery || '').toLowerCase().trim();
+  const allList = currentFolderEditState.allReadingsList;
+  const currentReadingsSet = new Set(currentFolderEditState.readings);
+
+  let filtered = allList.filter(function(item) {
+    if (!q) return true;
+    const t = (item.title || '').toLowerCase();
+    const c = (item.code || '').toLowerCase();
+    const l = (item.level || '').toLowerCase();
+    const a = (item.bookAuthor || '').toLowerCase();
+    return t.includes(q) || c.includes(q) || l.includes(q) || a.includes(q);
+  });
+
+  const displayList = filtered.slice(0, 20);
+
+  if (displayList.length === 0) {
+    container.innerHTML = `
+      <div class="py-4 text-center text-slate-400 text-xs italic">
+        ${isEn() ? 'No readings found matching search.' : "No s'ha trobat cap lectura que coincideixi amb la cerca."}
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  displayList.forEach(function(item) {
+    const isAlready = currentReadingsSet.has(item.id);
+    const pos = isAlready ? (currentFolderEditState.readings.indexOf(item.id) + 1) : null;
+
+    html += `
+      <div class="p-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-2 shadow-2xs hover:border-slate-300 transition">
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap mb-0.5">
+            ${item.code ? `<span class="text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 px-1.5 py-0.2 rounded border border-indigo-200">${item.code}</span>` : ''}
+            <span class="text-[10px] font-semibold text-slate-500">${escapeHtmlAttr(item.level || '')}</span>
+          </div>
+          <p class="text-xs sm:text-sm font-bold text-slate-800 truncate">${escapeHtmlAttr(item.title)}</p>
+        </div>
+        <div class="shrink-0">
+          ${isAlready ? `
+            <span class="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl inline-flex items-center gap-1 whitespace-nowrap">
+              <i class="fa-solid fa-check text-emerald-600"></i> ${isEn() ? 'In folder (#' + pos + ')' : 'A la carpeta (#' + pos + ')'}
+            </span>
+          ` : `
+            <button type="button" onclick="addFolderReadingItem('${item.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1 whitespace-nowrap shadow-2xs">
+              <i class="fa-solid fa-plus"></i> ${isEn() ? 'Add' : 'Afegir'}
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+  });
+
+  if (filtered.length > 20) {
+    html += `<div class="text-center py-1 text-[11px] text-slate-400 font-medium">${isEn() ? ('Showing 20 of ' + filtered.length + ' readings. Type more to narrow down.') : ('Mostrant 20 de ' + filtered.length + ' lectures. Escriu més caràcters per filtrar.')}</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function moveFolderReadingItem(index, delta) {
+  if (!currentFolderEditState) return;
+  syncEditFolderInputsFromDOM();
+  const arr = currentFolderEditState.readings;
+  const newIndex = index + delta;
+  if (newIndex < 0 || newIndex >= arr.length) return;
+  const temp = arr[index];
+  arr[index] = arr[newIndex];
+  arr[newIndex] = temp;
+  renderEditFolderReadingsListOnly();
+  renderEditFolderSearchResultsOnly();
+}
+
+function removeFolderReadingItem(index) {
+  if (!currentFolderEditState) return;
+  syncEditFolderInputsFromDOM();
+  currentFolderEditState.readings.splice(index, 1);
+  renderEditFolderReadingsListOnly();
+  renderEditFolderSearchResultsOnly();
+}
+
+function addFolderReadingItem(readingId) {
+  if (!currentFolderEditState) return;
+  syncEditFolderInputsFromDOM();
+  if (!currentFolderEditState.readings.includes(readingId)) {
+    currentFolderEditState.readings.push(readingId);
+  }
+  renderEditFolderReadingsListOnly();
+  renderEditFolderSearchResultsOnly();
+}
+
+function handleEditFolderSearchInput(val) {
+  if (!currentFolderEditState) return;
+  currentFolderEditState.searchQuery = val || '';
+  renderEditFolderSearchResultsOnly();
+}
+
+async function saveFolderEditChanges() {
+  if (!currentFolderEditState) return;
+  syncEditFolderInputsFromDOM();
+  const folderId = currentFolderEditState.folderId;
+  const title = (currentFolderEditState.title || '').trim();
+  const level = (currentFolderEditState.level || '').trim() || 'Primària';
+  const description = (currentFolderEditState.description || '').trim();
+  const readings = currentFolderEditState.readings;
+
+  if (!title) {
+    alert(isEn() ? "Please enter a folder title." : "Si us plau, escriu un títol per a la carpeta.");
+    const el = document.getElementById('edit-folder-title');
+    if (el) el.focus();
+    return;
+  }
+
+  const saveBtn = document.getElementById('save-edit-folder-btn');
+  let origHTML = '';
+  if (saveBtn) {
+    origHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> ' + (isEn() ? 'Saving...' : 'Desant...');
+  }
+
+  try {
+    await db.collection(getFoldersCollection()).doc(folderId).update({
+      title: title,
+      level: level,
+      description: description,
+      readings: readings,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    closeEditFolderModal();
+
+    if (currentActiveFolderId === folderId) {
+      renderFolderView(folderId);
+    } else {
+      renderTeacherFoldersList();
+    }
+  } catch (err) {
+    console.error("Error saving folder changes:", err);
+    alert((isEn() ? "Error saving changes: " : "Error en desar els canvis: ") + err.message);
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = origHTML;
+    }
   }
 }
 
