@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.43.3</title>
+  <title>Lectura Aventura - v0.43.4</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -100,7 +100,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.3</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.4</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -112,7 +112,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.3...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.4...</p>
     </div>
   </main>
 
@@ -121,7 +121,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.43.3 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.43.4 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -480,6 +480,119 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     let classroomCurrentQuestionIndex = 0;
     let readerCurrentPartIndex = 0;
     let readerCurrentDocId = null;
+
+    // Mesurador silenciós de velocitat lectora (PPM)
+    let silentReadingDocId = null;
+    let silentReadingSeconds = 0;
+    let silentReadingTimeLocked = false;
+    let silentReadingLastActiveTime = null;
+    let silentReadingInterval = null;
+    let silentReadingCenterTimeout = null;
+    let silentReadingObserver = null;
+    let silentReadingWordCount = 0;
+
+    function countReadingWords(htmlOrText) {
+      if (!htmlOrText) return 0;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = htmlOrText;
+      const text = (tmp.textContent || tmp.innerText || '').trim();
+      if (!text) return 0;
+      const words = text.split(/\s+/).filter(function(w) { return w.length > 0; });
+      return words.length;
+    }
+
+    function lockReadingTimer() {
+      if (silentReadingTimeLocked) return;
+      if (!document.hidden && silentReadingLastActiveTime) {
+        silentReadingSeconds += (Date.now() - silentReadingLastActiveTime) / 1000;
+        silentReadingLastActiveTime = null;
+      }
+      silentReadingTimeLocked = true;
+      if (silentReadingInterval) {
+        clearInterval(silentReadingInterval);
+        silentReadingInterval = null;
+      }
+      if (silentReadingCenterTimeout) {
+        clearTimeout(silentReadingCenterTimeout);
+        silentReadingCenterTimeout = null;
+      }
+      if (silentReadingObserver) {
+        silentReadingObserver.disconnect();
+        silentReadingObserver = null;
+      }
+    }
+
+    function initSilentReadingTracker(docId, rawContent) {
+      if (silentReadingInterval) clearInterval(silentReadingInterval);
+      if (silentReadingCenterTimeout) clearTimeout(silentReadingCenterTimeout);
+      if (silentReadingObserver) silentReadingObserver.disconnect();
+
+      silentReadingDocId = docId;
+      silentReadingSeconds = 0;
+      silentReadingTimeLocked = false;
+      silentReadingWordCount = countReadingWords(rawContent);
+      silentReadingLastActiveTime = document.hidden ? null : Date.now();
+
+      silentReadingInterval = setInterval(function() {
+        if (!silentReadingTimeLocked && !document.hidden && silentReadingLastActiveTime) {
+          const now = Date.now();
+          silentReadingSeconds += (now - silentReadingLastActiveTime) / 1000;
+          silentReadingLastActiveTime = now;
+        } else if (!silentReadingTimeLocked && !document.hidden) {
+          silentReadingLastActiveTime = Date.now();
+        }
+      }, 1000);
+    }
+
+    function setupSilentReadingCutoff() {
+      const quizForm = document.getElementById('quiz-form');
+      if (!quizForm) return;
+
+      const handleQuizInteraction = function() {
+        lockReadingTimer();
+      };
+
+      quizForm.addEventListener('click', handleQuizInteraction, { passive: true });
+      quizForm.addEventListener('input', handleQuizInteraction, { passive: true });
+      quizForm.addEventListener('keydown', handleQuizInteraction, { passive: true });
+      quizForm.addEventListener('focus', handleQuizInteraction, true);
+
+      if (window.IntersectionObserver) {
+        silentReadingObserver = new IntersectionObserver(function(entries) {
+          if (silentReadingTimeLocked) return;
+          const entry = entries[0];
+          if (entry && entry.isIntersecting) {
+            if (!silentReadingCenterTimeout) {
+              silentReadingCenterTimeout = setTimeout(function() {
+                lockReadingTimer();
+              }, 3000);
+            }
+          } else {
+            if (silentReadingCenterTimeout) {
+              clearTimeout(silentReadingCenterTimeout);
+              silentReadingCenterTimeout = null;
+            }
+          }
+        }, {
+          root: null,
+          rootMargin: '-20% 0px -20% 0px',
+          threshold: 0
+        });
+        silentReadingObserver.observe(quizForm);
+      }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+      if (silentReadingTimeLocked || !silentReadingDocId) return;
+      if (document.hidden) {
+        if (silentReadingLastActiveTime) {
+          silentReadingSeconds += (Date.now() - silentReadingLastActiveTime) / 1000;
+          silentReadingLastActiveTime = null;
+        }
+      } else {
+        silentReadingLastActiveTime = Date.now();
+      }
+    });
 
     let speechUtterance = null;
     let isSpeaking = false;
@@ -2239,7 +2352,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.43.3 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.43.4 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -5221,6 +5334,14 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           restoreHighlightsFromSession(docId);
           setupHighlighterListeners();
         }
+
+        // Inicialització del mesurador silenciós de velocitat lectora (PPM)
+        initSilentReadingTracker(docId, data.content || '');
+        if (silentReadingWordCount === 0) {
+          const textBox = document.getElementById('reading-text-box');
+          if (textBox) silentReadingWordCount = countReadingWords(textBox.textContent || '');
+        }
+        setupSilentReadingCutoff();
       } catch (err) {
         console.error("Error carregant el lector:", err);
         app.innerHTML = `<div class="p-6 bg-red-50 text-red-700 rounded-xl max-w-xl mx-auto">${isEn() ? 'Error loading reading: ' : 'Error carregant la lectura: '}${err.message}</div>`;
@@ -5368,6 +5489,13 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         }
       } catch (err) {}
 
+      lockReadingTimer();
+      const finalReadingSeconds = Math.round(silentReadingSeconds);
+      let calculatedWpm = null;
+      if (finalReadingSeconds >= 5 && silentReadingWordCount > 0) {
+        calculatedWpm = Math.round(silentReadingWordCount / (finalReadingSeconds / 60));
+      }
+
       const prevHist = localReadingHistory[docId];
       const shouldUpdateHistory = !prevHist || newQuizPoints >= (prevHist.points || 0);
       if (shouldUpdateHistory) {
@@ -5379,8 +5507,15 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           maxPoints: maxPossiblePoints,
           percentage: total > 0 ? Math.round((score / total) * 100) : 0,
           stats: stats,
+          wpm: calculatedWpm,
+          readingSeconds: finalReadingSeconds,
+          wordCount: silentReadingWordCount,
           completedAt: new Date().toISOString()
         };
+      } else if (prevHist && (prevHist.wpm === undefined || prevHist.wpm === null) && calculatedWpm !== null) {
+        prevHist.wpm = calculatedWpm;
+        prevHist.readingSeconds = finalReadingSeconds;
+        prevHist.wordCount = silentReadingWordCount;
       }
 
       userScores = localScores;
@@ -6733,8 +6868,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                   : (pct >= 50 ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-rose-100 text-rose-800 border-rose-300');
 
+                const wpmBadgeText = (histInfo.wpm !== undefined && histInfo.wpm !== null)
+                  ? (' · <span title="' + (histInfo.readingSeconds ? (histInfo.readingSeconds + 's · ' + (histInfo.wordCount || 0) + ' ' + (isEn() ? 'words' : 'paraules')) : '') + '">⚡ ' + histInfo.wpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>')
+                  : '';
+
                 scoreBadgeHTML = '<span class="text-[11px] font-black px-2 py-0.5 rounded-md border ' + badgeTone + '">' +
-                  histInfo.score + '/' + histInfo.total + ' ' + (isEn() ? 'correct' : 'encerts') + ' (' + pct + '%) · ' + histInfo.points + ' PTS</span>';
+                  histInfo.score + '/' + histInfo.total + ' ' + (isEn() ? 'correct' : 'encerts') + ' (' + pct + '%)' + wpmBadgeText + ' · ' + histInfo.points + ' PTS</span>';
 
                 if (histInfo.stats) {
                   const taxKeysOrder = ['literal', 'inferential', 'figurative', 'opinion', 'creative'];
@@ -6784,6 +6923,20 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </button>`
             : `<span class="text-xs font-bold text-slate-400">0</span>`;
 
+          let studentTableSummaryHTML = '';
+          const studentDoneEntries = completedList.map(function(rId) { return uHistory[rId]; }).filter(function(h) { return h && h.total > 0; });
+          if (studentDoneEntries.length > 0) {
+            const pcts = studentDoneEntries.map(function(h) { return h.percentage !== undefined ? h.percentage : Math.round((h.score / h.total) * 100); });
+            const avgPct = Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length);
+            const validWpms = studentDoneEntries.filter(function(h) { return typeof h.wpm === 'number' && h.wpm > 0; }).map(function(h) { return h.wpm; });
+            const avgWpm = validWpms.length > 0 ? Math.round(validWpms.reduce(function(a, b) { return a + b; }, 0) / validWpms.length) : null;
+
+            studentTableSummaryHTML = '<div class="text-[10px] text-slate-500 font-bold mt-1 flex items-center justify-center gap-1 flex-wrap">' +
+              '<span title="' + (isEn() ? 'Average accuracy' : 'Mitjana encert') + '">' + avgPct + '% ' + (isEn() ? 'acc.' : 'encert') + '</span>' +
+              (avgWpm ? ('<span class="text-slate-300">·</span><span class="text-indigo-600 font-extrabold" title="' + (isEn() ? 'Average reading speed' : 'Velocitat lectora mitjana') + '"><i class="fa-solid fa-gauge-high text-[9px]"></i> ' + avgWpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>') : '') +
+              '</div>';
+          }
+
           rows += `
             <tr class="border-b border-slate-100 hover:bg-slate-50/90 transition">
               <td class="p-3 text-center">
@@ -6803,7 +6956,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   <i class="fa-solid ${rank.icon} text-amber-600"></i> ${getLocalizedRankName(rank.name)}
                 </span>
               </td>
-              <td class="p-3 text-center">${lecturesBtnHTML}</td>
+              <td class="p-3 text-center">${lecturesBtnHTML}${studentTableSummaryHTML}</td>
               <td class="p-3 text-sm text-right font-black text-amber-600">${pts} PTS</td>
             </tr>
             <tr id="student-readings-row-${u.id}" class="hidden bg-indigo-50/40 border-b border-indigo-100">
@@ -6963,10 +7116,21 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.43.4",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Velocitat Lectora (PPM) & Retolador",
+          isCurrent: true,
+          summary: "Nova eina de mesura silenciosa de velocitat lectora (PPM) en segon pla per al seguiment docent i consolidació de l'eina de retolador fluorescent per a l'alumnat.",
+          highlights: [
+            "<strong>Nou subratllador fluorescent per a l'alumnat:</strong> Eina de marcatge contextual amb colors fluorescents (Groc: <em>Important</em>, Verd: <em>Pista</em>, Rosa: <em>Paraula difícil</em>) compatible amb ratolí i pantalles tàctils, amb opció d'esborrar marques i persistència durant tota la lectura.",
+            "<strong>Mesura silenciosa de velocitat lectora (PPM):</strong> Cronòmetre invisible en segon pla que calcula automàticament les paraules per minut (PPM) de la primera lectura (amb pausa automàtica en canviar de pestanya i aturada intel·ligent en iniciar les preguntes) i envia la mètrica al panell de seguiment del docent."
+          ]
+        },
+        {
           version: "v0.43.3",
           date: "Novembre 2026",
-          badge: "Versió Actual · Retolador Fluorescent (Highlighter)",
-          isCurrent: true,
+          badge: "Retolador Fluorescent (Highlighter)",
+          isCurrent: false,
           summary: "Nova eina de retolador fluorescent a la vista de lectura per a ratolí i pantalles tàctils (Chromebooks/iPads) amb 3 colors, llegenda en català, persistència en sessió i respecte total pel glossari, TTS i modes de lectura.",
           highlights: [
             "<strong>Barra flotant compacta (popover):</strong> En seleccionar text (o en fer clic sobre una marca existent), apareix una barra flotant just sobre la selecció amb 3 colors fluorescents: Groc (#fef08a, «Important»), Verd (#bbf7d0, «Pista») i Rosa (#fbcfe8, «Paraula difícil»), a més del botó «Treure marca».",
@@ -7384,7 +7548,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.43.3
+              Versió Actual: v0.43.4
             </span>
           </div>
 
