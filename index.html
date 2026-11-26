@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.43.4</title>
+  <title>Lectura Aventura - v0.44</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -100,7 +100,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.4</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.44</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -112,7 +112,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.4...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.44...</p>
     </div>
   </main>
 
@@ -121,7 +121,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.43.4 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.44 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -2352,7 +2352,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.43.4 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.44 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -6818,10 +6818,15 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const encodedG = encodeURIComponent(gName);
 
           groupTabsHTML += `
-            <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 border ${isSelected ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-950 border-emerald-200'}">
-              <i class="fa-solid fa-chalkboard"></i>
-              <span>${escapeHtmlAttr(gName)} (${countInGroup})</span>
-            </button>
+            <div class="flex items-center gap-0 rounded-xl border ${isSelected ? 'border-emerald-700 shadow-xs' : 'border-emerald-200'} overflow-hidden">
+              <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3.5 py-2 text-xs font-extrabold transition flex items-center gap-1.5 ${isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-950'}">
+                <i class="fa-solid fa-chalkboard"></i>
+                <span>${escapeHtmlAttr(gName)} (${countInGroup})</span>
+              </button>
+              <button onclick="renderClassroomGradeBook(decodeURIComponent('${encodedG}'))" title="${isEn() ? 'Open grade book for this classroom' : 'Obrir quadern de notes de l\'aula'}" class="px-2.5 py-2 text-xs font-extrabold transition border-l ${isSelected ? 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800' : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'}">
+                <i class="fa-solid fa-table-cells-large"></i>
+              </button>
+            </div>
           `;
         });
 
@@ -7108,6 +7113,357 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       }
     }
 
+    // =========================================================
+    // QUADERN D'AULA (v0.44) — Graella de Notes per Aula
+    // =========================================================
+    async function renderClassroomGradeBook(classroomName) {
+      if (!currentUser) return;
+      const app = document.getElementById('app');
+      if (!app) return;
+
+      app.innerHTML = '<div class="text-center py-12"><i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i><p class="mt-2 text-slate-500 font-medium">' + (isEn() ? 'Loading grade book...' : 'Carregant el quadern de notes...') + '</p></div>';
+
+      try {
+        const [studentsSnap, lecturesSnap] = await Promise.all([
+          db.collection('users').where('teacherUid', '==', currentUser.uid).where('classGroup', '==', classroomName).get(),
+          db.collection(getReadingsCollection()).get()
+        ]);
+
+        // Build readings catalog map
+        const readingsCatalogMap = {};
+        const totalCatalogDocs = lecturesSnap.size;
+        let idxCat = 0;
+        lecturesSnap.forEach(function(lDoc) {
+          const lData = lDoc.data() || {};
+          const rNum = lData.readingNumber || (totalCatalogDocs - idxCat);
+          readingsCatalogMap[lDoc.id] = {
+            id: lDoc.id,
+            title: lData.title || (isEn() ? 'Untitled reading' : 'Lectura sense títol'),
+            code: formatReadingCode(rNum),
+            readingNumber: rNum
+          };
+          idxCat++;
+        });
+
+        // Build students list sorted alphabetically
+        let students = [];
+        studentsSnap.forEach(function(doc) {
+          students.push(Object.assign({ id: doc.id }, doc.data()));
+        });
+        students.sort(function(a, b) {
+          return (a.displayName || '').localeCompare(b.displayName || '', 'ca');
+        });
+
+        // Gather all reading IDs that any student in this classroom has completed
+        const readingIdsSet = new Set();
+        students.forEach(function(s) {
+          (s.completedReadings || []).forEach(function(rId) {
+            readingIdsSet.add(rId);
+          });
+        });
+
+        // Sort readings by readingNumber (chronological / code order)
+        const sortedReadingIds = Array.from(readingIdsSet).sort(function(a, b) {
+          const rA = readingsCatalogMap[a] ? readingsCatalogMap[a].readingNumber : 0;
+          const rB = readingsCatalogMap[b] ? readingsCatalogMap[b].readingNumber : 0;
+          return rA - rB;
+        });
+
+        // Helper: get best result for a student+reading
+        function getBestResult(student, rId) {
+          const history = student.readingHistory || {};
+          const hEntry = history[rId];
+          if (hEntry && hEntry.total > 0) {
+            const pct = hEntry.percentage !== undefined ? hEntry.percentage : Math.round((hEntry.score / hEntry.total) * 100);
+            return { pct: pct, wpm: hEntry.wpm || null, score: hEntry.score, total: hEntry.total, points: hEntry.points || 0 };
+          }
+          return null;
+        }
+
+        // Helper: semaphore color class
+        function semaphoreClass(pct) {
+          if (pct >= 75) return { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-300' };
+          if (pct >= 50) return { bg: 'bg-amber-100', text: 'text-amber-900', border: 'border-amber-300' };
+          return { bg: 'bg-rose-100', text: 'text-rose-800', border: 'border-rose-300' };
+        }
+
+        // Build column headers HTML
+        let theadCols = '<th class="p-2.5 text-left text-xs font-black text-slate-700 bg-slate-100 sticky left-0 z-10 min-w-[150px] border-r border-slate-200">' + (isEn() ? 'Student' : 'Alumne/a') + '</th>';
+        sortedReadingIds.forEach(function(rId) {
+          const catInfo = readingsCatalogMap[rId] || {};
+          const code = catInfo.code || '';
+          const title = catInfo.title || rId.slice(0, 8) + '...';
+          theadCols += '<th class="p-2 text-center text-[11px] font-bold text-slate-600 bg-slate-100 min-w-[110px] max-w-[150px] border-r border-slate-200 align-top">' +
+            (code ? '<div class="text-indigo-600 font-mono font-black text-[10px]">' + escapeHtmlAttr(code) + '</div>' : '') +
+            '<div class="leading-tight mt-0.5 line-clamp-2" title="' + escapeHtmlAttr(title) + '">' + escapeHtmlAttr(title) + '</div>' +
+          '</th>';
+        });
+        theadCols += '<th class="p-2.5 text-center text-[11px] font-black text-indigo-800 bg-indigo-50 min-w-[100px] border-l border-indigo-200">' + (isEn() ? 'Average' : 'Mitjana') + '</th>';
+
+        // Build data rows + collect per-column data for class averages
+        const colPcts = {}; // rId -> array of pcts
+        const colWpms = {}; // rId -> array of wpms
+        sortedReadingIds.forEach(function(rId) { colPcts[rId] = []; colWpms[rId] = []; });
+
+        let tbodyRows = '';
+        students.forEach(function(student) {
+          let rowCells = '<td class="p-2.5 sticky left-0 z-10 bg-white border-r border-slate-200 min-w-[150px]">' +
+            '<div class="text-xs font-bold text-slate-800 leading-tight">' + escapeHtmlAttr(student.displayName || (isEn() ? 'Student' : 'Alumne/a')) + '</div>' +
+          '</td>';
+
+          const studentPcts = [];
+          const studentWpms = [];
+
+          sortedReadingIds.forEach(function(rId) {
+            const result = getBestResult(student, rId);
+            if (result) {
+              const sc = semaphoreClass(result.pct);
+              colPcts[rId].push(result.pct);
+              if (result.wpm) colWpms[rId].push(result.wpm);
+              studentPcts.push(result.pct);
+              if (result.wpm) studentWpms.push(result.wpm);
+              rowCells += '<td class="p-1.5 text-center border-r border-slate-100">' +
+                '<div class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px] cursor-pointer hover:opacity-80 transition" title="' + escapeHtmlAttr((student.displayName || '') + ' · ' + (readingsCatalogMap[rId] ? readingsCatalogMap[rId].title : rId)) + '">' +
+                '<span class="text-sm font-black ' + sc.text + '">' + result.pct + '%</span>' +
+                (result.wpm ? '<span class="text-[10px] font-bold text-slate-500 mt-0.5"><i class=\'fa-solid fa-gauge-high text-[9px]\'></i> ' + result.wpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>' : '') +
+                '</div>' +
+              '</td>';
+            } else {
+              rowCells += '<td class="p-1.5 text-center border-r border-slate-100 text-slate-300 text-sm font-bold">—</td>';
+            }
+          });
+
+          // Student average column
+          if (studentPcts.length > 0) {
+            const avgPct = Math.round(studentPcts.reduce(function(a, b) { return a + b; }, 0) / studentPcts.length);
+            const avgWpm = studentWpms.length > 0 ? Math.round(studentWpms.reduce(function(a, b) { return a + b; }, 0) / studentWpms.length) : null;
+            const sc = semaphoreClass(avgPct);
+            rowCells += '<td class="p-1.5 text-center bg-indigo-50/60 border-l border-indigo-100">' +
+              '<div class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px]">' +
+              '<span class="text-sm font-black ' + sc.text + '">' + avgPct + '%</span>' +
+              (avgWpm ? '<span class="text-[10px] font-bold text-slate-500 mt-0.5"><i class=\'fa-solid fa-gauge-high text-[9px]\'></i> ' + avgWpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>' : '') +
+              '</div>' +
+            '</td>';
+          } else {
+            rowCells += '<td class="p-1.5 text-center bg-indigo-50/60 border-l border-indigo-100 text-slate-300 text-sm font-bold">—</td>';
+          }
+
+          tbodyRows += '<tr class="border-b border-slate-100 hover:bg-slate-50/70 transition">' + rowCells + '</tr>';
+        });
+
+        // Class average footer row
+        let tfootCells = '<td class="p-2.5 sticky left-0 z-10 bg-indigo-900 text-white border-r border-indigo-800 min-w-[150px]">' +
+          '<span class="text-xs font-black">' + (isEn() ? 'Class Average' : "Mitjana de l'Aula") + '</span>' +
+        '</td>';
+        const grandPcts = [];
+        const grandWpms = [];
+        sortedReadingIds.forEach(function(rId) {
+          const pcts = colPcts[rId];
+          if (pcts.length > 0) {
+            const avg = Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length);
+            const wpms = colWpms[rId];
+            const avgW = wpms.length > 0 ? Math.round(wpms.reduce(function(a, b) { return a + b; }, 0) / wpms.length) : null;
+            grandPcts.push(avg);
+            if (avgW) grandWpms.push(avgW);
+            const sc = semaphoreClass(avg);
+            tfootCells += '<td class="p-1.5 text-center border-r border-indigo-800 bg-indigo-900">' +
+              '<div class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px]">' +
+              '<span class="text-sm font-black ' + sc.text + '">' + avg + '%</span>' +
+              (avgW ? '<span class="text-[10px] font-bold text-slate-500 mt-0.5"><i class=\'fa-solid fa-gauge-high text-[9px]\'></i> ' + avgW + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>' : '') +
+              '</div>' +
+            '</td>';
+          } else {
+            tfootCells += '<td class="p-1.5 text-center border-r border-indigo-800 bg-indigo-900 text-indigo-400 text-sm font-bold">—</td>';
+          }
+        });
+
+        // Grand average cell
+        if (grandPcts.length > 0) {
+          const grandAvgPct = Math.round(grandPcts.reduce(function(a, b) { return a + b; }, 0) / grandPcts.length);
+          const grandAvgWpm = grandWpms.length > 0 ? Math.round(grandWpms.reduce(function(a, b) { return a + b; }, 0) / grandWpms.length) : null;
+          const sc = semaphoreClass(grandAvgPct);
+          tfootCells += '<td class="p-1.5 text-center bg-indigo-900 border-l border-indigo-800">' +
+            '<div class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px]">' +
+            '<span class="text-sm font-black ' + sc.text + '">' + grandAvgPct + '%</span>' +
+            (grandAvgWpm ? '<span class="text-[10px] font-bold text-slate-500 mt-0.5"><i class=\'fa-solid fa-gauge-high text-[9px]\'></i> ' + grandAvgWpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>' : '') +
+            '</div>' +
+          '</td>';
+        } else {
+          tfootCells += '<td class="p-1.5 text-center bg-indigo-900 border-l border-indigo-800 text-indigo-400 text-sm font-bold">—</td>';
+        }
+
+        const noDataMsg = students.length === 0
+          ? '<tr><td colspan="' + (sortedReadingIds.length + 2) + '" class="p-10 text-center text-sm text-slate-400">' + (isEn() ? 'No students found in this classroom.' : 'No hi ha alumnes en aquesta aula.') + '</td></tr>'
+          : (sortedReadingIds.length === 0 ? '<tr><td colspan="2" class="p-10 text-center text-sm text-slate-400">' + (isEn() ? 'No readings completed yet by this classroom.' : 'Cap lectura completada per aquesta aula encara.') + '</td></tr>' : '');
+
+        const tableContent = noDataMsg || (tbodyRows + '');
+
+        app.innerHTML = `
+          <div class="max-w-full mx-auto space-y-5 px-0">
+            <!-- CAPÇALERA -->
+            <div class="flex items-center justify-between flex-wrap gap-3">
+              <button onclick="renderStudentTrackingPanel()" class="text-slate-500 hover:text-slate-800 text-sm font-bold inline-flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-arrow-left"></i>
+                ${isEn() ? '← Back to my students' : '← Tornar als meus alumnes'}
+              </button>
+              <div class="flex items-center gap-2 flex-wrap">
+                <button onclick="exportClassroomGradeBookCSV(${JSON.stringify(classroomName)}, ${JSON.stringify(sortedReadingIds)}, ${JSON.stringify(students.map(function(s){ return { id: s.id, displayName: s.displayName, readingHistory: s.readingHistory || {} }; }))}, ${JSON.stringify(readingsCatalogMap)})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-1.5 transition">
+                  <i class="fa-solid fa-file-csv"></i>
+                  <span>${isEn() ? 'Export table (CSV)' : 'Exportar taula (CSV)'}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TÍTOL DEL QUADERN -->
+            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+              <div class="flex items-center gap-3 mb-1">
+                <div class="bg-emerald-600 text-white rounded-xl p-2.5">
+                  <i class="fa-solid fa-table-cells-large text-lg"></i>
+                </div>
+                <div>
+                  <h1 class="text-xl font-black text-slate-800">${isEn() ? 'Grade Book' : 'Quadern d\'Aula'} — <span class="text-emerald-700">${escapeHtmlAttr(classroomName)}</span></h1>
+                  <p class="text-xs text-slate-500 mt-0.5">${students.length} ${isEn() ? 'students' : 'alumnes'} · ${sortedReadingIds.length} ${isEn() ? 'readings' : 'lectures'} · ${isEn() ? 'Green ≥75% · Amber 50-74% · Red <50%' : 'Verd ≥75% · Ambre 50-74% · Vermell <50%'}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- GRAELLA -->
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
+                <table class="border-collapse text-left" style="min-width: max-content;">
+                  <thead class="sticky top-0 z-20">
+                    <tr class="border-b-2 border-slate-200">
+                      ${theadCols}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${tableContent}
+                  </tbody>
+                  ${!noDataMsg ? '<tfoot><tr class="border-t-2 border-indigo-900">' + tfootCells + '</tr></tfoot>' : ''}
+                </table>
+              </div>
+            </div>
+
+            <!-- LLEGENDA -->
+            <div class="flex items-center gap-4 flex-wrap text-xs font-bold">
+              <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 rounded bg-emerald-100 border border-emerald-300"></span>${isEn() ? 'Excellent (≥75%)' : 'Excel·lent (≥75%)'}</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 rounded bg-amber-100 border border-amber-300"></span>${isEn() ? 'Acceptable (50-74%)' : 'Acceptable (50-74%)'}</span>
+              <span class="flex items-center gap-1.5"><span class="inline-block w-4 h-4 rounded bg-rose-100 border border-rose-300"></span>${isEn() ? 'Needs improvement (<50%)' : 'Cal millorar (<50%)'}</span>
+              <span class="flex items-center gap-1.5 text-slate-400">— ${isEn() ? 'Not completed' : 'No realitzada'}</span>
+            </div>
+          </div>
+        `;
+
+      } catch (err) {
+        console.error(err);
+        app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">' + (isEn() ? 'Error loading grade book: ' : 'Error en carregar el quadern de notes: ') + escapeHtmlAttr(err.message) + '</div>';
+      }
+    }
+
+    // =========================================================
+    // EXPORTACIÓ CSV DEL QUADERN D'AULA (v0.44)
+    // =========================================================
+    function exportClassroomGradeBookCSV(classroomName, sortedReadingIds, studentsData, readingsCatalogMap) {
+      try {
+        const sep = ';';
+        const lines = [];
+
+        // Header row: Alumne/a ; [reading codes/titles...] ; Mitjana %  ; Mitjana PPM
+        const headerCols = [isEn() ? 'Student' : 'Alumne/a'];
+        sortedReadingIds.forEach(function(rId) {
+          const catInfo = readingsCatalogMap[rId] || {};
+          const code = catInfo.code || '';
+          const title = catInfo.title || rId.slice(0, 12);
+          headerCols.push((code ? code + ' - ' : '') + title + ' (%)');
+          headerCols.push((code ? code + ' - ' : '') + title + ' (' + (isEn() ? 'WPM' : 'PPM') + ')');
+        });
+        headerCols.push(isEn() ? 'Average (%)' : 'Mitjana (%)');
+        headerCols.push(isEn() ? 'Average WPM' : 'Mitjana PPM');
+        lines.push(headerCols.join(sep));
+
+        // Data rows
+        const colPctsForAvg = {};
+        const colWpmsForAvg = {};
+        sortedReadingIds.forEach(function(rId) { colPctsForAvg[rId] = []; colWpmsForAvg[rId] = []; });
+
+        studentsData.forEach(function(student) {
+          const cols = [student.displayName || ''];
+          const studentPcts = [];
+          const studentWpms = [];
+
+          sortedReadingIds.forEach(function(rId) {
+            const history = student.readingHistory || {};
+            const hEntry = history[rId];
+            if (hEntry && hEntry.total > 0) {
+              const pct = hEntry.percentage !== undefined ? hEntry.percentage : Math.round((hEntry.score / hEntry.total) * 100);
+              const wpm = typeof hEntry.wpm === 'number' && hEntry.wpm > 0 ? hEntry.wpm : null;
+              cols.push(String(pct));
+              cols.push(wpm !== null ? String(wpm) : '');
+              studentPcts.push(pct);
+              colPctsForAvg[rId].push(pct);
+              if (wpm !== null) { studentWpms.push(wpm); colWpmsForAvg[rId].push(wpm); }
+            } else {
+              cols.push('');
+              cols.push('');
+            }
+          });
+
+          // Student averages
+          if (studentPcts.length > 0) {
+            cols.push(String(Math.round(studentPcts.reduce(function(a, b) { return a + b; }, 0) / studentPcts.length)));
+            cols.push(studentWpms.length > 0 ? String(Math.round(studentWpms.reduce(function(a, b) { return a + b; }, 0) / studentWpms.length)) : '');
+          } else {
+            cols.push('');
+            cols.push('');
+          }
+
+          lines.push(cols.join(sep));
+        });
+
+        // Class average row
+        const avgCols = [isEn() ? 'Class Average' : "Mitjana de l'Aula"];
+        const grandPcts = [];
+        const grandWpms = [];
+        sortedReadingIds.forEach(function(rId) {
+          const pcts = colPctsForAvg[rId];
+          if (pcts.length > 0) {
+            const avg = Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length);
+            grandPcts.push(avg);
+            avgCols.push(String(avg));
+          } else {
+            avgCols.push('');
+          }
+          const wpms = colWpmsForAvg[rId];
+          if (wpms.length > 0) {
+            const avgW = Math.round(wpms.reduce(function(a, b) { return a + b; }, 0) / wpms.length);
+            grandWpms.push(avgW);
+            avgCols.push(String(avgW));
+          } else {
+            avgCols.push('');
+          }
+        });
+        avgCols.push(grandPcts.length > 0 ? String(Math.round(grandPcts.reduce(function(a, b) { return a + b; }, 0) / grandPcts.length)) : '');
+        avgCols.push(grandWpms.length > 0 ? String(Math.round(grandWpms.reduce(function(a, b) { return a + b; }, 0) / grandWpms.length)) : '');
+        lines.push(avgCols.join(sep));
+
+        // UTF-8 BOM + CSV content
+        const csvContent = '\uFEFF' + lines.join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeFilename = 'quadern_aula_' + (classroomName || 'aula').replace(/[^a-zA-Z0-9_\-À-ÿ]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+        link.setAttribute('href', url);
+        link.setAttribute('download', safeFilename);
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+      } catch (err) {
+        alert((isEn() ? 'Error generating CSV: ' : 'Error generant el CSV: ') + err.message);
+      }
+    }
+
     function renderChangelogPage() {
       stopSpeechSynthesis();
       const app = document.getElementById('app');
@@ -7116,10 +7472,23 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.44",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Quadern d'Aula amb Graella de Notes",
+          isCurrent: true,
+          summary: "Nova vista de Quadern d'Aula clicable des del panell del docent: graella de notes (alumnes × lectures) amb semàfor d'encert, PPM, mitjanes automàtiques per alumne i per aula, i exportació a CSV compatible amb Excel (UTF-8 BOM).",
+          highlights: [
+            "<strong>Aules clicables amb icona de graella:</strong> Cada aula del panell del docent incorpora ara un botó de taula (<i class=\"fa-solid fa-table-cells-large\"></i>) que obre directament el Quadern d'Aula per a aquell grup específic.",
+            "<strong>Graella d'avaluació Alumnes × Lectures:</strong> Taula interactiva amb la columna d'alumne fixa (sticky) i totes les lectures de l'aula en columnes ordenades per codi, mostrant el percentatge d'encert amb semàfor de colors (verd ≥75%, ambre 50-74%, vermell &lt;50%) i les PPM de cada alumne per a cada lectura.",
+            "<strong>Resums automàtics:</strong> Columna final de Mitjana per alumne (% encert + PPM) i fila de Mitjana de l'Aula per a cada lectura, amb el mateix codi de colors.",
+            "<strong>Exportació a CSV (UTF-8 BOM):</strong> Botó «Exportar taula (CSV)» que genera un fitxer descarregable compatible amb Excel i LibreOffice, respectant els accents i caràcters catalans."
+          ]
+        },
+        {
           version: "v0.43.4",
           date: "Novembre 2026",
-          badge: "Versió Actual · Velocitat Lectora (PPM) & Retolador",
-          isCurrent: true,
+          badge: "Velocitat Lectora (PPM) & Retolador",
+          isCurrent: false,
           summary: "Nova eina de mesura silenciosa de velocitat lectora (PPM) en segon pla per al seguiment docent i consolidació de l'eina de retolador fluorescent per a l'alumnat.",
           highlights: [
             "<strong>Nou subratllador fluorescent per a l'alumnat:</strong> Eina de marcatge contextual amb colors fluorescents (Groc: <em>Important</em>, Verd: <em>Pista</em>, Rosa: <em>Paraula difícil</em>) compatible amb ratolí i pantalles tàctils, amb opció d'esborrar marques i persistència durant tota la lectura.",
@@ -7548,7 +7917,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.43.4
+              Versió Actual: v0.44
             </span>
           </div>
 
