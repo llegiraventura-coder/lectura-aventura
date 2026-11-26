@@ -1,5 +1,8 @@
 ﻿<!DOCTYPE html>
 <!-- 
+  CHANGELOG v0.46:
+  - v0.46: Catàleg separat de 8 medalles pedagògiques per a Docents/Creadors (X/8) i bloqueig de punts d'alumne en mode vista prèvia docent.
+
   CHANGELOG v0.45.1:
   - v0.45.1: Renderitzat complet de la graella de les 11 medalles al perfil (amb estat desbloquejat a color i pendent en gris claret amb requisits visibles).
 
@@ -12,7 +15,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.45.1</title>
+  <title>Lectura Aventura - v0.46</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -111,7 +114,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.45.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.46</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -123,7 +126,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.45.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.46...</p>
     </div>
   </main>
 
@@ -132,7 +135,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.45.1 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.46 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -653,6 +656,105 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       { min: 10, max: 14, name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", color: "from-amber-600 to-amber-800", badgeBg: "bg-amber-50 text-amber-800 border-amber-200" },
       { min: 15, max: 19, name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", color: "from-blue-600 to-indigo-800", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300" },
       { min: 20, max: Infinity, name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", color: "from-amber-400 to-amber-600", badgeBg: "bg-amber-100 text-amber-900 border-amber-300" }
+    ];
+
+    const TEACHER_MEDALS = [
+      {
+        id: 'first_seed',
+        title: function() { return isEn() ? "First Seed" : "Primera Llavor"; },
+        desc: function() { return isEn() ? "Publish your first reading to the catalog." : "Publica la teva primera lectura al catàleg."; },
+        requirement: function() { return isEn() ? "1 reading published in catalog" : "Publica la teva primera lectura al catàleg."; },
+        icon: "fa-seedling",
+        color: "bg-emerald-500",
+        check: function(ctx) {
+          const val = ctx.createdCount || 0;
+          return { unlocked: val >= 1, progress: Math.min(val, 1) + "/1" };
+        }
+      },
+      {
+        id: 'comprehension_crafter',
+        title: function() { return isEn() ? "Comprehension Crafter" : "Artesà de la comprensió"; },
+        desc: function() { return isEn() ? "Create a reading with questions from at least 3 distinct taxonomies." : "Crea una lectura amb preguntes d'almenys 3 taxonomies diferents."; },
+        requirement: function() { return isEn() ? "At least 3 question taxonomies in 1 reading" : "Crea una lectura amb preguntes d'almenys 3 taxonomies diferents."; },
+        icon: "fa-brain",
+        color: "bg-indigo-600",
+        check: function(ctx) {
+          const val = ctx.maxTaxonomies || 0;
+          return { unlocked: val >= 3, progress: Math.min(val, 3) + "/3" };
+        }
+      },
+      {
+        id: 'versatile_educator',
+        title: function() { return isEn() ? "Versatile Educator" : "Educador versàtil"; },
+        desc: function() { return isEn() ? "Publish readings across at least 3 different educational levels or cycles." : "Publica lectures per a almenys 3 nivells o cursos educatius diferents."; },
+        requirement: function() { return isEn() ? "Readings in 3 different educational levels" : "Publica lectures per a almenys 3 nivells o cursos educatius diferents."; },
+        icon: "fa-layer-group",
+        color: "bg-teal-600",
+        check: function(ctx) {
+          const val = ctx.distinctLevelsCount || 0;
+          return { unlocked: val >= 3, progress: Math.min(val, 3) + "/3" };
+        }
+      },
+      {
+        id: 'beloved_story',
+        title: function() { return isEn() ? "Beloved Story" : "Història estimada"; },
+        desc: function() { return isEn() ? "Have one of your readings completed by at least 10 readers." : "Aconsegueix que una de les teves lectures sigui completada per almenys 10 lectors."; },
+        requirement: function() { return isEn() ? "1 reading completed by 10 readers" : "Aconsegueix que una de les teves lectures sigui completada per almenys 10 lectors."; },
+        icon: "fa-heart",
+        color: "bg-rose-500",
+        check: function(ctx) {
+          const val = ctx.maxCompletions || 0;
+          return { unlocked: val >= 10, progress: Math.min(val, 10) + "/10" };
+        }
+      },
+      {
+        id: 'classroom_hit',
+        title: function() { return isEn() ? "Classroom Hit" : "Èxit d'aula"; },
+        desc: function() { return isEn() ? "Have one of your readings exceed 50 completions." : "Aconsegueix que una lectura teva superi les 50 finalitzacions."; },
+        requirement: function() { return isEn() ? "1 reading with 50 completions" : "Aconsegueix que una lectura teva superi les 50 finalitzacions."; },
+        icon: "fa-fire",
+        color: "bg-amber-600",
+        check: function(ctx) {
+          const val = ctx.maxCompletions || 0;
+          return { unlocked: val >= 50, progress: Math.min(val, 50) + "/50" };
+        }
+      },
+      {
+        id: 'educational_bestseller',
+        title: function() { return isEn() ? "Educational Bestseller" : "Supervendes pedagògic"; },
+        desc: function() { return isEn() ? "Reach 100 cumulative completions across all your published readings." : "Arriba a les 100 finalitzacions acumulades entre totes les teves lectures."; },
+        requirement: function() { return isEn() ? "100 cumulative completions across readings" : "Arriba a les 100 finalitzacions acumulades entre totes les teves lectures."; },
+        icon: "fa-award",
+        color: "bg-purple-600",
+        check: function(ctx) {
+          const val = ctx.totalCompletions || 0;
+          return { unlocked: val >= 100, progress: Math.min(val, 100) + "/100" };
+        }
+      },
+      {
+        id: 'classroom_host',
+        title: function() { return isEn() ? "Classroom Host" : "Amfitrió d'aula"; },
+        desc: function() { return isEn() ? "Create a classroom group with at least 5 registered students." : "Crea una aula o grup-classe amb almenys 5 alumnes registrats."; },
+        requirement: function() { return isEn() ? "1 classroom with at least 5 students" : "Crea una aula o grup-classe amb almenys 5 alumnes registrats."; },
+        icon: "fa-users",
+        color: "bg-blue-600",
+        check: function(ctx) {
+          const val = ctx.maxStudentsInAnyGroup || 0;
+          return { unlocked: val >= 5, progress: Math.min(val, 5) + "/5" };
+        }
+      },
+      {
+        id: 'reading_guide',
+        title: function() { return isEn() ? "Reading Guide" : "Guia de lectura"; },
+        desc: function() { return isEn() ? "Assign at least 3 required or recommended readings to a classroom." : "Assigna almenys 3 lectures obligatòries o recomanades a una aula."; },
+        requirement: function() { return isEn() ? "At least 3 assigned readings in 1 classroom" : "Assigna almenys 3 lectures obligatòries o recomanades a una aula."; },
+        icon: "fa-book-bookmark",
+        color: "bg-emerald-600",
+        check: function(ctx) {
+          const val = ctx.maxAssignedInAnyGroup || 0;
+          return { unlocked: val >= 3, progress: Math.min(val, 3) + "/3" };
+        }
+      }
     ];
 
     function isUserAdminOrCreator() {
@@ -2388,7 +2490,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.45.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.46 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -8403,10 +8505,22 @@ function exportClassroomGradeBookCSV() {
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.46",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Medalles de Docent / Creador i Bloqueig de Punts en Vista Prèvia",
+          isCurrent: true,
+          summary: "Catàleg exclusiu de 8 medalles pedagògiques i de creació per a docents i creadors (X/8), bloqueig de punts i medalles d'alumne en mode prova de lectura docent, i manteniment íntegre de les 11 medalles lectores per a alumnes (X/11).",
+          highlights: [
+            "<strong>Catàleg exclusiu de 8 medalles docents:</strong> Primera Llavor, Artesà de la comprensió, Educador versàtil, Història estimada, Èxit d'aula, Supervendes pedagògic, Amfitrió d'aula i Guia de lectura, amb comptador dedicat (X/8) a la capçalera blava.",
+            "<strong>Bloqueig de punts d'alumne per a docents en proves:</strong> Els mestres i administradors poden provar i enviar qualsevol qüestionari per comprovar la correcció i feedback sense alterar els seus punts, lectures completades ni desbloquejar medalles d'alumne, amb avís discret de mode vista prèvia docent.",
+            "<strong>Targetes de medalla coherents i bilingües:</strong> Mateixa estètica que els rangs docents (actives a tot color amb marc daurat, o en gris claret amb requisit i progrés visible per a les pendents), amb textos complets en català i anglès."
+          ]
+        },
+        {
           version: "v0.45.1",
           date: "Novembre 2026",
-          badge: "Versió Actual · Graella Completa de les 11 Medalles al Perfil",
-          isCurrent: true,
+          badge: "Graella Completa de les 11 Medalles al Perfil",
+          isCurrent: false,
           summary: "Renderitzat complet de la graella de les 11 medalles al perfil (amb estat desbloquejat a color i pendent en gris claret amb requisits visibles).",
           highlights: [
             "<strong>Visibilitat universal de les 11 medalles:</strong> La secció de medalles s'activa ara per a tots els perfils (docents i alumnat), mostrant les 11 fites disponibles amb sincronització exacta amb el comptador de la capçalera (X/11).",
@@ -8898,7 +9012,7 @@ function exportClassroomGradeBookCSV() {
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.45.1
+              Versió Actual: v0.46
             </span>
           </div>
 
