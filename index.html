@@ -1516,24 +1516,55 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       }
     }
 
+    function getTranslatedLevel(level) {
+      if (!level) return '';
+      if (!isEn()) return level;
+      const map = {
+        '1r cicle de primària': '1st primary cycle',
+        'Cicle Inicial': '1st primary cycle',
+        '2n cicle de primària': '2nd primary cycle',
+        'Cicle Mitjà': '2nd primary cycle',
+        '3r cicle de primària': '3rd primary cycle',
+        'Cicle Superior': '3rd primary cycle',
+        'Secundària': 'Secondary (ESO)',
+        "Formació d'Adults": 'Adult Education / CFA'
+      };
+      return map[level] || level;
+    }
+
+    function getTranslatedCategory(cat) {
+      if (!cat) return '';
+      if (!isEn()) return cat;
+      const map = {
+        'Aventura': 'Adventure',
+        'Misteri': 'Mystery',
+        'Ciència-ficció': 'Science fiction',
+        'Teatre': 'Theatre',
+        'Poesia': 'Poetry',
+        'Tradició / Llegenda': 'Tradition / Legend',
+        'General': 'General'
+      };
+      return map[cat] || cat;
+    }
+
     function getRankDetails(points) {
-      if (points >= 1300) return { name: "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
-      if (points >= 700) return { name: "Lector/a d'Or", icon: "fa-trophy", color: "from-amber-300 to-amber-500", text: "text-amber-200" };
-      if (points >= 300) return { name: "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
-      if (points >= 100) return { name: "Lector/a de Bronze", icon: "fa-award", color: "from-amber-700 to-amber-900", text: "text-amber-400" };
-      return { name: "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
+      if (points >= 1300) return { name: isEn() ? "Master of Reading" : "Mestre/a de la Lectura", icon: "fa-crown", color: "from-amber-400 to-amber-600", text: "text-amber-300" };
+      if (points >= 700) return { name: isEn() ? "Gold Reader" : "Lector/a d'Or", icon: "fa-trophy", color: "from-amber-300 to-amber-500", text: "text-amber-200" };
+      if (points >= 300) return { name: isEn() ? "Silver Reader" : "Lector/a d'Argent", icon: "fa-medal", color: "from-slate-400 to-slate-600", text: "text-slate-200" };
+      if (points >= 100) return { name: isEn() ? "Bronze Reader" : "Lector/a de Bronze", icon: "fa-award", color: "from-amber-700 to-amber-900", text: "text-amber-400" };
+      return { name: isEn() ? "Story Explorer" : "Explorador/a d'Històries", icon: "fa-compass", color: "from-indigo-500 to-indigo-700", text: "text-indigo-200" };
     }
 
     function getTeacherRankDetails(points, email) {
       email = email || "";
-      if (email === ADMIN_SUPREMO_EMAIL) return { name: "⚡ Admin Supremo", subtext: "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
-      if (points >= 20) return { name: "👑 Docent Celestial", subtext: "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
-      if (points >= 15) return { name: "📚 Docent de Docents", subtext: "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
-      if (points >= 10) return { name: "🌟 Savi/a de la Sala", subtext: "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
-      if (points >= 6) return { name: "⚡ Arquitecte/a Pedagògic/a", subtext: "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
-      if (points >= 3) return { name: "📝 Docent Col·laborador/a", subtext: "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
-      if (points >= 1) return { name: "👨‍🏫 Docent Novell", subtext: "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
-      return { name: "🎒 Docent Nouvingut/da", subtext: "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
+      if (email === ADMIN_SUPREMO_EMAIL) return { name: isEn() ? "⚡ Supreme Admin" : "⚡ Admin Supremo", subtext: isEn() ? "Code Controller" : "Controlador/a del Codi", icon: "fa-shield-halved", badgeBg: "bg-purple-100 text-purple-900 border-purple-300", color: "from-purple-600 to-pink-600" };
+      if (points >= 20) return { name: isEn() ? "👑 Celestial Teacher" : "👑 Docent Celestial", subtext: isEn() ? "Creator of Reading Universes" : "Creador/a d'Universos Lectors", icon: "fa-wand-magic-sparkles", badgeBg: "bg-amber-100 text-amber-900 border-amber-300", color: "from-amber-400 to-amber-600" };
+      if (points >= 15) return { name: isEn() ? "📚 Teacher of Teachers" : "📚 Docent de Docents", subtext: isEn() ? "Faculty survivor" : "Supervivent de claustres", icon: "fa-graduation-cap", badgeBg: "bg-indigo-100 text-indigo-900 border-indigo-300", color: "from-blue-600 to-indigo-800" };
+      if (points >= 10) return { name: isEn() ? "🌟 Staffroom Sage" : "🌟 Savi/a de la Sala", subtext: isEn() ? "Legend among coffees" : "Llegenda entre cafès", icon: "fa-mug-hot", badgeBg: "bg-amber-50 text-amber-800 border-amber-200", color: "from-amber-600 to-amber-800" };
+      if (points >= 6) return { name: isEn() ? "⚡ Pedagogical Architect" : "⚡ Arquitecte/a Pedagògic/a", subtext: isEn() ? "Curriculum master" : "Dominador/a del currículum", icon: "fa-cubes", badgeBg: "bg-indigo-50 text-indigo-800 border-indigo-200", color: "from-indigo-500 to-indigo-700" };
+      if (points >= 3) return { name: isEn() ? "📝 Contributing Teacher" : "📝 Docent Col·laborador/a", subtext: isEn() ? "Photocopy exporter" : "Exportador/a de fotocòpies", icon: "fa-copy", badgeBg: "bg-teal-50 text-teal-800 border-teal-200", color: "from-teal-500 to-emerald-700" };
+      if (points >= 1) return { name: isEn() ? "👨‍🏫 Novice Teacher" : "👨‍🏫 Docent Novell", subtext: isEn() ? "Adjusting the projector" : "Ajustant el projector", icon: "fa-chalkboard-user", badgeBg: "bg-slate-100 text-slate-800 border-slate-300", color: "from-slate-500 to-slate-700" };
+      return { name: isEn() ? "🎒 Newcomer Teacher" : "🎒 Docent Nouvingut/da", subtext: isEn() ? "Searching for school wifi" : "Cercant el wifi de l'escola", icon: "fa-compass-drafting", badgeBg: "bg-slate-50 text-slate-600 border-slate-200", color: "from-slate-400 to-indigo-500" };
     }
 
     function renderBanner() {
@@ -2536,28 +2567,28 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             const isDocentOrCollab = isUserAdminOrCreator();
 
             const schoolSuffix = data.authorSchool ? (' (' + data.authorSchool + ')') : '';
-            const teacherText = data.authorDisplayName ? (data.authorDisplayName + schoolSuffix) : 'Docent / Col·laborador/a';
+            const teacherText = data.authorDisplayName ? (data.authorDisplayName + schoolSuffix) : (isEn() ? 'Teacher / Collaborator' : 'Docent / Col·laborador/a');
             const authorPoints = data.authorPoints !== undefined ? data.authorPoints : 0;
             const authorEmail = data.authorEmail || "";
             const teacherRank = getTeacherRankDetails(authorPoints, authorEmail);
 
             const ptsPerQuestion = data.pointsPerQuestion !== undefined ? data.pointsPerQuestion : 1;
-            const durationLabel = isBook ? (data.bookPages ? ('📄 ' + data.bookPages + ' pàg.') : '') : (data.estimatedTime ? ('⏱️ ' + data.estimatedTime) : '');
+            const durationLabel = isBook ? (data.bookPages ? ('📄 ' + data.bookPages + (isEn() ? ' pages' : ' pàg.')) : '') : (data.estimatedTime ? ('⏱️ ' + data.estimatedTime) : '');
             const totalPointsInGame = qCount * ptsPerQuestion;
-            const encodedTitle = encodeURIComponent(data.title || 'Lectura');
+            const encodedTitle = encodeURIComponent(data.title || (isEn() ? 'Reading' : 'Lectura'));
 
             let topBannerHTML = '';
             if (isAdaptedText) {
-              topBannerHTML = '<div class="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-600"><i class="fa-solid fa-seedling"></i> ' + (isEn() ? 'Adapted / Simplified Version (DUA)' : 'Versió Adaptada / Simplificada (DUA)') + '</div>';
+              topBannerHTML = '<div class="bg-emerald-500 text-white text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-600"><i class="fa-solid fa-seedling"></i> ' + (isEn() ? 'Adapted Version' : 'Versió Adaptada / Simplificada (DUA)') + '</div>';
             } else if (isVariant) {
-              topBannerHTML = '<div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500"><i class="fa-solid fa-code-fork"></i> ' + (isEn() ? 'Adapted Question Battery' : 'Bateria de Preguntes Adaptada') + '</div>';
+              topBannerHTML = '<div class="bg-amber-400 text-slate-900 text-[10px] font-black px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-amber-500"><i class="fa-solid fa-code-fork"></i> ' + (isEn() ? 'Question Variant' : 'Bateria de Preguntes Adaptada') + '</div>';
             } else if (adaptedParentsSet.has(docId)) {
-              topBannerHTML = '<div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200"><i class="fa-solid fa-seedling text-emerald-600"></i> ' + (isEn() ? 'With Adapted Version (DUA) annexed' : 'Amb Versió Adaptada (DUA) annexa') + '</div>';
+              topBannerHTML = '<div class="bg-emerald-50 text-emerald-800 text-[10px] font-extrabold px-3 py-0.5 tracking-wide flex items-center gap-1 border-b border-emerald-200"><i class="fa-solid fa-seedling text-emerald-600"></i> ' + (isEn() ? 'Original Reading' : 'Amb Versió Adaptada (DUA) annexa') + '</div>';
             }
 
             const cardBorderClass = isAdaptedText ? 'border-emerald-400 shadow-emerald-50' : (isVariant ? 'border-amber-300 shadow-amber-50' : (isVisualText ? 'border-teal-300 shadow-teal-50/50' : 'border-slate-200'));
             const typeBadgeClass = isBook ? 'bg-purple-100 text-purple-800' : (isVisualText ? 'bg-teal-100 text-teal-800 border border-teal-200' : 'bg-indigo-100 text-indigo-800');
-            const typeBadgeLabel = isBook ? (isEn() ? '📖 Book' : '📖 Llibre') : (isVisualText ? (isEn() ? '🖼️ Visual Reading' : '🖼️ Lectura Visual') : '📄 Text');
+            const typeBadgeLabel = isBook ? (isEn() ? '📖 Book' : '📖 Llibre') : (isVisualText ? (isEn() ? '🖼️ Visual Reading' : '🖼️ Lectura Visual') : (isEn() ? '📄 Text' : '📄 Text'));
             const btnReadClass = isCompleted ? 'bg-slate-700 hover:bg-slate-800' : 'bg-indigo-600 hover:bg-indigo-700';
             const btnReadLabel = isCompleted ? (isEn() ? 'Repeat' : 'Repetir') : (isBook ? (isEn() ? 'Quiz' : 'Qüestionari') : (isEn() ? 'Read & Quiz' : 'Lectura i qüestionari'));
             const btnReadSpan = isDocentOrCollab ? 'col-span-4' : 'col-span-5';
@@ -2591,15 +2622,15 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
                   ${previewImgSrc ? '<div class="w-full h-36 mb-3 overflow-hidden rounded-xl bg-slate-100 border border-slate-200/60"><img src="' + previewImgSrc + '" alt="' + escapeHtmlAttr(data.title) + '" class="w-full h-full object-cover"></div>' : ''}
 
-                  <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || 'Sense títol'}</h3>
-                  <p class="text-xs font-semibold text-indigo-600 mb-2">${currentLevel}</p>
+                  <h3 class="font-bold text-slate-800 text-lg mb-1 line-clamp-2">${data.title || (isEn() ? 'Untitled' : 'Sense títol')}</h3>
+                  <p class="text-xs font-semibold text-indigo-600 mb-2">${getTranslatedLevel(currentLevel)}${data.category ? (' · ' + (isEn() ? getTranslatedCategory(data.category) : data.category)) : ''}</p>
 
-                  ${bookAuthorName ? '<p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>Autor/a de l\'obra: <strong class="text-slate-900 font-bold">' + bookAuthorName + '</strong></span></p>' : ''}
+                  ${bookAuthorName ? '<p class="text-xs text-slate-600 font-semibold mb-2 flex items-center gap-1.5"><i class="fa-solid fa-feather-pointed text-amber-600"></i><span>' + (isEn() ? 'Book author:' : "Autor/a de l'obra:") + ' <strong class="text-slate-900 font-bold">' + bookAuthorName + '</strong></span></p>' : ''}
 
                   <div class="mt-2 mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1">
                     <span class="block text-xs text-slate-500 flex items-center gap-1">
                       <i class="fa-solid fa-chalkboard-user text-indigo-500 text-[11px]"></i>
-                      ${isBook ? 'Preguntes de comprensió lectora:' : (isVisualText ? 'Lectura visual creada per:' : 'Lectura adaptada:')}
+                      ${isBook ? (isEn() ? 'Reading comprehension questions:' : 'Preguntes de comprensió lectora:') : (isVisualText ? (isEn() ? 'Visual reading created by:' : 'Lectura visual creada per:') : (isEn() ? (isAdaptedText ? 'Adapted by:' : 'Created by:') : 'Lectura adaptada:'))}
                     </span>
                     <div class="text-xs text-slate-800 font-bold">
                       ${teacherText}
@@ -2620,9 +2651,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                       <span>${btnReadLabel}</span>
                     </button>
 
-                    ${isDocentOrCollab ? '<button onclick="openAddToFolderModal(\'' + docId + '\')" title="' + (isEn() ? 'Add to a Folder / Unit' : 'Afegir a una Carpeta / SA') + '" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200"><i class="fa-solid fa-folder-plus text-sm text-amber-700"></i></button>' : ''}
+                    ${isDocentOrCollab ? '<button onclick="openAddToFolderModal(\'' + docId + '\')" title="' + (isEn() ? 'Add to Folder / Unit' : 'Afegir a una Carpeta / SA') + '" class="bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold rounded-xl text-xs transition flex items-center justify-center border border-amber-200"><i class="fa-solid fa-folder-plus text-sm text-amber-700"></i></button>' : ''}
 
-                    <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedTitle}'))" title="${isEn() ? 'Send to Google Classroom' : 'Enviar a Google Classroom'}" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
+                    <button onclick="shareToGoogleClassroom('${docId}', decodeURIComponent('${encodedTitle}'))" title="${isEn() ? 'Share to Google Classroom' : 'Enviar a Google Classroom'}" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl text-xs transition flex items-center justify-center border border-emerald-200">
                       <i class="fa-solid fa-chalkboard text-sm"></i>
                     </button>
 
@@ -2658,10 +2689,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         app.innerHTML = `
           <div class="p-6 bg-red-50 border border-red-200 text-red-800 rounded-2xl max-w-xl mx-auto text-center space-y-3">
             <i class="fa-solid fa-triangle-exclamation text-3xl text-red-500"></i>
-            <h3 class="font-bold text-base">Error en carregar el catàleg</h3>
+            <h3 class="font-bold text-base">${isEn() ? 'Error loading catalog' : 'Error en carregar el catàleg'}</h3>
             <p class="text-xs">${err.message}</p>
             <button onclick="renderCatalog()" class="bg-red-600 hover:bg-red-700 text-white font-bold px-4 py-2 rounded-xl text-xs shadow">
-              <i class="fa-solid fa-rotate-right mr-1"></i> Reintentar ara
+              <i class="fa-solid fa-rotate-right mr-1"></i> ${isEn() ? 'Retry now' : 'Reintentar ara'}
             </button>
           </div>
         `;
@@ -4541,8 +4572,8 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             ${dualVersionTabsHTML}
 
             <div class="flex flex-wrap items-center gap-2 mb-2">
-              <span class="text-xs font-bold text-indigo-600 uppercase">${data.level || 'Primària'}</span>
-              ${data.category ? '<span class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">📚 ' + data.category + '</span>' : ''}
+              <span class="text-xs font-bold text-indigo-600 uppercase">${getTranslatedLevel(data.level || (isEn() ? 'Primary' : 'Primària'))}</span>
+              ${data.category ? '<span class="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full">📚 ' + getTranslatedCategory(data.category) + '</span>' : ''}
               ${isVisualText ? '<span class="text-xs font-bold text-teal-800 bg-teal-100 border border-teal-200 px-2.5 py-0.5 rounded-full">' + (isEn() ? '🖼️ Visual Reading' : '🖼️ Lectura Visual') + '</span>' : ''}
               ${isCurrentlyAdapted ? '<span class="text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 px-2.5 py-0.5 rounded-full">' + (isEn() ? '🌱 Adapted Version (UDL)' : '🌱 Versió Adaptada (DUA)') + '</span>' : ''}
             </div>
