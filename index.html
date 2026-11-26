@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.43.2</title>
+  <title>Lectura Aventura - v0.43.3</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -24,6 +24,71 @@
     .bg-sepia a { color: #9c4221 !important; border-color: #d97736 !important; }
     .bg-dark-mode { background-color: #1e293b !important; color: #f1f5f9 !important; }
     .bg-dark-mode a { color: #38bdf8 !important; border-color: #0284c7 !important; }
+
+    /* Retolador Fluorescent (Highlighter) */
+    mark.user-highlight {
+      display: inline;
+      padding: 0.12em 0.35em;
+      margin: 0 1px;
+      border-radius: 4px;
+      -webkit-box-decoration-break: clone;
+      box-decoration-break: clone;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      transition: filter 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+    mark.user-highlight:hover {
+      filter: brightness(0.92);
+      box-shadow: 0 0 0 1.5px rgba(99, 102, 241, 0.45);
+    }
+    mark.user-highlight[data-color="yellow"], mark.user-highlight[data-color="#fef08a"] {
+      background-color: #fef08a !important;
+      color: #713f12 !important;
+    }
+    mark.user-highlight[data-color="green"], mark.user-highlight[data-color="#bbf7d0"] {
+      background-color: #bbf7d0 !important;
+      color: #14532d !important;
+    }
+    mark.user-highlight[data-color="pink"], mark.user-highlight[data-color="#fbcfe8"] {
+      background-color: #fbcfe8 !important;
+      color: #831843 !important;
+    }
+    /* Assegurar contrast i estil dels enllaços del glossari dins de marques */
+    mark.user-highlight a {
+      color: inherit !important;
+      text-decoration: underline !important;
+      text-decoration-thickness: 2px !important;
+      cursor: pointer;
+    }
+    /* Mode fosc: retolador fluorescent viu amb alt contrast i llegibilitat òptima */
+    .bg-dark-mode mark.user-highlight[data-color="yellow"], .bg-dark-mode mark.user-highlight[data-color="#fef08a"] {
+      background-color: #fef08a !important;
+      color: #1e293b !important;
+    }
+    .bg-dark-mode mark.user-highlight[data-color="green"], .bg-dark-mode mark.user-highlight[data-color="#bbf7d0"] {
+      background-color: #bbf7d0 !important;
+      color: #064e3b !important;
+    }
+    .bg-dark-mode mark.user-highlight[data-color="pink"], .bg-dark-mode mark.user-highlight[data-color="#fbcfe8"] {
+      background-color: #fbcfe8 !important;
+      color: #701a75 !important;
+    }
+    /* Mode sèpia */
+    .bg-sepia mark.user-highlight[data-color="yellow"], .bg-sepia mark.user-highlight[data-color="#fef08a"] {
+      background-color: #fef08a !important;
+      color: #451a03 !important;
+    }
+    .bg-sepia mark.user-highlight[data-color="green"], .bg-sepia mark.user-highlight[data-color="#bbf7d0"] {
+      background-color: #bbf7d0 !important;
+      color: #064e3b !important;
+    }
+    .bg-sepia mark.user-highlight[data-color="pink"], .bg-sepia mark.user-highlight[data-color="#fbcfe8"] {
+      background-color: #fbcfe8 !important;
+      color: #701a75 !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 font-sans text-slate-800 min-h-screen flex flex-col">
@@ -35,7 +100,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.2</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.43.3</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -47,7 +112,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.2...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.43.3...</p>
     </div>
   </main>
 
@@ -56,7 +121,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.43.2 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.43.3 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -67,6 +132,7 @@
   <div id="feedback-modal-container"></div>
   <div id="clone-modal-container"></div>
   <div id="zoom-modal-container"></div>
+  <div id="highlighter-popover-container"></div>
 
   <!-- SCRIPT 1: Captura d'errors aïllada (inclou promeses) -->
   <script>
@@ -640,6 +706,548 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       if (theme === 'sepia') box.classList.add('bg-sepia');
       else if (theme === 'dark') box.classList.add('bg-dark-mode');
       else box.classList.add('bg-slate-50', 'text-slate-700');
+    }
+
+    /* ==========================================================================
+       SUBRATLLADOR FLUORESCENT (HIGHLIGHTER) PER A LA VISTA DE LECTURA
+       ========================================================================== */
+    window.highlighterSessionStore = window.highlighterSessionStore || {};
+    let activeHighlightRange = null;
+    let activeHighlightMark = null;
+    let highlighterListenersInitialized = false;
+
+    function showReaderToast(message) {
+      let toast = document.getElementById('reader-highlighter-toast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'reader-highlighter-toast';
+        toast.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg border border-slate-700/80 transition-all duration-200 pointer-events-none opacity-0 scale-95';
+        document.body.appendChild(toast);
+      }
+      toast.innerText = message;
+      toast.classList.remove('opacity-0', 'scale-95');
+      toast.classList.add('opacity-100', 'scale-100');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function() {
+        toast.classList.remove('opacity-100', 'scale-100');
+        toast.classList.add('opacity-0', 'scale-95');
+      }, 2200);
+    }
+
+    function ensureHighlighterPopoverInDOM() {
+      if (document.getElementById('highlighter-popover')) return;
+      const container = document.getElementById('highlighter-popover-container') || document.body;
+      const popover = document.createElement('div');
+      popover.id = 'highlighter-popover';
+      popover.className = 'fixed z-50 hidden bg-slate-900/95 text-white backdrop-blur-md px-2.5 py-1.5 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-1.5 transition-all duration-150 transform scale-95 opacity-0 pointer-events-none select-none max-w-[calc(100vw-16px)] overflow-x-auto';
+      popover.setAttribute('role', 'toolbar');
+      popover.setAttribute('aria-label', isEn() ? 'Highlight colors' : 'Colors de retolador fluorescent');
+
+      popover.innerHTML = `
+        <button type="button" data-hl-color="yellow" title="${isEn() ? 'Yellow: Important' : 'Groc: Important'}" class="hl-color-btn flex items-center gap-1.5 px-2.5 py-1 rounded-xl hover:bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-100 transition cursor-pointer">
+          <span class="w-3.5 h-3.5 rounded-full bg-[#fef08a] border border-amber-300 shadow-2xs inline-block shrink-0"></span>
+          <span class="text-[11px] font-bold whitespace-nowrap">${isEn() ? 'Important' : 'Important'}</span>
+        </button>
+        <button type="button" data-hl-color="green" title="${isEn() ? 'Green: Hint' : 'Verd: Pista'}" class="hl-color-btn flex items-center gap-1.5 px-2.5 py-1 rounded-xl hover:bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-100 transition cursor-pointer">
+          <span class="w-3.5 h-3.5 rounded-full bg-[#bbf7d0] border border-emerald-300 shadow-2xs inline-block shrink-0"></span>
+          <span class="text-[11px] font-bold whitespace-nowrap">${isEn() ? 'Hint' : 'Pista'}</span>
+        </button>
+        <button type="button" data-hl-color="pink" title="${isEn() ? 'Pink: Difficult word' : 'Rosa: Paraula difícil'}" class="hl-color-btn flex items-center gap-1.5 px-2.5 py-1 rounded-xl hover:bg-slate-800 active:bg-slate-700 text-xs font-bold text-slate-100 transition cursor-pointer">
+          <span class="w-3.5 h-3.5 rounded-full bg-[#fbcfe8] border border-pink-300 shadow-2xs inline-block shrink-0"></span>
+          <span class="text-[11px] font-bold whitespace-nowrap">${isEn() ? 'Difficult word' : 'Paraula difícil'}</span>
+        </button>
+        <div id="hl-remove-separator" class="h-4 w-px bg-slate-700 mx-0.5 shrink-0"></div>
+        <button type="button" id="hl-remove-btn" title="${isEn() ? 'Remove mark' : 'Treure marca'}" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl hover:bg-rose-950/80 active:bg-rose-900/90 text-rose-300 hover:text-rose-200 text-xs font-bold transition cursor-pointer shrink-0">
+          <i class="fa-solid fa-eraser text-rose-400 text-xs"></i>
+          <span class="text-[11px] font-bold whitespace-nowrap">${isEn() ? 'Remove mark' : 'Treure marca'}</span>
+        </button>
+      `;
+
+      popover.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+      });
+      popover.addEventListener('touchstart', function(e) {
+        e.stopPropagation();
+      }, { passive: false });
+
+      popover.querySelectorAll('.hl-color-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const color = btn.getAttribute('data-hl-color');
+          applyChosenColor(color);
+        });
+      });
+
+      const removeBtn = popover.querySelector('#hl-remove-btn');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          removeActiveHighlight();
+        });
+      }
+
+      container.appendChild(popover);
+    }
+
+    function positionHighlighterPopover(popover, rect) {
+      if (!rect || (rect.width === 0 && rect.height === 0)) return;
+
+      popover.classList.remove('hidden');
+      const pWidth = popover.offsetWidth || 340;
+      const pHeight = popover.offsetHeight || 42;
+
+      let top = rect.top - pHeight - 8;
+      if (top < 10) {
+        top = rect.bottom + 8;
+      }
+      let left = rect.left + (rect.width / 2) - (pWidth / 2);
+      left = Math.max(8, Math.min(left, window.innerWidth - pWidth - 8));
+
+      popover.style.top = Math.round(top) + 'px';
+      popover.style.left = Math.round(left) + 'px';
+
+      popover.classList.remove('scale-95', 'opacity-0', 'pointer-events-none');
+      popover.classList.add('scale-100', 'opacity-100', 'pointer-events-auto');
+    }
+
+    function hideHighlighterPopover() {
+      const popover = document.getElementById('highlighter-popover');
+      if (!popover || popover.classList.contains('hidden')) return;
+
+      popover.classList.remove('scale-100', 'opacity-100', 'pointer-events-auto');
+      popover.classList.add('scale-95', 'opacity-0', 'pointer-events-none');
+      setTimeout(function() {
+        if (popover && popover.classList.contains('pointer-events-none')) {
+          popover.classList.add('hidden');
+        }
+      }, 150);
+    }
+
+    function selectionIntersectsHighlight(range) {
+      if (!range) return false;
+      const container = document.getElementById('reading-text-box');
+      if (!container) return false;
+      const marks = container.querySelectorAll('mark.user-highlight');
+      for (let i = 0; i < marks.length; i++) {
+        const mark = marks[i];
+        const markRange = document.createRange();
+        markRange.selectNodeContents(mark);
+        const startsBeforeRangeEnds = range.compareBoundaryPoints(Range.END_TO_START, markRange) < 0;
+        const endsAfterRangeStarts = range.compareBoundaryPoints(Range.START_TO_END, markRange) > 0;
+        if (startsBeforeRangeEnds && endsAfterRangeStarts) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function showHighlighterPopoverForRange(range) {
+      if (!range || range.collapsed) return;
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+      if (!container.contains(range.startContainer) && !container.contains(range.endContainer)) return;
+
+      activeHighlightRange = range.cloneRange();
+      activeHighlightMark = null;
+
+      ensureHighlighterPopoverInDOM();
+      const popover = document.getElementById('highlighter-popover');
+      if (!popover) return;
+
+      const hasExisting = selectionIntersectsHighlight(range);
+      const sep = popover.querySelector('#hl-remove-separator');
+      const remBtn = popover.querySelector('#hl-remove-btn');
+      if (sep && remBtn) {
+        if (hasExisting) {
+          sep.classList.remove('hidden');
+          remBtn.classList.remove('hidden');
+        } else {
+          sep.classList.add('hidden');
+          remBtn.classList.add('hidden');
+        }
+      }
+
+      popover.querySelectorAll('.hl-color-btn').forEach(function(b) {
+        b.classList.remove('ring-2', 'ring-white/70', 'bg-slate-800');
+      });
+
+      const rect = range.getBoundingClientRect();
+      positionHighlighterPopover(popover, rect);
+    }
+
+    function showHighlighterPopoverForMark(mark) {
+      if (!mark) return;
+      activeHighlightMark = mark;
+      activeHighlightRange = null;
+
+      ensureHighlighterPopoverInDOM();
+      const popover = document.getElementById('highlighter-popover');
+      if (!popover) return;
+
+      const sep = popover.querySelector('#hl-remove-separator');
+      const remBtn = popover.querySelector('#hl-remove-btn');
+      if (sep && remBtn) {
+        sep.classList.remove('hidden');
+        remBtn.classList.remove('hidden');
+      }
+
+      const currentColor = mark.getAttribute('data-color') || 'yellow';
+      popover.querySelectorAll('.hl-color-btn').forEach(function(b) {
+        const btnCol = b.getAttribute('data-hl-color');
+        if (btnCol === currentColor || currentColor.includes(btnCol)) {
+          b.classList.add('ring-2', 'ring-white/70', 'bg-slate-800');
+        } else {
+          b.classList.remove('ring-2', 'ring-white/70', 'bg-slate-800');
+        }
+      });
+
+      const rect = mark.getBoundingClientRect();
+      positionHighlighterPopover(popover, rect);
+    }
+
+    function applyChosenColor(color) {
+      if (activeHighlightMark) {
+        activeHighlightMark.setAttribute('data-color', color);
+        activeHighlightMark = null;
+        activeHighlightRange = null;
+        saveHighlightsToSession();
+        hideHighlighterPopover();
+        return;
+      }
+
+      if (activeHighlightRange && !activeHighlightRange.collapsed) {
+        applyHighlightToRange(activeHighlightRange, color);
+        if (window.getSelection) {
+          window.getSelection().removeAllRanges();
+        }
+        activeHighlightRange = null;
+        activeHighlightMark = null;
+        saveHighlightsToSession();
+        hideHighlighterPopover();
+      }
+    }
+
+    function removeActiveHighlight() {
+      if (activeHighlightMark) {
+        unwrapMark(activeHighlightMark);
+        activeHighlightMark = null;
+        activeHighlightRange = null;
+        const container = document.getElementById('reading-text-box');
+        if (container) {
+          mergeAdjacentMarks(container);
+          container.normalize();
+        }
+        saveHighlightsToSession();
+        hideHighlighterPopover();
+        return;
+      }
+
+      if (activeHighlightRange) {
+        removeHighlightFromRange(activeHighlightRange);
+        if (window.getSelection) {
+          window.getSelection().removeAllRanges();
+        }
+        activeHighlightRange = null;
+        activeHighlightMark = null;
+        saveHighlightsToSession();
+        hideHighlighterPopover();
+      }
+    }
+
+    function applyHighlightToRange(range, color) {
+      if (!range || range.collapsed) return;
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+
+      const walker = document.createTreeWalker(
+        container,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+
+      const intersectingNodes = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.nodeValue) continue;
+
+        const nodeRange = document.createRange();
+        nodeRange.selectNodeContents(node);
+        const startsBeforeRangeEnds = range.compareBoundaryPoints(Range.END_TO_START, nodeRange) < 0;
+        const endsAfterRangeStarts = range.compareBoundaryPoints(Range.START_TO_END, nodeRange) > 0;
+        if (startsBeforeRangeEnds && endsAfterRangeStarts) {
+          intersectingNodes.push(node);
+        }
+      }
+
+      if (intersectingNodes.length === 0) return;
+
+      const startContainer = range.startContainer;
+      const startOffset = range.startOffset;
+      const endContainer = range.endContainer;
+      const endOffset = range.endOffset;
+
+      intersectingNodes.forEach(function(node) {
+        const parentMark = node.parentNode && node.parentNode.closest ? node.parentNode.closest('mark.user-highlight') : null;
+        if (parentMark) {
+          parentMark.setAttribute('data-color', color);
+          return;
+        }
+
+        let thisStart = (node === startContainer) ? startOffset : 0;
+        let thisEnd = (node === endContainer) ? endOffset : node.nodeValue.length;
+
+        if (thisStart >= thisEnd) return;
+
+        let targetNode = node;
+        if (thisEnd < targetNode.nodeValue.length) {
+          targetNode.splitText(thisEnd);
+        }
+        if (thisStart > 0) {
+          targetNode = targetNode.splitText(thisStart);
+        }
+
+        if (targetNode.nodeValue && targetNode.nodeValue.length > 0) {
+          const mark = document.createElement('mark');
+          mark.className = 'user-highlight';
+          mark.setAttribute('data-color', color);
+          targetNode.parentNode.insertBefore(mark, targetNode);
+          mark.appendChild(targetNode);
+        }
+      });
+
+      mergeAdjacentMarks(container);
+      saveHighlightsToSession();
+    }
+
+    function removeHighlightFromRange(range) {
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+
+      const marks = container.querySelectorAll('mark.user-highlight');
+      marks.forEach(function(mark) {
+        if (range) {
+          const markRange = document.createRange();
+          markRange.selectNodeContents(mark);
+          const startsBeforeRangeEnds = range.compareBoundaryPoints(Range.END_TO_START, markRange) < 0;
+          const endsAfterRangeStarts = range.compareBoundaryPoints(Range.START_TO_END, markRange) > 0;
+          if (startsBeforeRangeEnds && endsAfterRangeStarts) {
+            unwrapMark(mark);
+          }
+        } else {
+          unwrapMark(mark);
+        }
+      });
+
+      container.normalize();
+      saveHighlightsToSession();
+    }
+
+    function unwrapMark(mark) {
+      if (!mark || !mark.parentNode) return;
+      while (mark.firstChild) {
+        mark.parentNode.insertBefore(mark.firstChild, mark);
+      }
+      mark.parentNode.removeChild(mark);
+    }
+
+    function mergeAdjacentMarks(container) {
+      if (!container) return;
+      const marks = container.querySelectorAll('mark.user-highlight');
+      marks.forEach(function(m) {
+        if (!m.parentNode) return;
+        const next = m.nextSibling;
+        if (next && next.nodeType === Node.ELEMENT_NODE && next.tagName === 'MARK' && next.classList.contains('user-highlight')) {
+          if (next.getAttribute('data-color') === m.getAttribute('data-color')) {
+            while (next.firstChild) {
+              m.appendChild(next.firstChild);
+            }
+            next.parentNode.removeChild(next);
+          }
+        }
+      });
+    }
+
+    function clearUserHighlights() {
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+      const marks = container.querySelectorAll('mark.user-highlight');
+      if (marks.length === 0) {
+        showReaderToast(isEn() ? 'No highlights to clear' : 'No hi ha subratllats per netejar');
+        return;
+      }
+
+      marks.forEach(function(m) {
+        unwrapMark(m);
+      });
+      container.normalize();
+
+      if (readerCurrentDocId && window.highlighterSessionStore) {
+        delete window.highlighterSessionStore[readerCurrentDocId];
+        try {
+          sessionStorage.removeItem('la_highlights_' + readerCurrentDocId);
+        } catch (e) {}
+      }
+
+      showReaderToast(isEn() ? 'Highlights cleared' : 'Subratllats netejats');
+      hideHighlighterPopover();
+    }
+
+    function saveHighlightsToSession() {
+      if (!readerCurrentDocId) return;
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+
+      const contentDivs = container.querySelectorAll('.reader-text-content');
+      if (contentDivs.length === 0) return;
+
+      const hasAnyMarks = container.querySelector('mark.user-highlight') !== null;
+      if (!hasAnyMarks) {
+        if (window.highlighterSessionStore) {
+          delete window.highlighterSessionStore[readerCurrentDocId];
+        }
+        try {
+          sessionStorage.removeItem('la_highlights_' + readerCurrentDocId);
+        } catch (e) {}
+        return;
+      }
+
+      const savedParts = [];
+      contentDivs.forEach(function(div) {
+        savedParts.push(div.innerHTML);
+      });
+
+      if (!window.highlighterSessionStore) window.highlighterSessionStore = {};
+      window.highlighterSessionStore[readerCurrentDocId] = savedParts;
+
+      try {
+        sessionStorage.setItem('la_highlights_' + readerCurrentDocId, JSON.stringify(savedParts));
+      } catch (e) {}
+    }
+
+    function restoreHighlightsFromSession(docId) {
+      if (!docId) return;
+      let savedParts = null;
+      if (window.highlighterSessionStore && window.highlighterSessionStore[docId]) {
+        savedParts = window.highlighterSessionStore[docId];
+      } else {
+        try {
+          const stored = sessionStorage.getItem('la_highlights_' + docId);
+          if (stored) savedParts = JSON.parse(stored);
+        } catch (e) {}
+      }
+
+      if (!savedParts || !Array.isArray(savedParts)) return;
+
+      const container = document.getElementById('reading-text-box');
+      if (!container) return;
+
+      const contentDivs = container.querySelectorAll('.reader-text-content');
+      if (contentDivs.length === savedParts.length) {
+        contentDivs.forEach(function(div, idx) {
+          if (savedParts[idx]) {
+            div.innerHTML = savedParts[idx];
+          }
+        });
+      }
+    }
+
+    function setupHighlighterListeners() {
+      ensureHighlighterPopoverInDOM();
+      if (highlighterListenersInitialized) return;
+      highlighterListenersInitialized = true;
+
+      // Ratolí (Desktop)
+      document.addEventListener('mouseup', function(e) {
+        const popover = document.getElementById('highlighter-popover');
+        if (popover && popover.contains(e.target)) return;
+
+        setTimeout(function() {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed) {
+            if (!activeHighlightMark) hideHighlighterPopover();
+            return;
+          }
+          const text = sel.toString().trim();
+          if (!text) {
+            if (!activeHighlightMark) hideHighlighterPopover();
+            return;
+          }
+          const range = sel.getRangeAt(0);
+          const container = document.getElementById('reading-text-box');
+          if (container && (container.contains(range.startContainer) || container.contains(range.endContainer))) {
+            showHighlighterPopoverForRange(range);
+          } else {
+            if (!activeHighlightMark) hideHighlighterPopover();
+          }
+        }, 15);
+      });
+
+      // Pantalla tàctil (Chromebooks, iPads, tauletes)
+      document.addEventListener('touchend', function(e) {
+        const popover = document.getElementById('highlighter-popover');
+        if (popover && popover.contains(e.target)) return;
+
+        setTimeout(function() {
+          const sel = window.getSelection();
+          if (!sel || sel.isCollapsed) return;
+          const text = sel.toString().trim();
+          if (!text) return;
+          const range = sel.getRangeAt(0);
+          const container = document.getElementById('reading-text-box');
+          if (container && (container.contains(range.startContainer) || container.contains(range.endContainer))) {
+            showHighlighterPopoverForRange(range);
+          }
+        }, 120);
+      });
+
+      // Clics per a modificar/eliminar marques existents i respectar glossari
+      document.addEventListener('click', function(e) {
+        const popover = document.getElementById('highlighter-popover');
+        if (popover && popover.contains(e.target)) return;
+
+        // Si és un enllaç de glossari, permetre que l'acció nativa (scrollToGlossary) s'executi
+        const glossaryLink = e.target.closest('a[href*="glossari"], a[href*="glossary"]');
+        if (glossaryLink) {
+          hideHighlighterPopover();
+          return;
+        }
+
+        const mark = e.target.closest('mark.user-highlight');
+        if (mark) {
+          const container = document.getElementById('reading-text-box');
+          if (container && container.contains(mark)) {
+            showHighlighterPopoverForMark(mark);
+            return;
+          }
+        }
+
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+          hideHighlighterPopover();
+        }
+      });
+
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          hideHighlighterPopover();
+        }
+      });
+
+      window.addEventListener('resize', function() {
+        hideHighlighterPopover();
+      });
+
+      window.addEventListener('scroll', function() {
+        const popover = document.getElementById('highlighter-popover');
+        if (!popover || popover.classList.contains('hidden')) return;
+        if (activeHighlightMark) {
+          positionHighlighterPopover(popover, activeHighlightMark.getBoundingClientRect());
+        } else if (activeHighlightRange) {
+          positionHighlighterPopover(popover, activeHighlightRange.getBoundingClientRect());
+        }
+      }, { passive: true });
     }
 
     function toggleSpeechSynthesis() {
@@ -1631,7 +2239,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.43.2 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.43.3 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -4350,11 +4958,11 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           </div>
         `;
 
-        const accessibilityToolbarHTML = (!isBook && !isVisualText) ? `
+        const accessibilityToolbarHTML = (!isVisualText) ? `
           <div class="bg-slate-100 p-3 rounded-2xl border border-slate-200 mb-5 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
             ${audioControlsHTML}
 
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <button id="btn-dyslexia-toggle" onclick="toggleDyslexicFont()" class="px-2.5 py-1 text-xs font-bold rounded-lg ${isDyslexicMode ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-slate-200 text-slate-700'} border border-slate-300 transition">
                 ${isEn() ? '📖 Dyslexic Font' : '📖 Font Dislèxia'}
               </button>
@@ -4368,6 +4976,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 <button onclick="setReaderTheme('sepia')" class="w-5 h-5 rounded-full bg-amber-100 border border-amber-300" title="${isEn() ? 'Sepia Mode' : 'Mode Sèpia'}"></button>
                 <button onclick="setReaderTheme('dark')" class="w-5 h-5 rounded-full bg-slate-800 border border-slate-600" title="${isEn() ? 'Dark Contrast Mode' : 'Mode Contrast Fosc'}"></button>
               </div>
+              <button id="btn-clear-highlights" onclick="clearUserHighlights()" title="${isEn() ? 'Clear all highlights' : 'Netejar tots els subratllats'}" class="px-2.5 py-1 text-xs font-bold rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-600 border border-slate-300 transition flex items-center gap-1.5 shadow-2xs">
+                <i class="fa-solid fa-eraser text-amber-500"></i>
+                <span>${isEn() ? 'Clear highlights' : 'Netejar subratllats'}</span>
+              </button>
             </div>
           </div>
         ` : '';
@@ -4430,7 +5042,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                       📖 ${escapeHtmlAttr(part.title)}
                     </span>
                   </div>
-                  <div class="text-slate-700 leading-relaxed whitespace-pre-line" style="font-size: ${readerFontSize}px;">
+                  <div class="text-slate-700 leading-relaxed whitespace-pre-line reader-text-content" style="font-size: ${readerFontSize}px;">
                     ${parseContentWithGlossary(part.content, glossaryList)}
                   </div>
                 </div>
@@ -4438,6 +5050,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             }).join('');
 
             bookChaptersContentHTML = `
+              ${accessibilityToolbarHTML}
               ${partsNavigationHeaderHTML}
               <div id="reading-text-box" class="p-5 rounded-2xl bg-purple-50/40 border border-purple-200/90 text-slate-700 mb-6 transition-all duration-200">
                 ${bookPanelsHTML}
@@ -4515,9 +5128,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   '<div class="pb-2 border-b border-slate-200/80 flex items-center justify-between">' +
                     '<span class="text-xs font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200">' + escapeHtmlAttr(part.title) + '</span>' +
                   '</div>' +
-                  '<div class="whitespace-pre-line">' + parseContentWithGlossary(part.content, glossaryList) + '</div>' +
+                  '<div class="whitespace-pre-line reader-text-content">' + parseContentWithGlossary(part.content, glossaryList) + '</div>' +
                 '</div>';
-              }).join('') : '<div class="whitespace-pre-line">' + parseContentWithGlossary(data.content, glossaryList) + '</div>'}
+              }).join('') : '<div class="whitespace-pre-line reader-text-content">' + parseContentWithGlossary(data.content, glossaryList) + '</div>'}
               ${partsNavigationFooterHTML}
             </div>
           `;
@@ -4602,6 +5215,11 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         if (!isBook && !isVisualText && isDyslexicMode) {
           const box = document.getElementById('reading-text-box');
           if (box) box.classList.add('font-dyslexic');
+        }
+
+        if (!isVisualText) {
+          restoreHighlightsFromSession(docId);
+          setupHighlighterListeners();
         }
       } catch (err) {
         console.error("Error carregant el lector:", err);
@@ -6345,10 +6963,24 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.43.3",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Retolador Fluorescent (Highlighter)",
+          isCurrent: true,
+          summary: "Nova eina de retolador fluorescent a la vista de lectura per a ratolí i pantalles tàctils (Chromebooks/iPads) amb 3 colors, llegenda en català, persistència en sessió i respecte total pel glossari, TTS i modes de lectura.",
+          highlights: [
+            "<strong>Barra flotant compacta (popover):</strong> En seleccionar text (o en fer clic sobre una marca existent), apareix una barra flotant just sobre la selecció amb 3 colors fluorescents: Groc (#fef08a, «Important»), Verd (#bbf7d0, «Pista») i Rosa (#fbcfe8, «Paraula difícil»), a més del botó «Treure marca».",
+            "<strong>Etiqueta de retolador realista:</strong> Embolcalla la selecció en <code>&lt;mark class=\"user-highlight\" data-color=\"...\"&gt;</code> amb vores arrodonides, padding equilibrat i contrast cromàtic òptim tant en mode estàndard com sèpia i fosc.",
+            "<strong>Suport tàctil i d'escriptori:</strong> Detecció fluida d'esdeveniments per a ratolí (<code>mouseup</code>) i pantalles tàctils de tauletes i Chromebooks (<code>touchend</code>).",
+            "<strong>Compatibilitat total:</strong> Respecta íntegrament els enllaços del glossari clicable, la lectura en veu alta (TTS) i el mode dislèxia.",
+            "<strong>Persistència en memòria i neteja ràpida:</strong> Guarda els subratllats durant la sessió entre preguntes i text, i afegeix el botó discret «Netejar subratllats» a la barra d'eines del lector."
+          ]
+        },
+        {
           version: "v0.43.2",
           date: "Novembre 2026",
-          badge: "Versió Actual · Traducció Completa de les Targetes del Catàleg",
-          isCurrent: true,
+          badge: "Traducció Completa de les Targetes del Catàleg",
+          isCurrent: false,
           summary: "Traducció completa dels rètols, etiquetes de tipus, rangs docents i botons de previsualització de les targetes de lectura en el mode anglès (EN).",
           highlights: [
             "<strong>Traducció de les targetes del catàleg en mode anglès:</strong> S'han traduït tots els rètols, etiquetes de tipus de text, rangs docents i botons de previsualització de les targetes de lectura en el mode anglès (EN).",
@@ -6752,7 +7384,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.43.2
+              Versió Actual: v0.43.3
             </span>
           </div>
 
