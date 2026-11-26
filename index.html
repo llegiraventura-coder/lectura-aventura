@@ -1,5 +1,8 @@
 ﻿<!DOCTYPE html>
 <!-- 
+  CHANGELOG v0.45.1:
+  - v0.45.1: Renderitzat complet de la graella de les 11 medalles al perfil (amb estat desbloquejat a color i pendent en gris claret amb requisits visibles).
+
   CHANGELOG v0.45:
   - Activació del modal de desglossament per tipus de pregunta a la Taula de notes d'aula
   - Botó d'accés amb text visible ("Taula de notes d'aula" / "Class Grades Table")
@@ -9,7 +12,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.45</title>
+  <title>Lectura Aventura - v0.45.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -108,7 +111,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.45</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.45.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -120,7 +123,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.45...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.45.1...</p>
     </div>
   </main>
 
@@ -129,7 +132,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.45 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.45.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -2385,7 +2388,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.45 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.45.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -2987,21 +2990,31 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
 
       let badgesGridHTML = '';
       achievements.forEach(function(ach) {
+        const isUnlocked = !!ach.unlocked;
         badgesGridHTML += `
-          <div class="p-4 rounded-2xl border ${ach.unlocked ? 'bg-white border-indigo-200 shadow-xs' : 'bg-slate-50 border-slate-200 opacity-70'} flex items-start gap-3.5 transition">
-            <div class="w-11 h-11 rounded-xl ${ach.unlocked ? ach.color + ' text-white shadow-sm' : 'bg-slate-200 text-slate-400'} flex items-center justify-center text-lg shrink-0">
-              <i class="fa-solid ${ach.icon}"></i>
-            </div>
-            <div class="flex-grow space-y-1">
-              <div class="flex items-center justify-between gap-1">
-                <h4 class="font-black text-sm ${ach.unlocked ? 'text-slate-900' : 'text-slate-600'}">${ach.title}</h4>
-                <span class="text-[10px] font-extrabold px-2 py-0.5 rounded-md ${ach.unlocked ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200/70 text-slate-600'}">
-                  ${ach.unlocked ? '✅ ' + ach.progress : '⏳ ' + ach.progress}
-                </span>
+          <div class="relative p-4 rounded-2xl border-2 transition flex flex-col justify-between space-y-3 ${isUnlocked ? 'bg-amber-50/60 border-amber-300 shadow-xs ring-1 ring-amber-200/50' : 'bg-slate-50 border-slate-200 opacity-60 grayscale hover:grayscale-0 hover:opacity-90'}">
+            <div class="flex items-start gap-3">
+              <div class="w-12 h-12 rounded-2xl ${isUnlocked ? ach.color : 'bg-slate-300'} text-white flex items-center justify-center text-xl shadow shrink-0">
+                <i class="fa-solid ${ach.icon}"></i>
               </div>
-              <p class="text-xs text-slate-500 leading-snug">${ach.desc}</p>
-              <span class="block text-[11px] font-bold text-indigo-700 pt-0.5">
-                <i class="fa-solid fa-flag-checkered text-indigo-400 mr-1"></i> ${isEn() ? 'Requirement: ' : 'Requisit: '}${ach.requirement}
+              <div class="min-w-0 flex-grow space-y-0.5">
+                <div class="flex items-center justify-between gap-1 flex-wrap">
+                  <h4 class="font-black text-sm ${isUnlocked ? 'text-slate-900' : 'text-slate-600'} leading-snug">${ach.title}</h4>
+                  <span class="text-[10px] font-black px-2 py-0.5 rounded-full ${isUnlocked ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-200 text-slate-600'}">
+                    ${isUnlocked ? '✅ ' + ach.progress : '⏳ ' + ach.progress}
+                  </span>
+                </div>
+                <p class="text-xs ${isUnlocked ? 'text-slate-600' : 'text-slate-400'} leading-snug">${ach.desc}</p>
+              </div>
+            </div>
+
+            <div class="pt-2 border-t ${isUnlocked ? 'border-amber-200/80' : 'border-slate-200'} flex items-center justify-between text-xs gap-2">
+              <span class="text-[11px] font-bold ${isUnlocked ? 'text-slate-700' : 'text-slate-500'} flex items-center gap-1 min-w-0 truncate">
+                <i class="fa-solid fa-flag-checkered ${isUnlocked ? 'text-amber-600' : 'text-slate-400'} shrink-0"></i>
+                <span class="truncate" title="${escapeHtmlAttr(ach.requirement)}">${ach.requirement}</span>
+              </span>
+              <span class="shrink-0 font-extrabold text-[11px] ${isUnlocked ? 'text-emerald-700 flex items-center gap-1' : 'text-slate-400'}">
+                ${isUnlocked ? '<i class="fa-solid fa-circle-check text-emerald-500"></i> ' + (isEn() ? 'Unlocked' : 'Aconseguida') : (isEn() ? 'Pending' : 'Pendent')}
               </span>
             </div>
           </div>
@@ -3091,26 +3104,24 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
 
-          <!-- BLOC 2: MEDALLES I FITES ESPECIALS (PER A LECTORS) -->
-          ${!isCreator ? `
-            <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-3">
-                <div>
-                  <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
-                    <i class="fa-solid fa-medal text-indigo-600"></i> ${isEn() ? 'Badges Collection & Special Challenges' : 'Col·lecció de Medalles i Reptes Especials'}
-                  </h2>
-                  <p class="text-xs text-slate-500">${isEn() ? 'Complete challenges of perseverance, accuracy, and reading variety to earn all badges.' : 'Completa reptes de constància, precisió i varietat de lectures per aconseguir totes les insígnies.'}</p>
-                </div>
-                <span class="text-xs font-extrabold bg-indigo-50 text-indigo-800 px-3 py-1 rounded-xl border border-indigo-200 self-start sm:self-auto">
-                  ${unlockedBadgesCount} ${isEn() ? 'of' : 'de'} ${achievements.length} ${isEn() ? 'unlocked' : 'desbloquejades'}
-                </span>
+          <!-- BLOC 2: MEDALLES I FITES ESPECIALS (PER A TOTS ELS USUARIS) -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-slate-100 pb-3">
+              <div>
+                <h2 class="text-lg font-black text-slate-800 flex items-center gap-2">
+                  <i class="fa-solid fa-medal text-indigo-600"></i> ${isEn() ? 'Medals (' + unlockedBadgesCount + ' / ' + achievements.length + ')' : 'Medalles (' + unlockedBadgesCount + ' / ' + achievements.length + ')'}
+                </h2>
+                <p class="text-xs text-slate-500">${isEn() ? 'Complete challenges of perseverance, accuracy, and reading variety to earn all 11 medals.' : 'Completa reptes de constància, precisió i varietat de lectures per aconseguir les 11 medalles.'}</p>
               </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                ${badgesGridHTML}
-              </div>
+              <span class="text-xs font-extrabold bg-indigo-50 text-indigo-800 px-3 py-1 rounded-xl border border-indigo-200 self-start sm:self-auto">
+                ${unlockedBadgesCount} / ${achievements.length} ${isEn() ? 'unlocked' : 'aconseguides'}
+              </span>
             </div>
-          ` : ''}
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${badgesGridHTML}
+            </div>
+          </div>
 
           <!-- BLOC 3: COM ES GUANYEN PUNTS? (REGLES DEL JOC) -->
           <div class="bg-amber-50/80 p-5 rounded-2xl border border-amber-200/90 space-y-3">
@@ -3134,6 +3145,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           </div>
         </div>
       `;
+      if (window.lucide && typeof lucide.createIcons === 'function') {
+        lucide.createIcons();
+      }
     }
 
     async function renderCatalog() {
@@ -8389,10 +8403,22 @@ function exportClassroomGradeBookCSV() {
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.45.1",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Graella Completa de les 11 Medalles al Perfil",
+          isCurrent: true,
+          summary: "Renderitzat complet de la graella de les 11 medalles al perfil (amb estat desbloquejat a color i pendent en gris claret amb requisits visibles).",
+          highlights: [
+            "<strong>Visibilitat universal de les 11 medalles:</strong> La secció de medalles s'activa ara per a tots els perfils (docents i alumnat), mostrant les 11 fites disponibles amb sincronització exacta amb el comptador de la capçalera (X/11).",
+            "<strong>Disseny coherent amb els rangs:</strong> Targetes a tot color i marc daurat per a les medalles aconseguides, i targetes atenuades en gris claret (amb indicació clara de requisits i progrés) per a les medalles pendents.",
+            "<strong>Descripcions i requisits bilingües:</strong> Cada medalla inclou icona representativa, títol bilingüe (CA/EN), descripció explicativa i requisit específic per desbloquejar-la."
+          ]
+        },
+        {
           version: "v0.45",
           date: "Novembre 2026",
-          badge: "Versió Actual · Assignació de Lectures per Aula i Nova Vista d'Avaluació",
-          isCurrent: true,
+          badge: "Assignació de Lectures per Aula i Nova Vista d'Avaluació",
+          isCurrent: false,
           summary: "Sistema d'assignació de lectures per aula, vista en dues pestanyes a la Taula de notes (Avaluació vs. Totes les lectures), exportació Excel adaptada i distintiu «Assignada per l'aula» al catàleg per als alumnes.",
           highlights: [
             "<strong>Assignació de lectures per grup-classe:</strong> Cada docent pot seleccionar quines lectures són obligatòries/avaluables per a cada aula mitjançant un modal interactiu amb cercador ràpid per títol, nivell o codi, selecció massiva i desat directe a Firestore.",
@@ -8872,7 +8898,7 @@ function exportClassroomGradeBookCSV() {
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.45
+              Versió Actual: v0.45.1
             </span>
           </div>
 
