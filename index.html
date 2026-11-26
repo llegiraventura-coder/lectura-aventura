@@ -1,6 +1,6 @@
 ﻿<!DOCTYPE html>
 <!-- 
-  CHANGELOG v0.44.1:
+  CHANGELOG v0.44.2:
   - Activació del modal de desglossament per tipus de pregunta a la Taula de notes d'aula
   - Botó d'accés amb text visible ("Taula de notes d'aula" / "Class Grades Table")
   - Exportació nativa a fitxer Excel (.xlsx) amb SheetJS amb pestanyes de Notes Globals i Desglossament per Habilitats
@@ -9,7 +9,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.44.1</title>
+  <title>Lectura Aventura - v0.44.2</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -108,7 +108,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.44.1</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.44.2</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -120,7 +120,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.44.1...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.44.2...</p>
     </div>
   </main>
 
@@ -129,7 +129,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.44.1 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.44.2 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -2360,7 +2360,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.44.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.44.2 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -6844,12 +6844,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const encodedG = encodeURIComponent(gName);
 
           groupTabsHTML += `
-            <div class="inline-flex items-center gap-1.5 p-1 rounded-2xl border transition ${isSelected ? 'bg-emerald-50/80 border-emerald-300 shadow-xs' : 'bg-slate-50 border-slate-200'}">
-              <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${isSelected ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 hover:bg-white'}">
-                <i class="fa-solid fa-chalkboard"></i>
+            <div class="inline-flex items-center gap-1.5 p-1 rounded-2xl border transition ${isSelected ? 'bg-emerald-100/70 border-emerald-300 shadow-sm' : 'bg-emerald-50/50 border-emerald-200/80'}">
+              <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="${isSelected ? 'bg-emerald-600 text-white font-semibold shadow-sm border border-emerald-700/20' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-medium'} rounded-xl px-3.5 py-2 inline-flex items-center gap-2 transition-all text-xs">
+                <i class="fa-solid fa-chalkboard w-4 h-4 flex items-center justify-center"></i>
                 <span>${escapeHtmlAttr(gName)} (${countInGroup})</span>
               </button>
-              <button onclick="renderClassroomGradeBook(decodeURIComponent('${encodedG}'))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition border whitespace-nowrap shadow-xs ${isSelected ? 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800' : 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-300'}">
+              <button onclick="renderClassroomGradeBook(decodeURIComponent('${encodedG}'))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm border border-emerald-700/20 rounded-xl px-3.5 py-2 inline-flex items-center gap-2 transition-all whitespace-nowrap text-xs">
                 <i class="fa-solid fa-table-cells-large w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
                 <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
               </button>
@@ -7021,16 +7021,6 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </button>
 
               <div class="flex items-center gap-2 flex-wrap">
-                ${allGroupsList.length > 0 ? `
-                  <button onclick="renderClassroomGradeBook(selectedClassroomFilter !== 'all' && selectedClassroomFilter !== 'unassigned' ? selectedClassroomFilter : (allGroupsList[0] || ''))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs transition whitespace-nowrap">
-                    <i class="fa-solid fa-table-cells-large text-emerald-600 w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
-                    <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
-                  </button>
-                  <button onclick="exportClassroomGradesSpreadsheet()" title="${isEn() ? 'Download Excel (.xlsx)' : 'Descarrega Excel (.xlsx)'}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-2xs transition whitespace-nowrap">
-                    <i class="fa-solid fa-file-excel w-4 h-4 flex items-center justify-center text-xs" data-lucide="file-spreadsheet"></i>
-                    <span class="whitespace-nowrap">${isEn() ? 'Download Excel (.xlsx)' : 'Descarrega Excel (.xlsx)'}</span>
-                  </button>
-                ` : ''}
                 <button onclick="configureAiRubricEndpoint()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-3.5 py-2 rounded-xl text-xs md:text-sm shadow-2xs flex items-center gap-1.5 transition">
                   <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i>
                   <span>${isEn() ? 'Configure AI (Gemini)' : 'Configurar IA (Gemini)'}</span>
@@ -7073,10 +7063,6 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                   </span>
                   ${isSpecificGroupActive ? `
                     <div class="flex items-center gap-2 flex-wrap">
-                      <button onclick="renderClassroomGradeBook(decodeURIComponent('${activeGroupEncoded}'))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-xs transition whitespace-nowrap">
-                        <i class="fa-solid fa-table-cells-large w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
-                        <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
-                      </button>
                       <button onclick="renameTeacherClassGroup(decodeURIComponent('${activeGroupEncoded}'))" class="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
                         <i class="fa-solid fa-pen"></i> ${isEn() ? 'Rename' : 'Canviar nom'}
                       </button>
@@ -7158,7 +7144,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     }
 
     // =========================================================
-    // QUADERN D'AULA (v0.44.1) — Graella de Notes per Aula
+    // QUADERN D'AULA (v0.44.2) — Graella de Notes per Aula
     // =========================================================
     async function renderClassroomGradeBook(classroomName) {
       if (!currentUser) return;
@@ -7366,7 +7352,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 ${isEn() ? '← Back to my students' : '← Tornar als meus alumnes'}
               </button>
               <div class="flex items-center gap-2 flex-wrap">
-                <button onclick="exportClassroomGradesSpreadsheet()" title="${isEn() ? 'Download Excel (.xlsx)' : 'Descarrega Excel (.xlsx)'}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-2 transition whitespace-nowrap">
+                <button onclick="exportClassroomGradesSpreadsheet()" title="${isEn() ? 'Download Excel (.xlsx)' : 'Descarrega Excel (.xlsx)'}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm border border-emerald-700/20 rounded-xl px-3.5 py-2 inline-flex items-center gap-2 transition-all whitespace-nowrap text-xs">
                   <i class="fa-solid fa-file-excel w-4 h-4 flex items-center justify-center text-sm" data-lucide="file-spreadsheet"></i>
                   <span>${isEn() ? 'Download Excel (.xlsx)' : 'Descarrega Excel (.xlsx)'}</span>
                 </button>
@@ -7422,7 +7408,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     }
 
     // =========================================================
-    // MODAL DE DETALL DE LECTURA — Quadern d'Aula (v0.44.1)
+    // MODAL DE DETALL DE LECTURA — Quadern d'Aula (v0.44.2)
     // =========================================================
     function openStudentReadingBreakdownModal(studentUid, readingId) {
       const student = window.classroomTrackingStudentsMap && window.classroomTrackingStudentsMap[studentUid];
@@ -7938,10 +7924,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.44.2",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Neteja de la barra docent i estil verd unificat",
+          isCurrent: true,
+          summary: "Eliminació dels botons redundants de taula i descàrrega a la barra superior docent i unificació d'estil en verd destacat per als botons d'aula i taules de notes.",
+          highlights: [
+            "<strong>Neteja de la barra superior docent:</strong> Eliminació del botó redundant «Taula de notes d'aula» del bloc de capçalera de les pestanyes d'aules (ja present individualment a cada grup-classe).",
+            "<strong>Estil verd unificat:</strong> Tots els botons d'acció d'aula (Taula de notes i Descarrega Excel) adopten la paleta <code>bg-emerald-600 hover:bg-emerald-700</code> coherent i destacada, amb icones Lucide alineades.",
+            "<strong>Millora visual del docent:</strong> Cada grup-classe disposa exclusivament dels seus propis botons específics, eliminant la redundància i clarificant el flux d'acció docent."
+          ]
+        },
+        {
           version: "v0.44.1",
           date: "Novembre 2026",
-          badge: "Versió Actual · Detall de Taxonomies i Exportació Excel (.xlsx)",
-          isCurrent: true,
+          badge: "Detall de Taxonomies i Exportació Excel (.xlsx)",
+          isCurrent: false,
           summary: "Activació del modal de desglossament per tipus de pregunta a la Taula de notes d'aula, botó d'accés amb text visible (\"Taula de notes d'aula\") i generació nativa de fitxers Excel (.xlsx) reals amb SheetJS amb dues pestanyes (Notes Globals i Desglossament per Habilitats).",
           highlights: [
             "<strong>Modal de desglossament cognitiu:</strong> En clicar sobre la nota d'un alumne a la Taula de notes d'aula, s'obre un modal complet amb percentatge d'encert, PPM i desglossament per les 5 habilitats cognitives (Literal, Inferencial, Sentit Figurat, Opinió i Creativa).",
@@ -7949,6 +7947,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             "<strong>Descàrrega nativa a Excel (.xlsx) amb SheetJS:</strong> Generació d'un fitxer Excel (.xlsx) real amb dues pestanyes («Notes Globals» amb valors numèrics i mitjana de classe, i «Desglossament Habilitats») amb ajust automàtic d'amplada de columnes."
           ]
         },
+
         {
           version: "v0.44",
           date: "Novembre 2026",
@@ -8395,7 +8394,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.44.1
+              Versió Actual: v0.44.2
             </span>
           </div>
 
