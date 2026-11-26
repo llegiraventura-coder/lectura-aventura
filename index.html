@@ -7146,9 +7146,16 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         });
 
         // Build students list sorted alphabetically
+        // Also populate global map so openStudentReadingBreakdownModal can retrieve data without JSON in attrs
+        if (!window.classroomTrackingStudentsMap) window.classroomTrackingStudentsMap = {};
+        if (!window.classroomTrackingCatalogMap)  window.classroomTrackingCatalogMap  = {};
+        window.classroomTrackingCatalogMap = readingsCatalogMap;
+
         let students = [];
         studentsSnap.forEach(function(doc) {
-          students.push(Object.assign({ id: doc.id }, doc.data()));
+          const sData = Object.assign({ id: doc.id }, doc.data());
+          students.push(sData);
+          window.classroomTrackingStudentsMap[doc.id] = sData;
         });
         students.sort(function(a, b) {
           return (a.displayName || '').localeCompare(b.displayName || '', 'ca');
@@ -7223,10 +7230,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               studentPcts.push(result.pct);
               if (result.wpm) studentWpms.push(result.wpm);
               rowCells += '<td class="p-1.5 text-center border-r border-slate-100">' +
-                '<div class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px] cursor-pointer hover:opacity-80 transition" title="' + escapeHtmlAttr((student.displayName || '') + ' · ' + (readingsCatalogMap[rId] ? readingsCatalogMap[rId].title : rId)) + '">' +
+                '<button type="button" onclick="openStudentReadingBreakdownModal(\'' + student.id + '\',\'' + rId + '\')" class="inline-flex flex-col items-center justify-center rounded-lg px-2 py-1 border ' + sc.bg + ' ' + sc.border + ' min-w-[70px] cursor-pointer hover:opacity-80 hover:shadow-sm transition" title="' + escapeHtmlAttr((student.displayName || '') + ' · ' + (readingsCatalogMap[rId] ? readingsCatalogMap[rId].title : rId)) + '">' +
                 '<span class="text-sm font-black ' + sc.text + '">' + result.pct + '%</span>' +
                 (result.wpm ? '<span class="text-[10px] font-bold text-slate-500 mt-0.5"><i class=\'fa-solid fa-gauge-high text-[9px]\'></i> ' + result.wpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</span>' : '') +
-                '</div>' +
+                '</button>' +
               '</td>';
             } else {
               rowCells += '<td class="p-1.5 text-center border-r border-slate-100 text-slate-300 text-sm font-bold">—</td>';
@@ -7358,6 +7365,205 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         console.error(err);
         app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">' + (isEn() ? 'Error loading grade book: ' : 'Error en carregar el quadern de notes: ') + escapeHtmlAttr(err.message) + '</div>';
       }
+    }
+
+    // =========================================================
+    // MODAL DE DETALL DE LECTURA — Quadern d'Aula (v0.44)
+    // =========================================================
+    function openStudentReadingBreakdownModal(studentUid, readingId) {
+      const student = window.classroomTrackingStudentsMap && window.classroomTrackingStudentsMap[studentUid];
+      if (!student) return;
+      const hist    = (student.readingHistory || {})[readingId];
+      const catInfo = (window.classroomTrackingCatalogMap || {})[readingId] || {};
+
+      const studentName  = student.displayName || (isEn() ? 'Student' : 'Alumne/a');
+      const studentGroup = (student.classGroup || '').trim() || (isEn() ? '—' : '—');
+      const readingTitle = (hist && hist.title) || catInfo.title || (isEn() ? 'Untitled reading' : 'Lectura sense títol');
+      const readingCode  = catInfo.code || '';
+
+      // ── Semàfor ──────────────────────────────────────────
+      function sc(pct) {
+        if (pct >= 75) return { bg: 'bg-emerald-50', border: 'border-emerald-300', text: 'text-emerald-800', bar: 'bg-emerald-500' };
+        if (pct >= 50) return { bg: 'bg-amber-50',   border: 'border-amber-300',   text: 'text-amber-900',  bar: 'bg-amber-400'  };
+        return           { bg: 'bg-rose-50',    border: 'border-rose-300',    text: 'text-rose-800',   bar: 'bg-rose-500'   };
+      }
+
+      // ── Contingut del modal ───────────────────────────────
+      let bodyHTML = '';
+
+      if (hist && hist.total > 0) {
+        const pct    = hist.percentage !== undefined ? hist.percentage : Math.round((hist.score / hist.total) * 100);
+        const colors = sc(pct);
+
+        // Resum global
+        let globalSummary = '<div class="grid grid-cols-2 gap-3 mb-4">';
+        // Nota
+        globalSummary += '<div class="' + colors.bg + ' ' + colors.border + ' border rounded-xl p-3 flex flex-col items-center justify-center gap-0.5">' +
+          '<span class="text-2xl font-black ' + colors.text + '">' + pct + '%</span>' +
+          '<span class="text-[11px] font-bold text-slate-500">' + hist.score + '/' + hist.total + ' ' + (isEn() ? 'correct' : 'encerts') + '</span>' +
+        '</div>';
+        // Punts
+        const maxPts = hist.maxPoints || '';
+        globalSummary += '<div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex flex-col items-center justify-center gap-0.5">' +
+          '<span class="text-2xl font-black text-amber-700">' + (hist.points || 0) + (maxPts ? '/' + maxPts : '') + '</span>' +
+          '<span class="text-[11px] font-bold text-slate-500">PTS</span>' +
+        '</div>';
+        globalSummary += '</div>';
+
+        // PPM / velocitat lectora
+        if (hist.wpm) {
+          const secs   = hist.readingSeconds || 0;
+          const mins   = Math.floor(secs / 60);
+          const secsR  = secs % 60;
+          const timeStr = secs > 0 ? (mins > 0 ? mins + 'min ' + secsR + 's' : secsR + 's') : '';
+          const words   = hist.wordCount || 0;
+          globalSummary += '<div class="bg-indigo-50 border border-indigo-200 rounded-xl p-3 mb-4 flex items-center gap-3">' +
+            '<i class="fa-solid fa-gauge-high text-2xl text-indigo-600"></i>' +
+            '<div>' +
+              '<div class="text-base font-black text-indigo-800">' + hist.wpm + ' ' + (isEn() ? 'WPM' : 'PPM') + '</div>' +
+              '<div class="text-[11px] text-slate-500 font-bold">' + (isEn() ? 'Silent reading speed' : 'Velocitat lectora silenciosa') +
+              (timeStr ? ' · ' + timeStr : '') + (words ? ' · ' + words + ' ' + (isEn() ? 'words' : 'paraules') : '') + '</div>' +
+            '</div>' +
+          '</div>';
+        }
+
+        // Data de realització
+        if (hist.completedAt) {
+          try {
+            const d = hist.completedAt.toDate ? hist.completedAt.toDate() : new Date(hist.completedAt);
+            globalSummary += '<div class="text-[11px] text-slate-400 font-bold mb-4">' +
+              '<i class="fa-solid fa-calendar-check mr-1"></i>' +
+              (isEn() ? 'Completed: ' : 'Realitzada: ') + d.toLocaleDateString('ca-ES', { day: '2-digit', month: 'long', year: 'numeric' }) +
+            '</div>';
+          } catch(e) {}
+        }
+
+        bodyHTML += globalSummary;
+
+        // Desglossament per taxonomia
+        const taxKeysOrder = ['literal', 'inferential', 'figurative', 'opinion', 'creative'];
+        const stats = hist.stats || null;
+
+        if (stats) {
+          let hasAnyTax = taxKeysOrder.some(function(k) { return stats[k] && stats[k].total > 0; });
+          if (hasAnyTax) {
+            bodyHTML += '<div class="mb-1"><span class="text-xs font-black text-slate-700 uppercase tracking-wide">' +
+              (isEn() ? 'Breakdown by question type' : 'Desglossament per tipologia de pregunta') + '</span></div>';
+            bodyHTML += '<div class="space-y-2">';
+            taxKeysOrder.forEach(function(tKey) {
+              const st = stats[tKey];
+              if (!st || st.total <= 0) return;
+              const tCfg    = TAXONOMY_CONFIG[tKey] || TAXONOMY_CONFIG.literal;
+              const correct = Math.round(st.correct * 10) / 10;
+              const taxPct  = Math.round((st.correct / st.total) * 100);
+              const taxSc   = sc(taxPct);
+              bodyHTML += '<div class="' + tCfg.color + ' border rounded-xl p-2.5 flex items-center gap-3">' +
+                '<div class="shrink-0 w-7 h-7 rounded-lg bg-white/60 flex items-center justify-center">' +
+                  '<i class="fa-solid ' + tCfg.icon + ' text-sm"></i>' +
+                '</div>' +
+                '<div class="flex-1 min-w-0">' +
+                  '<div class="flex items-center justify-between mb-1">' +
+                    '<span class="text-xs font-black">' + getLocalizedTaxonomyLabel(tKey) + '</span>' +
+                    '<span class="text-xs font-black ' + taxSc.text + '">' + correct + '/' + st.total + ' (' + taxPct + '%)</span>' +
+                  '</div>' +
+                  '<div class="w-full bg-white/50 rounded-full h-2 overflow-hidden">' +
+                    '<div class="h-2 rounded-full ' + taxSc.bar + ' transition-all" style="width:' + taxPct + '%"></div>' +
+                  '</div>' +
+                '</div>' +
+              '</div>';
+            });
+            bodyHTML += '</div>';
+          }
+        } else {
+          // Lectura antiga sense stats
+          bodyHTML += '<div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 mt-2 flex items-start gap-2.5">' +
+            '<i class="fa-solid fa-circle-info text-slate-400 mt-0.5 shrink-0"></i>' +
+            '<p class="text-xs text-slate-500">' +
+              (isEn()
+                ? 'This reading was completed before the taxonomy breakdown was introduced (v0.40.0). The detailed breakdown will be recorded the next time this student retakes it.'
+                : 'Aquesta lectura es va completar abans de la versió que registra el desglossament per tipologia cognitiva (v0.40.0). El detall es registrarà la propera vegada que l\'alumne/a la torni a fer.') +
+            '</p>' +
+          '</div>';
+        }
+
+      } else {
+        // Sense historial detallat — pot estar en completedReadings però sense readingHistory entry
+        const savedPts = (student.scores || {})[readingId];
+        bodyHTML = '<div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3">' +
+          '<i class="fa-solid fa-circle-info text-slate-400 mt-0.5 shrink-0"></i>' +
+          '<div>' +
+            '<p class="text-sm font-bold text-slate-700 mb-1">' +
+              (isEn() ? 'No detailed history available' : 'No hi ha historial detallat disponible') +
+            '</p>' +
+            (savedPts !== undefined
+              ? '<p class="text-xs text-slate-500">' + (isEn() ? 'Points recorded: ' : 'Punts registrats: ') + '<strong>' + savedPts + ' PTS</strong></p>'
+              : '') +
+            '<p class="text-xs text-slate-400 mt-1">' +
+              (isEn()
+                ? 'Detailed data will be recorded the next time this student completes the reading.'
+                : 'Les dades detallades es registraran la propera vegada que l\'alumne/a completi la lectura.') +
+            '</p>' +
+          '</div>' +
+        '</div>';
+      }
+
+      // ── Render del modal ──────────────────────────────────
+      let container = document.getElementById('student-breakdown-modal-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'student-breakdown-modal-container';
+        document.body.appendChild(container);
+      }
+
+      container.innerHTML = `
+        <div id="student-breakdown-modal-backdrop"
+             onclick="closeStudentBreakdownModal()"
+             class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+             role="dialog" aria-modal="true">
+          <div onclick="event.stopPropagation()"
+               class="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto flex flex-col">
+
+            <!-- Capçalera del modal -->
+            <div class="bg-gradient-to-r from-indigo-700 to-indigo-500 text-white p-5 rounded-t-2xl flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap mb-1">
+                  <span class="text-xs font-black bg-white/20 px-2 py-0.5 rounded-lg">${escapeHtmlAttr(studentName)}</span>
+                  ${studentGroup !== '—' ? '<span class="text-xs font-bold bg-emerald-500/80 px-2 py-0.5 rounded-lg">' + escapeHtmlAttr(studentGroup) + '</span>' : ''}
+                </div>
+                ${readingCode ? '<div class="text-[11px] font-mono font-black text-indigo-200 mb-0.5">' + escapeHtmlAttr(readingCode) + '</div>' : ''}
+                <h2 class="text-sm font-black leading-snug">${escapeHtmlAttr(readingTitle)}</h2>
+              </div>
+              <button onclick="closeStudentBreakdownModal()" class="shrink-0 text-white/70 hover:text-white transition mt-0.5" title="${isEn() ? 'Close' : 'Tancar'}">
+                <i class="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <!-- Cos del modal -->
+            <div class="p-5 flex-1">
+              ${bodyHTML}
+            </div>
+
+            <!-- Peu del modal -->
+            <div class="px-5 pb-5">
+              <button onclick="closeStudentBreakdownModal()"
+                      class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-sm transition">
+                ${isEn() ? 'Close' : 'Tancar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Tancar amb Escape
+      function escKeyHandler(e) {
+        if (e.key === 'Escape') { closeStudentBreakdownModal(); document.removeEventListener('keydown', escKeyHandler); }
+      }
+      document.addEventListener('keydown', escKeyHandler);
+    }
+
+    function closeStudentBreakdownModal() {
+      const container = document.getElementById('student-breakdown-modal-container');
+      if (container) container.innerHTML = '';
     }
 
     // =========================================================
