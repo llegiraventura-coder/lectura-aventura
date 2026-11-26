@@ -1,0 +1,76 @@
+html { scroll-behavior: smooth; }
+.font-dyslexic {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  letter-spacing: 0.05em;
+  word-spacing: 0.15em;
+  line-height: 1.8 !important;
+}
+.bg-sepia { background-color: #fbf0d9 !important; color: #3b2e1e !important; }
+.bg-sepia a { color: #9c4221 !important; border-color: #d97736 !important; }
+.bg-dark-mode { background-color: #1e293b !important; color: #f1f5f9 !important; }
+.bg-dark-mode a { color: #38bdf8 !important; border-color: #0284c7 !important; }
+
+/* Retolador Fluorescent (Highlighter) */
+mark.user-highlight {
+  display: inline;
+  padding: 0.12em 0.35em;
+  margin: 0 1px;
+  border-radius: 4px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  transition: filter 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+mark.user-highlight:hover {
+  filter: brightness(0.92);
+  box-shadow: 0 0 0 1.5px rgba(99, 102, 241, 0.45);
+}
+mark.user-highlight[data-color="yellow"], mark.user-highlight[data-color="#fef08a"] {
+  background-color: #fef08a !important;
+  color: #713f12 !important;
+}
+mark.user-highlight[data-color="green"], mark.user-highlight[data-color="#bbf7d0"] {
+  background-color: #bbf7d0 !important;
+  color: #14532d !important;
+}
+mark.user-highlight[data-color="pink"], mark.user-highlight[data-color="#fbcfe8"] {
+  background-color: #fbcfe8 !important;
+  color: #831843 !important;
+}
+/* Assegurar contrast i estil dels enllaços del glossari dins de marques */
+mark.user-highlight a {
+  color: inherit !important;
+  text-decoration: underline !important;
+  text-decoration-thickness: 2px !important;
+  cursor: pointer;
+}
+/* Mode fosc: retolador fluorescent viu amb alt contrast i llegibilitat òptima */
+.bg-dark-mode mark.user-highlight[data-color="yellow"], .bg-dark-mode mark.user-highlight[data-color="#fef08a"] {
+  background-color: #fef08a !important;
+  color: #1e293b !important;
+}
+.bg-dark-mode mark.user-highlight[data-color="green"], .bg-dark-mode mark.user-highlight[data-color="#bbf7d0"] {
+  background-color: #bbf7d0 !important;
+  color: #064e3b !important;
+}
+.bg-dark-mode mark.user-highlight[data-color="pink"], .bg-dark-mode mark.user-highlight[data-color="#fbcfe8"] {
+  background-color: #fbcfe8 !important;
+  color: #701a75 !important;
+}
+/* Mode sèpia */
+.bg-sepia mark.user-highlight[data-color="yellow"], .bg-sepia mark.user-highlight[data-color="#fef08a"] {
+  background-color: #fef08a !important;
+  color: #451a03 !important;
+}
+.bg-sepia mark.user-highlight[data-color="green"], .bg-sepia mark.user-highlight[data-color="#bbf7d0"] {
+  background-color: #bbf7d0 !important;
+  color: #064e3b !important;
+}
+.bg-sepia mark.user-highlight[data-color="pink"], .bg-sepia mark.user-highlight[data-color="#fbcfe8"] {
+  background-color: #fbcfe8 !important;
+  color: #701a75 !important;
+}
