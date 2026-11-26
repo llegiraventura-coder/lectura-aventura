@@ -6300,6 +6300,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
         `;
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
       } catch (err) {
         console.error("Error carregant la bústia docent:", err);
         app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">' + (isEn() ? 'Error loading teacher suggestions: ' : 'Error en carregar els suggeriments docents: ') + err.message + '</div>';
@@ -6363,6 +6366,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
         `;
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
       } catch (err) {
         console.error(err);
       }
@@ -6818,13 +6824,14 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const encodedG = encodeURIComponent(gName);
 
           groupTabsHTML += `
-            <div class="flex items-center gap-0 rounded-xl border ${isSelected ? 'border-emerald-700 shadow-xs' : 'border-emerald-200'} overflow-hidden">
-              <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3.5 py-2 text-xs font-extrabold transition flex items-center gap-1.5 ${isSelected ? 'bg-emerald-600 text-white' : 'bg-emerald-50/60 hover:bg-emerald-100/80 text-emerald-950'}">
+            <div class="inline-flex items-center gap-1.5 p-1 rounded-2xl border transition ${isSelected ? 'bg-emerald-50/80 border-emerald-300 shadow-xs' : 'bg-slate-50 border-slate-200'}">
+              <button onclick="selectedClassroomFilter=decodeURIComponent('${encodedG}'); renderStudentTrackingPanel()" class="px-3 py-1.5 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 ${isSelected ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 hover:bg-white'}">
                 <i class="fa-solid fa-chalkboard"></i>
                 <span>${escapeHtmlAttr(gName)} (${countInGroup})</span>
               </button>
-              <button onclick="renderClassroomGradeBook(decodeURIComponent('${encodedG}'))" title="${isEn() ? 'Open grade book for this classroom' : 'Obrir quadern de notes de l\'aula'}" class="px-2.5 py-2 text-xs font-extrabold transition border-l ${isSelected ? 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800' : 'bg-white hover:bg-emerald-50 text-emerald-700 border-emerald-200'}">
-                <i class="fa-solid fa-table-cells-large"></i>
+              <button onclick="renderClassroomGradeBook(decodeURIComponent('${encodedG}'))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition border whitespace-nowrap shadow-xs ${isSelected ? 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-800' : 'bg-white hover:bg-emerald-50 text-emerald-800 border-emerald-300'}">
+                <i class="fa-solid fa-table-cells-large w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
+                <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
               </button>
             </div>
           `;
@@ -6994,6 +7001,12 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               </button>
 
               <div class="flex items-center gap-2 flex-wrap">
+                ${allGroupsList.length > 0 ? `
+                  <button onclick="renderClassroomGradeBook(selectedClassroomFilter !== 'all' && selectedClassroomFilter !== 'unassigned' ? selectedClassroomFilter : (allGroupsList[0] || ''))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs transition whitespace-nowrap">
+                    <i class="fa-solid fa-table-cells-large text-emerald-600 w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
+                    <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
+                  </button>
+                ` : ''}
                 <button onclick="configureAiRubricEndpoint()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-3.5 py-2 rounded-xl text-xs md:text-sm shadow-2xs flex items-center gap-1.5 transition">
                   <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i>
                   <span>${isEn() ? 'Configure AI (Gemini)' : 'Configurar IA (Gemini)'}</span>
@@ -7035,7 +7048,11 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                     <i class="fa-solid fa-layer-group text-indigo-500"></i> ${isEn() ? 'My Classrooms / Class Groups:' : 'Les meves Aules / Grups Classe:'}
                   </span>
                   ${isSpecificGroupActive ? `
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
+                      <button onclick="renderClassroomGradeBook(decodeURIComponent('${activeGroupEncoded}'))" title="${isEn() ? 'Class Grades Table' : 'Taula de notes d\'aula'}" class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-xs transition whitespace-nowrap">
+                        <i class="fa-solid fa-table-cells-large w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
+                        <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
+                      </button>
                       <button onclick="renameTeacherClassGroup(decodeURIComponent('${activeGroupEncoded}'))" class="text-xs font-bold text-indigo-700 hover:underline flex items-center gap-1">
                         <i class="fa-solid fa-pen"></i> ${isEn() ? 'Rename' : 'Canviar nom'}
                       </button>
@@ -7107,6 +7124,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
         `;
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
       } catch (err) {
         console.error(err);
         app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">' + (isEn() ? 'Error loading students: ' : 'Error en carregar els alumnes: ') + err.message + '</div>';
@@ -7360,7 +7380,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
             </div>
           </div>
         `;
-
+        if (window.lucide && typeof lucide.createIcons === 'function') {
+          lucide.createIcons();
+        }
       } catch (err) {
         console.error(err);
         app.innerHTML = '<div class="p-4 bg-red-100 text-red-700 rounded-xl max-w-2xl mx-auto">' + (isEn() ? 'Error loading grade book: ' : 'Error en carregar el quadern de notes: ') + escapeHtmlAttr(err.message) + '</div>';
