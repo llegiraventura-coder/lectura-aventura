@@ -1,5 +1,8 @@
 ﻿<!DOCTYPE html>
 <!-- 
+  CHANGELOG v0.46.1:
+  - v0.46.1: Nou modal d'edició completa de Carpetes i Situacions d'Aprenentatge (SA) per modificar metadades, reordenar la seqüència didàctica i afegir o treure lectures del catàleg.
+
   CHANGELOG v0.46:
   - v0.46: Catàleg exclusiu de 8 medalles pedagògiques per a Docents i Creadors, separació respecte a les medalles d'alumne i protecció contra suma de punts en mode vista prèvia docent.
 
@@ -15,7 +18,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.46</title>
+  <title>Lectura Aventura - v0.46.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -37,7 +40,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.46</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.46.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -49,7 +52,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.46...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.46.1...</p>
     </div>
   </main>
 
@@ -58,7 +61,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.46 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.46.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
