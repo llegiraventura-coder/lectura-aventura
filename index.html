@@ -1,9 +1,15 @@
 ﻿<!DOCTYPE html>
+<!-- 
+  CHANGELOG v0.44.1:
+  - Activació del modal de desglossament per tipus de pregunta a la Taula de notes d'aula
+  - Botó d'accés amb text visible ("Taula de notes d'aula" / "Class Grades Table")
+  - Exportació funcional a full de càlcul Excel (CSV UTF-8 BOM amb separador ;)
+-->
 <html lang="ca">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lectura Aventura - v0.44</title>
+  <title>Lectura Aventura - v0.44.1</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/open-dyslexic.css">
@@ -100,7 +106,7 @@
         <i class="fa-solid fa-book-open text-2xl text-amber-300"></i>
         <div>
           <span class="font-bold text-xl tracking-wide block leading-none">Lectura Aventura</span>
-          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.44</span>
+          <span class="text-[10px] text-amber-300 font-mono font-bold">v0.44.1</span>
         </div>
       </div>
       <nav id="nav-actions" class="flex items-center space-x-2 md:space-x-3"></nav>
@@ -112,7 +118,7 @@
   <main id="app" class="flex-grow max-w-6xl w-full mx-auto p-4 md:p-6">
     <div class="text-center py-12">
       <i class="fa-solid fa-spinner fa-spin text-4xl text-indigo-600"></i>
-      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.44...</p>
+      <p class="mt-2 text-slate-500 font-medium">Iniciant Lectura Aventura v0.44.1...</p>
     </div>
   </main>
 
@@ -121,7 +127,7 @@
       <p id="footer-tagline">&copy; Lectura Aventura — Plataforma Educativa de Comprensió Lectora</p>
       <button onclick="renderChangelogPage()" class="inline-flex items-center gap-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-amber-300 hover:text-amber-200 px-3 py-1 rounded-lg transition font-mono border border-slate-600">
         <i class="fa-solid fa-code-branch text-amber-400"></i>
-        <span id="footer-changelog-label">v0.44 — Historial de versions</span>
+        <span id="footer-changelog-label">v0.44.1 — Historial de versions</span>
       </button>
     </div>
   </footer>
@@ -2352,7 +2358,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       const tagline = document.getElementById('footer-tagline');
       const changelog = document.getElementById('footer-changelog-label');
       if (tagline) tagline.textContent = '\u00a9 Lectura Aventura \u2014 ' + (isEn() ? 'Reading Comprehension Educational Platform' : 'Plataforma Educativa de Compresi\u00f3 Lectora');
-      if (changelog) changelog.textContent = 'v0.44 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
+      if (changelog) changelog.textContent = 'v0.44.1 \u2014 ' + (isEn() ? 'Version history' : 'Historial de versions');
     }
 
     function setAppLanguage(lang) {
@@ -6800,6 +6806,18 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           visibleStudents = students.filter(function(s) { return (s.classGroup || '').trim() === selectedClassroomFilter; });
         }
 
+        // Emmagatzemem les dades per a l'exportació neta del full de càlcul (Excel)
+        window.currentTrackingExportData = {
+          selectedGroup: selectedClassroomFilter,
+          visibleStudents: visibleStudents,
+          allStudents: students,
+          allGroupsList: allGroupsList,
+          readingsCatalogMap: readingsCatalogMap
+        };
+        window.classroomTrackingCatalogMap = readingsCatalogMap;
+        if (!window.classroomTrackingStudentsMap) window.classroomTrackingStudentsMap = {};
+        students.forEach(function(s) { window.classroomTrackingStudentsMap[s.id] = s; });
+
         // Estadístiques ràpides del grup seleccionat
         const visibleCount = visibleStudents.length;
         const avgPoints = visibleCount > 0 ? Math.round(visibleStudents.reduce(function(acc, s) { return acc + (s.points || 0); }, 0) / visibleCount) : 0;
@@ -7006,6 +7024,10 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                     <i class="fa-solid fa-table-cells-large text-emerald-600 w-4 h-4 flex items-center justify-center text-xs" data-lucide="layout-grid"></i>
                     <span class="whitespace-nowrap">${isEn() ? 'Class Grades Table' : "Taula de notes d'aula"}</span>
                   </button>
+                  <button onclick="exportClassroomGradesSpreadsheet()" title="${isEn() ? 'Download Spreadsheet (Excel)' : 'Descarrega full de càlcul (Excel)'}" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs md:text-sm font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 shadow-2xs transition whitespace-nowrap">
+                    <i class="fa-solid fa-file-excel w-4 h-4 flex items-center justify-center text-xs" data-lucide="file-spreadsheet"></i>
+                    <span class="whitespace-nowrap">${isEn() ? 'Download Spreadsheet (Excel)' : 'Descarrega full de càlcul (Excel)'}</span>
+                  </button>
                 ` : ''}
                 <button onclick="configureAiRubricEndpoint()" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold px-3.5 py-2 rounded-xl text-xs md:text-sm shadow-2xs flex items-center gap-1.5 transition">
                   <i class="fa-solid fa-wand-magic-sparkles text-indigo-600"></i>
@@ -7134,7 +7156,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     }
 
     // =========================================================
-    // QUADERN D'AULA (v0.44) — Graella de Notes per Aula
+    // QUADERN D'AULA (v0.44.1) — Graella de Notes per Aula
     // =========================================================
     async function renderClassroomGradeBook(classroomName) {
       if (!currentUser) return;
@@ -7195,6 +7217,14 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
           const rB = readingsCatalogMap[b] ? readingsCatalogMap[b].readingNumber : 0;
           return rA - rB;
         });
+
+        // Emmagatzemem les dades per a l'exportació neta del full de càlcul (Excel)
+        window.currentGradeBookExportData = {
+          classroomName: classroomName,
+          students: students,
+          sortedReadingIds: sortedReadingIds,
+          readingsCatalogMap: readingsCatalogMap
+        };
 
         // Helper: get best result for a student+reading
         function getBestResult(student, rId) {
@@ -7334,9 +7364,9 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
                 ${isEn() ? '← Back to my students' : '← Tornar als meus alumnes'}
               </button>
               <div class="flex items-center gap-2 flex-wrap">
-                <button onclick="exportClassroomGradeBookCSV(${JSON.stringify(classroomName)}, ${JSON.stringify(sortedReadingIds)}, ${JSON.stringify(students.map(function(s){ return { id: s.id, displayName: s.displayName, readingHistory: s.readingHistory || {} }; }))}, ${JSON.stringify(readingsCatalogMap)})" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-1.5 transition">
-                  <i class="fa-solid fa-file-csv"></i>
-                  <span>${isEn() ? 'Export table (CSV)' : 'Exportar taula (CSV)'}</span>
+                <button onclick="exportClassroomGradesSpreadsheet()" title="${isEn() ? 'Download Spreadsheet (Excel)' : 'Descarrega full de càlcul (Excel)'}" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs md:text-sm shadow flex items-center gap-2 transition whitespace-nowrap">
+                  <i class="fa-solid fa-file-excel w-4 h-4 flex items-center justify-center text-sm" data-lucide="file-spreadsheet"></i>
+                  <span>${isEn() ? 'Download Spreadsheet (Excel)' : 'Descarrega full de càlcul (Excel)'}</span>
                 </button>
               </div>
             </div>
@@ -7390,7 +7420,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     }
 
     // =========================================================
-    // MODAL DE DETALL DE LECTURA — Quadern d'Aula (v0.44)
+    // MODAL DE DETALL DE LECTURA — Quadern d'Aula (v0.44.1)
     // =========================================================
     function openStudentReadingBreakdownModal(studentUid, readingId) {
       const student = window.classroomTrackingStudentsMap && window.classroomTrackingStudentsMap[studentUid];
@@ -7589,97 +7619,228 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
     }
 
     // =========================================================
-    // EXPORTACIÓ CSV DEL QUADERN D'AULA (v0.44)
+    // EXPORTACIÓ FULL DE CÀLCUL (EXCEL) DEL QUADERN D'AULA
     // =========================================================
-    function exportClassroomGradeBookCSV(classroomName, sortedReadingIds, studentsData, readingsCatalogMap) {
+    function exportClassroomGradesSpreadsheet() {
       try {
+        let groupName = '';
+        let students = [];
+        let sortedReadingIds = [];
+        let readingsCatalogMap = {};
+
+        if (window.currentGradeBookExportData && window.currentGradeBookExportData.students && window.currentGradeBookExportData.students.length > 0) {
+          groupName = window.currentGradeBookExportData.classroomName || '';
+          students = window.currentGradeBookExportData.students || [];
+          sortedReadingIds = window.currentGradeBookExportData.sortedReadingIds || [];
+          readingsCatalogMap = window.currentGradeBookExportData.readingsCatalogMap || window.classroomTrackingCatalogMap || {};
+        } else if (window.currentTrackingExportData && window.currentTrackingExportData.visibleStudents && window.currentTrackingExportData.visibleStudents.length > 0) {
+          const rawGrp = window.currentTrackingExportData.selectedGroup;
+          groupName = rawGrp === 'all' 
+            ? (isEn() ? 'All_Classrooms' : 'Totes_les_Aules') 
+            : (rawGrp === 'unassigned' ? (isEn() ? 'Pending_Assignment' : 'Pendents_Assignar') : (rawGrp || 'Aula'));
+          students = window.currentTrackingExportData.visibleStudents || [];
+          readingsCatalogMap = window.currentTrackingExportData.readingsCatalogMap || window.classroomTrackingCatalogMap || {};
+
+          const rIdsSet = new Set();
+          students.forEach(function(s) {
+            (s.completedReadings || []).forEach(function(rId) { rIdsSet.add(rId); });
+          });
+          sortedReadingIds = Array.from(rIdsSet).sort(function(a, b) {
+            const rA = readingsCatalogMap[a] ? (readingsCatalogMap[a].readingNumber || 0) : 0;
+            const rB = readingsCatalogMap[b] ? (readingsCatalogMap[b].readingNumber || 0) : 0;
+            return rA - rB;
+          });
+        }
+
+        if (!students || students.length === 0) {
+          alert(isEn() ? 'There are no students to export in this view.' : 'No hi ha alumnes per exportar en aquesta vista.');
+          return;
+        }
+
+        if (!sortedReadingIds || sortedReadingIds.length === 0) {
+          alert(isEn() ? 'There are no completed readings to export in this group.' : 'No hi ha cap lectura completada per exportar en aquest grup.');
+          return;
+        }
+
+        // CSV escaping helper: RFC 4180 with semicolon separator
+        function csvEsc(val) {
+          if (val === null || val === undefined) return '""';
+          const s = String(val).replace(/\r?\n|\r/g, ' ').replace(/"/g, '""');
+          return '"' + s + '"';
+        }
+
         const sep = ';';
         const lines = [];
 
-        // Header row: Alumne/a ; [reading codes/titles...] ; Mitjana %  ; Mitjana PPM
-        const headerCols = [isEn() ? 'Student' : 'Alumne/a'];
+        // Build header
+        const headers = [
+          isEn() ? 'Student' : 'Alumne/a',
+          isEn() ? 'Classroom / Group' : 'Grup-Classe',
+          isEn() ? 'Overall Average (%)' : 'Mitjana Global (%)',
+          isEn() ? 'Average Reading Speed (WPM)' : 'Velocitat Lectora Mitjana (PPM)'
+        ];
+
         sortedReadingIds.forEach(function(rId) {
           const catInfo = readingsCatalogMap[rId] || {};
-          const code = catInfo.code || '';
-          const title = catInfo.title || rId.slice(0, 12);
-          headerCols.push((code ? code + ' - ' : '') + title + ' (%)');
-          headerCols.push((code ? code + ' - ' : '') + title + ' (' + (isEn() ? 'WPM' : 'PPM') + ')');
+          const code = catInfo.code ? catInfo.code + ' - ' : '';
+          const title = catInfo.title || rId.slice(0, 15);
+          const baseName = code + title;
+
+          headers.push(baseName + ' (%)');
+          headers.push(baseName + ' (' + (isEn() ? 'WPM' : 'PPM') + ')');
+          headers.push(baseName + ' (Literal)');
+          headers.push(baseName + ' (Inferencial)');
+          headers.push(baseName + ' (Sentit Figurat)');
+          headers.push(baseName + ' (Opinió)');
+          headers.push(baseName + ' (Creativa)');
         });
-        headerCols.push(isEn() ? 'Average (%)' : 'Mitjana (%)');
-        headerCols.push(isEn() ? 'Average WPM' : 'Mitjana PPM');
-        lines.push(headerCols.join(sep));
+
+        lines.push(headers.map(csvEsc).join(sep));
 
         // Data rows
         const colPctsForAvg = {};
         const colWpmsForAvg = {};
-        sortedReadingIds.forEach(function(rId) { colPctsForAvg[rId] = []; colWpmsForAvg[rId] = []; });
+        sortedReadingIds.forEach(function(rId) {
+          colPctsForAvg[rId] = [];
+          colWpmsForAvg[rId] = [];
+        });
 
-        studentsData.forEach(function(student) {
-          const cols = [student.displayName || ''];
+        const pendingLabel = isEn() ? 'Pending' : 'Pendent';
+
+        students.forEach(function(student) {
+          const studentHistory = student.readingHistory || {};
+          const studentScores = student.scores || {};
           const studentPcts = [];
           const studentWpms = [];
 
+          const rowData = [
+            student.displayName || (isEn() ? 'Student' : 'Alumne/a'),
+            student.classGroup || (isEn() ? 'Unassigned' : "Pendent d'assignar")
+          ];
+
+          const readingCols = [];
+
           sortedReadingIds.forEach(function(rId) {
-            const history = student.readingHistory || {};
-            const hEntry = history[rId];
+            const hEntry = studentHistory[rId];
             if (hEntry && hEntry.total > 0) {
               const pct = hEntry.percentage !== undefined ? hEntry.percentage : Math.round((hEntry.score / hEntry.total) * 100);
-              const wpm = typeof hEntry.wpm === 'number' && hEntry.wpm > 0 ? hEntry.wpm : null;
-              cols.push(String(pct));
-              cols.push(wpm !== null ? String(wpm) : '');
+              const wpm = (typeof hEntry.wpm === 'number' && hEntry.wpm > 0) ? hEntry.wpm : null;
+
               studentPcts.push(pct);
               colPctsForAvg[rId].push(pct);
-              if (wpm !== null) { studentWpms.push(wpm); colWpmsForAvg[rId].push(wpm); }
+              if (wpm !== null) {
+                studentWpms.push(wpm);
+                colWpmsForAvg[rId].push(wpm);
+              }
+
+              readingCols.push(pct + '%');
+              readingCols.push(wpm !== null ? String(wpm) : '-');
+
+              // Taxonomy stats
+              const stats = hEntry.stats || {};
+              const taxKeys = ['literal', 'inferential', 'figurative', 'opinion', 'creative'];
+              taxKeys.forEach(function(tKey) {
+                const st = stats[tKey];
+                if (st && st.total > 0) {
+                  const corr = Math.round(st.correct * 10) / 10;
+                  const tPct = Math.round((st.correct / st.total) * 100);
+                  readingCols.push(corr + '/' + st.total + ' (' + tPct + '%)');
+                } else {
+                  readingCols.push('-');
+                }
+              });
+            } else if (studentScores[rId] !== undefined) {
+              readingCols.push(studentScores[rId] + ' PTS');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
             } else {
-              cols.push('');
-              cols.push('');
+              readingCols.push(pendingLabel);
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
+              readingCols.push('-');
             }
           });
 
-          // Student averages
-          if (studentPcts.length > 0) {
-            cols.push(String(Math.round(studentPcts.reduce(function(a, b) { return a + b; }, 0) / studentPcts.length)));
-            cols.push(studentWpms.length > 0 ? String(Math.round(studentWpms.reduce(function(a, b) { return a + b; }, 0) / studentWpms.length)) : '');
-          } else {
-            cols.push('');
-            cols.push('');
-          }
+          const avgPctStr = studentPcts.length > 0
+            ? Math.round(studentPcts.reduce(function(a, b) { return a + b; }, 0) / studentPcts.length) + '%'
+            : '-';
+          const avgWpmStr = studentWpms.length > 0
+            ? String(Math.round(studentWpms.reduce(function(a, b) { return a + b; }, 0) / studentWpms.length))
+            : '-';
 
-          lines.push(cols.join(sep));
+          rowData.push(avgPctStr);
+          rowData.push(avgWpmStr);
+
+          const fullRow = rowData.concat(readingCols);
+          lines.push(fullRow.map(csvEsc).join(sep));
         });
 
-        // Class average row
-        const avgCols = [isEn() ? 'Class Average' : "Mitjana de l'Aula"];
+        // Summary row: Class Averages
         const grandPcts = [];
         const grandWpms = [];
+        const classAvgRow = [
+          isEn() ? 'Class Average' : "Mitjana de l'Aula",
+          groupName || '-'
+        ];
+
+        const avgReadingCols = [];
         sortedReadingIds.forEach(function(rId) {
           const pcts = colPctsForAvg[rId];
-          if (pcts.length > 0) {
-            const avg = Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length);
-            grandPcts.push(avg);
-            avgCols.push(String(avg));
-          } else {
-            avgCols.push('');
-          }
           const wpms = colWpmsForAvg[rId];
+
+          if (pcts.length > 0) {
+            const avgP = Math.round(pcts.reduce(function(a, b) { return a + b; }, 0) / pcts.length);
+            grandPcts.push(avgP);
+            avgReadingCols.push(avgP + '%');
+          } else {
+            avgReadingCols.push('-');
+          }
+
           if (wpms.length > 0) {
             const avgW = Math.round(wpms.reduce(function(a, b) { return a + b; }, 0) / wpms.length);
             grandWpms.push(avgW);
-            avgCols.push(String(avgW));
+            avgReadingCols.push(String(avgW));
           } else {
-            avgCols.push('');
+            avgReadingCols.push('-');
           }
+
+          avgReadingCols.push('-');
+          avgReadingCols.push('-');
+          avgReadingCols.push('-');
+          avgReadingCols.push('-');
+          avgReadingCols.push('-');
         });
-        avgCols.push(grandPcts.length > 0 ? String(Math.round(grandPcts.reduce(function(a, b) { return a + b; }, 0) / grandPcts.length)) : '');
-        avgCols.push(grandWpms.length > 0 ? String(Math.round(grandWpms.reduce(function(a, b) { return a + b; }, 0) / grandWpms.length)) : '');
-        lines.push(avgCols.join(sep));
+
+        const grandAvgPctStr = grandPcts.length > 0
+          ? Math.round(grandPcts.reduce(function(a, b) { return a + b; }, 0) / grandPcts.length) + '%'
+          : '-';
+        const grandAvgWpmStr = grandWpms.length > 0
+          ? String(Math.round(grandWpms.reduce(function(a, b) { return a + b; }, 0) / grandWpms.length))
+          : '-';
+
+        classAvgRow.push(grandAvgPctStr);
+        classAvgRow.push(grandAvgWpmStr);
+
+        const fullAvgRow = classAvgRow.concat(avgReadingCols);
+        lines.push(fullAvgRow.map(csvEsc).join(sep));
 
         // UTF-8 BOM + CSV content
         const csvContent = '\uFEFF' + lines.join('\r\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        const safeFilename = 'quadern_aula_' + (classroomName || 'aula').replace(/[^a-zA-Z0-9_\-À-ÿ]/g, '_') + '_' + new Date().toISOString().slice(0, 10) + '.csv';
+
+        const cleanGroup = (groupName || 'Aula').replace(/[^a-zA-Z0-9_\-À-ÿ]/g, '_');
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const safeFilename = 'Notes_Aula_' + cleanGroup + '_' + todayStr + '.csv';
+
         link.setAttribute('href', url);
         link.setAttribute('download', safeFilename);
         link.style.display = 'none';
@@ -7687,9 +7848,16 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
         link.click();
         document.body.removeChild(link);
         setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+
       } catch (err) {
-        alert((isEn() ? 'Error generating CSV: ' : 'Error generant el CSV: ') + err.message);
+        console.error('Error exportClassroomGradesSpreadsheet:', err);
+        alert((isEn() ? 'Error exporting spreadsheet: ' : 'Error exportant el full de càlcul: ') + err.message);
       }
+    }
+
+    // Compatibilitat amb crides anteriors
+    function exportClassroomGradeBookCSV() {
+      exportClassroomGradesSpreadsheet();
     }
 
     function renderChangelogPage() {
@@ -7700,10 +7868,22 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
       // FASE 2: LLISTA INVERSA (LA MÉS RECENT A DALT DE TOT)
       const phase2Versions = [
         {
+          version: "v0.44.1",
+          date: "Novembre 2026",
+          badge: "Versió Actual · Detall de Taxonomies i Exportació Excel",
+          isCurrent: true,
+          summary: "Activació del modal de desglossament per tipus de pregunta a la Taula de notes d'aula, botó d'accés amb text visible (\"Taula de notes d'aula\") i exportació funcional a full de càlcul Excel (CSV UTF-8).",
+          highlights: [
+            "<strong>Modal de desglossament cognitiu:</strong> En clicar sobre la nota d'un alumne a la Taula de notes d'aula, s'obre un modal complet amb percentatge d'encert, PPM i desglossament per les 5 habilitats cognitives (Literal, Inferencial, Sentit Figurat, Opinió i Creativa).",
+            "<strong>Botó d'accés amb text visible:</strong> Substitució del botó d'icona sola per un botó rectangular ben visible i autoexplicatiu «Taula de notes d'aula» tant a les aules com a la barra d'eines docent.",
+            "<strong>Descàrrega a full de càlcul Excel:</strong> Nova exportació compatible amb Excel (CSV UTF-8 BOM amb separador ;) amb totes les columnes d'alumnes, lectures, PPM i habilitats cognitives."
+          ]
+        },
+        {
           version: "v0.44",
           date: "Novembre 2026",
-          badge: "Versió Actual · Quadern d'Aula amb Graella de Notes",
-          isCurrent: true,
+          badge: "Quadern d'Aula amb Graella de Notes",
+          isCurrent: false,
           summary: "Nova vista de Quadern d'Aula clicable des del panell del docent: graella de notes (alumnes × lectures) amb semàfor d'encert, PPM, mitjanes automàtiques per alumne i per aula, i exportació a CSV compatible amb Excel (UTF-8 BOM).",
           highlights: [
             "<strong>Aules clicables amb icona de graella:</strong> Cada aula del panell del docent incorpora ara un botó de taula (<i class=\"fa-solid fa-table-cells-large\"></i>) que obre directament el Quadern d'Aula per a aquell grup específic.",
@@ -8145,7 +8325,7 @@ Respon ÚNICAMENT amb un objecte JSON vàlid amb aquest format exacte:
               <p class="text-xs md:text-sm text-slate-500 mt-1">Evolució completa de Lectura Aventura — Fase 2 i Fase 1</p>
             </div>
             <span class="text-xs font-mono font-bold bg-amber-100 text-amber-900 px-3.5 py-1.5 rounded-xl border border-amber-300 self-start sm:self-center shadow-2xs">
-              Versió Actual: v0.44
+              Versió Actual: v0.44.1
             </span>
           </div>
 
